@@ -1,0 +1,41 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: presensiv2_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-presensiv2}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-hadirops}
+    # No ports exposed to host — accessible only within Docker network
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-presensiv2} -d ${DB_NAME:-hadirops}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: presensiv2_backend
+    restart: always
+    ports:
+      - "127.0.0.1:8000:8000"   # Bind to localhost only — Nginx proxies externally
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-presensiv2}:${DB_PASSWORD}@db:5432/${DB_NAME:-hadirops}
+      - DB_SCHEMA=${DB_SCHEMA:-hadirops}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - insightface_models:/root/.insightface
+    # No --reload, no source volume mount
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+
+volumes:
+  pgdata:
+  insightface_models:

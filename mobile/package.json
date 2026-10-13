@@ -1,0 +1,40 @@
+{
+  "name": "hadirops-mobile",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "node start.js start",
+    "android": "node start.js run:android",
+    "ios": "node start.js run:ios",
+    "web": "node start.js start --web"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-community/netinfo": "11.4.1",
+    "@react-navigation/bottom-tabs": "^7.15.2",
+    "@react-navigation/native": "^7.1.30",
+    "@react-navigation/native-stack": "^7.14.1",
+    "@tanstack/react-query": "^5.90.21",
+    "axios": "^1.13.5",
+    "expo": "~54.0.34",
+    "expo-camera": "~17.0.10",
+    "expo-constants": "~18.0.13",
+    "expo-file-system": "~19.0.22",
+    "expo-location": "~19.0.8",
+    "expo-secure-store": "~15.0.8",
+    "expo-sharing": "~14.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-toast-message": "^2.3.3",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}

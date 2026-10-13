@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/hadirops-logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Security Headers -->
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), camera=(), microphone=()">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   connect-src 'self' http://localhost:8000 https://nominatim.openstreetmap.org;
+                   img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com;
+                   style-src 'self' 'unsafe-inline';
+                   script-src 'self';">
+
+    <meta name="description" content="HadirOps: manajemen presensi, jadwal shift, penugasan, dan persetujuan lembur." />
+    <title>HadirOps | Manajemen Presensi</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

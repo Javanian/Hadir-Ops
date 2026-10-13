@@ -1,0 +1,87 @@
+# Environment files
+.env
+.env.*
+.env*.local
+*.env
+!.env.example
+
+
+# Obsidian workspace & UI state
+**/.obsidian/
+mdfile/.obsidian/
+
+# Dependencies
+node_modules/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated caches, reports, and local runtime data
+*.tsbuildinfo
+.ruff_cache/
+.mypy_cache/
+.cache/
+coverage/
+.coverage
+htmlcov/
+playwright-report/
+test-results/
+backend/uploads/
+backend/models/
+*.sqlite
+*.sqlite3
+*.sql.gz
+*.dump
+*.bak
+
+# Public repository: keep README files and application source
+*.md
+*.MD
+*.markdown
+!README.md
+!readme.md
+!design-system/**/MASTER.md
+.obsidian/
