@@ -60,7 +60,7 @@ A check-in is accepted only after the face matches the stored embedding. The ser
   <img alt="Check-in sequence: the mobile app takes a GPS fix and a face photo, verifies the face through FastAPI and InsightFace against a pgvector embedding, then posts the check-in, which the API validates against the site radius and shift before inserting the attendance row" src="docs/diagrams/hadirops-checkin-light.svg">
 </picture>
 
-Generated from [docs/diagrams/hadirops-checkin.json](docs/diagrams/hadirops-checkin.json); the [interactive version](docs/diagrams/hadirops-checkin.html) lists the source lines behind each step.
+Drawn from [docs/diagrams/hadirops-checkin.json](docs/diagrams/hadirops-checkin.json), which lists the source lines behind each step.
 
 ## Run locally
 

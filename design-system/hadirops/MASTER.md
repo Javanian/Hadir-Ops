@@ -1,9 +1,9 @@
 # HadirOps Design System (Master)
 
 Shared visual language with IEMS (`Javanian/IEMS`, `design-system/iems/MASTER.md`). Version 2
-(Oct 2026) follows the IEMS redesign: Soft UI Evolution on a cool slate canvas, a deep
-navy sidebar, and one blue action color. HadirOps applies the same tokens to an attendance product
-used by admins on desktop and by employees on phones.
+(Oct 2026) follows the IEMS redesign: Soft UI Evolution on a cool slate canvas, a deep navy sidebar,
+and one blue action color. HadirOps applies the same tokens to an attendance product used by admins
+on desktop and by employees on phones.
 
 ## Style
 
