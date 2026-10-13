@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://presensiv2:presensiv2pass@localhost:5432/hadirops"
+    DATABASE_URL: str = "postgresql+asyncpg://hadirops:hadiropspass@localhost:5432/hadirops"
     DB_SCHEMA: str = "hadirops"
 
     # JWT

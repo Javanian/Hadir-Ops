@@ -243,7 +243,7 @@ async def seed():
             {
                 "employee_id": "ADM001",
                 "name": "Administrator",
-                "email": "admin@presensiv2.local",
+                "email": "admin@hadirops.local",
                 "password": "Admin@123",
                 "role": "ADMIN",
                 "site_id": None,
@@ -251,7 +251,7 @@ async def seed():
             {
                 "employee_id": "SPV001",
                 "name": "Supervisor Satu",
-                "email": "supervisor@presensiv2.local",
+                "email": "supervisor@hadirops.local",
                 "password": "Supervisor@123",
                 "role": "SUPERVISOR",
                 "site_id": orig_site.id,
@@ -259,7 +259,7 @@ async def seed():
             {
                 "employee_id": "EMP001",
                 "name": "Karyawan Satu",
-                "email": "karyawan@presensiv2.local",
+                "email": "karyawan@hadirops.local",
                 "password": "Karyawan@123",
                 "role": "EMPLOYEE",
                 "site_id": orig_site.id,
@@ -592,9 +592,9 @@ async def seed():
     print("✅ Seed complete!")
     print("=" * 60)
     print("\nOriginal test credentials:")
-    print("  Admin      : admin@presensiv2.local      / Admin@123")
-    print("  Supervisor : supervisor@presensiv2.local  / Supervisor@123")
-    print("  Employee   : karyawan@presensiv2.local    / Karyawan@123")
+    print("  Admin      : admin@hadirops.local      / Admin@123")
+    print("  Supervisor : supervisor@hadirops.local  / Supervisor@123")
+    print("  Employee   : karyawan@hadirops.local    / Karyawan@123")
     print("\n@example.com credentials (password: 12345):")
     print("  Supervisors: spv101 … spv105 @example.com")
     print("  Employees  : emp101 … emp140 @example.com (8 per supervisor)")

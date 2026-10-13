@@ -97,7 +97,7 @@ On Windows PowerShell, use `Copy-Item` instead of `cp` for step 1.
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@presensiv2.local` | `Admin@123` |
+| Admin | `admin@hadirops.local` | `Admin@123` |
 | Supervisor | `spv101@example.com` | `12345` |
 | Employee | `emp101@example.com` | `12345` |
 
@@ -114,7 +114,7 @@ docker compose down -v           # stop and delete the database volume
 ## Repository notes
 
 - Source, SQL migrations, app assets, npm lockfiles and `.env.example` are tracked. Local environment files, agent and MCP configuration, dependencies, build output and runtime data are not.
-- The project started under the working name `presensiv2`, which is still used for container names, native package identifiers and the seed admin account. The database and schema are named `hadirops`.
+- Containers, the database, native package identifiers (`com.hadirops.mobile`) and the seed admin account all use the `hadirops` name.
 - The user interface is in Indonesian.
 
 ## Limitations

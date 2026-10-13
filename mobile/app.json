@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HadirOps",
-    "slug": "presensiv2-mobile",
+    "slug": "hadirops-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.presensiv2.mobile"
+      "bundleIdentifier": "com.hadirops.mobile"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2563EB"
       },
-      "package": "com.presensiv2.mobile",
+      "package": "com.hadirops.mobile",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },

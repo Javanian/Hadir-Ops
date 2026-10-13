@@ -3,7 +3,7 @@
 -- standalone overtime requests (not tied to an existing attendance record).
 --
 -- Run on any database initialized before this migration:
---   docker exec presensiv2_backend psql $DATABASE_URL -f migration_overtime_v2.sql
+--   docker exec hadirops_backend psql $DATABASE_URL -f migration_overtime_v2.sql
 
 CREATE SCHEMA IF NOT EXISTS hadirops;
 SET search_path TO hadirops, public;

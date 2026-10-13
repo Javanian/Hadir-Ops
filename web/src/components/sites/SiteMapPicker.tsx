@@ -144,7 +144,7 @@ export function SiteMapPicker({ latitude, longitude, radiusMeter, onChange }: Si
       const res = await fetch(url, {
         headers: {
           'Accept-Language': 'id',
-          'User-Agent': 'presensiv2-webadmin',
+          'User-Agent': 'hadirops-webadmin',
         },
       })
       const data: NominatimResult[] = await res.json()

@@ -1,6 +1,6 @@
 -- Migration: Penugasan (Temporary Site/Shift Assignment)
 -- Run on existing databases:
---   docker exec presensiv2_backend psql $DATABASE_URL -f migration_penugasan.sql
+--   docker exec hadirops_backend psql $DATABASE_URL -f migration_penugasan.sql
 
 CREATE SCHEMA IF NOT EXISTS hadirops;
 SET search_path TO hadirops, public;

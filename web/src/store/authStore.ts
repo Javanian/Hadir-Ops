@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react'
 import type { UserInfo, TokenResponse } from '@/types/auth'
 
 // ─── sessionStorage key ────────────────────────────────────────────────────────
-export const REFRESH_TOKEN_KEY = 'presensiv2_refresh_token'
+export const REFRESH_TOKEN_KEY = 'hadirops_refresh_token'
 
 // ─── Module-level token accessors (for Axios interceptors) ────────────────────
 // Axios interceptors run outside React — they cannot call useContext.

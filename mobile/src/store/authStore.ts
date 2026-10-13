@@ -20,8 +20,8 @@ const storage = {
 };
 
 export const TOKEN_KEYS = {
-  ACCESS: 'presensiv2_access_token',
-  REFRESH: 'presensiv2_refresh_token',
+  ACCESS: 'hadirops_access_token',
+  REFRESH: 'hadirops_refresh_token',
 } as const;
 
 interface AuthState {
