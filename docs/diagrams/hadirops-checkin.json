@@ -12,9 +12,9 @@
     "quality_profile": "showcase",
     "locale": "en",
     "repository": {
-      "url": "git@github.com:Javanian/HadirOps.git",
+      "url": "git@github.com:Javanian/Hadir-Ops.git",
       "link_mode": "local-only",
-      "revision": "6ab898f25f20b17f509a2194b06d6b14f1467fbd"
+      "revision": "fac2784115da08a79298cbc7fcd90f9f5f630127"
     }
   },
   "participants": [
