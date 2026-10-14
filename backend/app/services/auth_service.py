@@ -9,6 +9,7 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
     get_password_hash,
+    issued_before_password_change,
     verify_password,
 )
 from app.repositories.user_repository import UserRepository
@@ -21,8 +22,8 @@ class AuthService:
         self.repo = UserRepository(db)
 
     def _utcnow(self) -> datetime:
-        """Return naive UTC datetime (matches DB TIMESTAMP columns)."""
-        return datetime.now(timezone.utc).replace(tzinfo=None)
+        """Return aware UTC datetime (locked_until is TIMESTAMPTZ)."""
+        return datetime.now(timezone.utc)
 
     async def login(self, request: Request, data: LoginRequest) -> TokenResponse:
         ip = request.client.host if request.client else "unknown"
@@ -118,6 +119,11 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found or inactive",
+            )
+        if issued_before_password_change(payload, user.password_changed_at):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "TOKEN_INVALIDATED"},
             )
 
         token_data = {"sub": str(user.id), "role": user.role.name}

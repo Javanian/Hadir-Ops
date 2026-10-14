@@ -1,11 +1,9 @@
-from datetime import datetime, timezone
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import decode_token
+from app.core.security import decode_token, issued_before_password_change
 
 security = HTTPBearer()
 
@@ -39,15 +37,12 @@ async def get_current_user(
         raise credentials_exception
 
     # Reject token if issued before the last password change
-    issued_at = payload.get("iat")
-    if issued_at and user.password_changed_at:
-        token_issued = datetime.fromtimestamp(issued_at, tz=timezone.utc)
-        if token_issued < user.password_changed_at:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "TOKEN_INVALIDATED"},
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    if issued_before_password_change(payload, user.password_changed_at):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "TOKEN_INVALIDATED"},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user
 

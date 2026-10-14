@@ -20,18 +20,35 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    to_encode.update({"exp": expire, "type": "access"})
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire, "iat": int(now.timestamp()), "type": "access"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "iat": int(now.timestamp()), "type": "refresh"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def issued_before_password_change(payload: dict, password_changed_at: Optional[datetime]) -> bool:
+    """True if the token predates the user's last password change.
+
+    `iat` has whole-second precision, so the change time is truncated to the
+    second; a token issued in the same second as the change is still accepted.
+    Tokens without `iat` were issued before this claim existed and are treated
+    as older than any password change.
+    """
+    if password_changed_at is None:
+        return False
+    issued_at = payload.get("iat")
+    if not isinstance(issued_at, (int, float)):
+        return True
+    token_issued = datetime.fromtimestamp(int(issued_at), tz=timezone.utc)
+    return token_issued < password_changed_at.replace(microsecond=0)
 
 
 def decode_token(token: str) -> dict:
