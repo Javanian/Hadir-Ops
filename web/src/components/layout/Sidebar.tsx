@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Timer,
   BarChart2,
+  ShieldCheck,
   X,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -29,6 +30,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/shifts', label: 'Shift', icon: Clock },
   { to: '/holidays', label: 'Hari Libur', icon: CalendarDays },
   { to: '/attendance', label: 'Absensi', icon: ClipboardList },
+  { to: '/review', label: 'Tinjauan', icon: ShieldCheck },
   { to: '/overtime', label: 'Lembur', icon: Timer },
   { to: '/reports', label: 'Laporan', icon: BarChart2 },
 ]
@@ -37,6 +39,7 @@ const SUPERVISOR_NAV: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/shifts', label: 'Shift', icon: Clock },
   { to: '/attendance', label: 'Absensi', icon: ClipboardList },
+  { to: '/review', label: 'Tinjauan', icon: ShieldCheck },
   { to: '/overtime', label: 'Lembur', icon: Timer },
   { to: '/reports', label: 'Laporan', icon: BarChart2 },
 ]

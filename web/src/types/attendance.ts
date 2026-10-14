@@ -1,4 +1,5 @@
-export type AttendanceStatus = 'ONTIME' | 'LATE' | 'OUT_OF_RADIUS'
+export type AttendanceStatus = 'ONTIME' | 'LATE' | 'OUT_OF_RADIUS' | 'EARLY'
+export type ReviewStatus = 'APPROVED' | 'REJECTED'
 
 export interface TeamAttendanceRecord {
   id: number
@@ -15,6 +16,15 @@ export interface TeamAttendanceRecord {
   status: AttendanceStatus | null
   created_at: string
   site_timezone: string
+  // Durable check-in
+  is_offline: boolean
+  risk_flags: string[]
+  needs_review: boolean
+  review_status: ReviewStatus | null
+  gps_accuracy_m: number | null
+  latitude: number | null
+  longitude: number | null
+  received_at: string | null
 }
 
 export interface AttendanceDetail {
@@ -33,6 +43,33 @@ export interface AttendanceDetail {
   is_holiday: boolean
   status: AttendanceStatus | null
   created_at: string
+  site_timezone: string
+}
+
+export type AttemptReason =
+  | 'NO_GPS'
+  | 'FACE_MISMATCH'
+  | 'FACE_ERROR'
+  | 'NETWORK'
+  | 'SERVER_ERROR'
+  | 'REJECTED'
+  | 'OTHER'
+
+/** A check-in or check-out the mobile app tried and could not complete. */
+export interface CheckinAttempt {
+  id: number
+  user_id: number
+  employee_id: string
+  employee_name: string
+  kind: 'CHECKIN' | 'CHECKOUT'
+  reason: AttemptReason
+  detail: string | null
+  captured_at: string
+  received_at: string | null
+  latitude: number | null
+  longitude: number | null
+  gps_accuracy_m: number | null
+  app_version: string | null
   site_timezone: string
 }
 

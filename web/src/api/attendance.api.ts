@@ -1,5 +1,11 @@
 import apiClient from './axios'
-import type { TeamAttendanceRecord, AttendanceDetail, AutoCheckoutResult } from '@/types/attendance'
+import type {
+  TeamAttendanceRecord,
+  AttendanceDetail,
+  AutoCheckoutResult,
+  CheckinAttempt,
+  ReviewStatus,
+} from '@/types/attendance'
 
 export interface TeamAttendanceParams {
   from_date?: string   // YYYY-MM-DD
@@ -24,6 +30,33 @@ export const attendanceApi = {
    */
   getById: async (id: number): Promise<AttendanceDetail> => {
     const res = await apiClient.get<AttendanceDetail>(`/attendance/${id}`)
+    return res.data
+  },
+
+  /**
+   * GET /attendance/review
+   * Records flagged for review (pending) or already reviewed (all).
+   */
+  getReviewQueue: async (state: 'pending' | 'all' = 'pending'): Promise<TeamAttendanceRecord[]> => {
+    const res = await apiClient.get<TeamAttendanceRecord[]>('/attendance/review', { params: { state } })
+    return res.data
+  },
+
+  /**
+   * POST /attendance/{id}/review
+   * A note is required to reject.
+   */
+  review: async (id: number, decision: ReviewStatus, note?: string): Promise<AttendanceDetail> => {
+    const res = await apiClient.post<AttendanceDetail>(`/attendance/${id}/review`, { decision, note })
+    return res.data
+  },
+
+  /**
+   * GET /attendance/attempts
+   * Check-ins the app could not complete, reported from employees' phones.
+   */
+  getAttempts: async (params: { from_date?: string; to_date?: string; limit?: number } = {}): Promise<CheckinAttempt[]> => {
+    const res = await apiClient.get<CheckinAttempt[]>('/attendance/attempts', { params })
     return res.data
   },
 
