@@ -86,7 +86,7 @@ Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and
 
 ### Tests and load
 
-`backend/tests` runs against a real PostgreSQL database built from `database.sql`: 56 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lock, login lockout, token invalidation after a password change, and the leave request rules. CI runs them on every push with `pgvector/pgvector:pg16`, and also builds the web dashboard and type-checks the mobile app.
+`backend/tests` runs against a real PostgreSQL database built from `database.sql`: 56 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lock, login lockout, token invalidation after a password change, and the leave request rules. CI runs them on every push with `pgvector/pgvector:pg16`, and also lints and builds the web dashboard and type-checks the mobile app.
 
 ```bash
 cd backend
