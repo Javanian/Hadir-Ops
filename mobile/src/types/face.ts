@@ -13,4 +13,6 @@ export interface FaceVerifyResponse {
   verified: boolean;
   similarity: number;
   threshold: number;
+  /** Present when the user verified their own face; sent with the check-in as proof. */
+  face_token?: string;
 }

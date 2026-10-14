@@ -16,7 +16,8 @@ import { AttendanceRecord } from '../types/attendance';
 import CheckinModal from '../components/CheckinModal';
 import CheckoutModal from '../components/CheckoutModal';
 import OfflineBanner from '../components/OfflineBanner';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import OutboxStatus from '../components/OutboxStatus';
+import { useOutbox } from '../offline/outbox';
 import { colors } from '../theme/colors'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -80,15 +81,38 @@ function getStatusLabel(status: AttendanceRecord['status']): string {
   }
 }
 
+function localDay(iso: string, tz: string): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso));
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusCard({
   record,
   siteTimezone,
+  pendingCheckinAt,
 }: {
   record: AttendanceRecord | null | undefined;
   siteTimezone: string;
+  pendingCheckinAt?: string;
 }) {
+  if (!record && pendingCheckinAt) {
+    // Checked in while offline; the outbox will deliver it.
+    return (
+      <View style={[styles.card, styles.cardGreen]}>
+        <Ionicons name="cloud-upload-outline" size={32} color={colors.success} />
+        <Text style={styles.cardTitle}>Check In Tersimpan di HP</Text>
+        <Text style={styles.cardTime}>{formatTime(pendingCheckinAt, siteTimezone)}</Text>
+        <Text style={styles.cardSubtitle}>Akan dikirim otomatis saat ada sinyal</Text>
+      </View>
+    );
+  }
+
   if (record === undefined) {
     // Loading
     return (
@@ -155,19 +179,30 @@ export default function HomeScreen() {
   const { user } = useAuthState();
   const siteTimezone = getSafeTimezone(user?.site_timezone);
   const { data: todayRecord, isLoading, isError, refetch, isRefetching } = useTodayAttendance(siteTimezone);
-  const { isConnected } = useNetworkStatus();
+  const outbox = useOutbox(user?.id);
   const [checkinVisible, setCheckinVisible] = useState(false);
   const [checkoutVisible, setCheckoutVisible] = useState(false);
 
-  const isCompleted =
-    todayRecord !== null &&
-    todayRecord !== undefined &&
-    isValidIsoDate(todayRecord.checkout_time);
+  // Check-ins and check-outs captured today that are still on the phone
+  const today = localDay(new Date().toISOString(), siteTimezone);
+  const queuedToday = outbox.filter(
+    (i) => i.state === 'pending' && localDay(i.capturedAt, siteTimezone) === today,
+  );
+  const pendingCheckin = queuedToday.find((i) => i.kind === 'checkin');
+  const pendingCheckout = queuedToday.find((i) => i.kind === 'checkout');
 
-  const isCheckedIn =
+  const serverOpen =
     todayRecord !== null &&
     todayRecord !== undefined &&
     !isValidIsoDate(todayRecord.checkout_time);
+
+  const isCompleted =
+    (todayRecord !== null &&
+      todayRecord !== undefined &&
+      isValidIsoDate(todayRecord.checkout_time)) ||
+    ((serverOpen || pendingCheckin !== undefined) && pendingCheckout !== undefined);
+
+  const isCheckedIn = !isCompleted && (serverOpen || (todayRecord === null && pendingCheckin !== undefined));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -208,20 +243,44 @@ export default function HomeScreen() {
         {isError ? (
           <View style={[styles.card, styles.cardGrey, { gap: 12 }]}>
             <Ionicons name="alert-circle-outline" size={32} color={colors.textSubtle} />
-            <Text style={{ fontSize: 14, color: colors.textMuted }}>Gagal memuat status absensi</Text>
+            <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center' }}>
+              Status hari ini belum bisa dimuat. Absen tetap bisa dilakukan dan
+              akan dikirim saat ada sinyal.
+            </Text>
             <Pressable
               style={[styles.ctaButton, styles.ctaCheckin, { alignSelf: 'stretch', marginTop: 0 }]}
               onPress={() => refetch()}
             >
               <Ionicons name="refresh-outline" size={18} color={colors.white} />
-              <Text style={styles.ctaText}>Coba Lagi</Text>
+              <Text style={styles.ctaText}>Muat Ulang</Text>
             </Pressable>
           </View>
         ) : (
           <StatusCard
             record={isLoading ? undefined : (todayRecord ?? null)}
             siteTimezone={siteTimezone}
+            pendingCheckinAt={pendingCheckin?.capturedAt}
           />
+        )}
+
+        <OutboxStatus items={outbox} siteTimezone={siteTimezone} />
+
+        {/* Status unknown (no signal): offer the next likely action. The server
+            settles it when the item syncs, e.g. refuses a second check-in. */}
+        {isError && !pendingCheckout && (
+          <Pressable
+            style={[styles.ctaButton, pendingCheckin ? styles.ctaCheckout : styles.ctaCheckin]}
+            onPress={() => (pendingCheckin ? setCheckoutVisible(true) : setCheckinVisible(true))}
+          >
+            <Ionicons name={pendingCheckin ? 'log-out-outline' : 'log-in-outline'} size={20} color={colors.white} />
+            <Text style={styles.ctaText}>{pendingCheckin ? 'Check Out' : 'Check In'}</Text>
+          </Pressable>
+        )}
+        {isError && !pendingCheckin && (
+          <Pressable style={[styles.ctaButton, styles.ctaCheckout]} onPress={() => setCheckoutVisible(true)}>
+            <Ionicons name="log-out-outline" size={20} color={colors.white} />
+            <Text style={styles.ctaText}>Check Out</Text>
+          </Pressable>
         )}
 
         {/* CTA Button */}
@@ -232,18 +291,17 @@ export default function HomeScreen() {
           </View>
         ) : isCheckedIn ? (
           <Pressable
-            style={[styles.ctaButton, styles.ctaCheckout, !isConnected && styles.ctaDisabled]}
+            style={[styles.ctaButton, styles.ctaCheckout]}
             onPress={() => setCheckoutVisible(true)}
-            disabled={!isConnected}
           >
             <Ionicons name="log-out-outline" size={20} color={colors.white} />
             <Text style={styles.ctaText}>Check Out</Text>
           </Pressable>
         ) : (
           <Pressable
-            style={[styles.ctaButton, styles.ctaCheckin, (isLoading || !isConnected) && styles.ctaDisabled]}
+            style={[styles.ctaButton, styles.ctaCheckin, isLoading && styles.ctaDisabled]}
             onPress={() => setCheckinVisible(true)}
-            disabled={isLoading || !isConnected}
+            disabled={isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color={colors.white} />

@@ -174,6 +174,11 @@ apiClient.interceptors.response.use(
     // 401 is handled by the refresh interceptor above — skip here
     if (status === 401) return Promise.reject(error);
 
+    // Background sync handles its own failures (the item stays queued)
+    if ((error.config as { silent?: boolean } | undefined)?.silent) {
+      return Promise.reject(error);
+    }
+
     // Auth endpoints handle their own errors in the screen — skip toasts for them
     if (url.includes('/auth/login') || url.includes('/auth/change-password')) {
       return Promise.reject(error);

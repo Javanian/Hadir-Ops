@@ -1,5 +1,7 @@
 import { TOKEN_KEYS, persistTokens, getStoredTokens } from '../store/authStore';
 import { FaceStatus, FaceRegisterResponse, FaceVerifyResponse } from '../types/face';
+import { AttendanceRecord } from '../types/attendance';
+import { Platform } from 'react-native';
 import { apiClient, BASE_URL } from './axios';
 
 // Uploads FormData using XMLHttpRequest (same engine Axios uses for all API calls).
@@ -21,6 +23,8 @@ function _xhrPost(url: string, token: string | null, formData: FormData): Promis
     xhr.open('POST', url);
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.responseType = 'text';
+    // Without a timeout a weak signal can leave the request hanging forever.
+    xhr.timeout = 20_000;
     xhr.onload = () => {
       const text: string = xhr.responseText;
       resolve({
@@ -36,11 +40,7 @@ function _xhrPost(url: string, token: string | null, formData: FormData): Promis
 }
 
 async function faceUpload<T>(path: string, formData: FormData): Promise<T> {
-  console.log('[faceUpload] BASE_URL:', BASE_URL);
-  console.log('[faceUpload] full URL:', `${BASE_URL}${path}`);
-
   const { access: token } = await getStoredTokens();
-  console.log('[faceUpload] token present:', !!token);
 
   // First-call on Android sometimes fails with a transient network error; retry once.
   let res = await _xhrPost(`${BASE_URL}${path}`, token, formData)
@@ -92,19 +92,32 @@ async function faceUpload<T>(path: string, formData: FormData): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * FormData with the photo. React Native accepts a { uri, name, type } object;
+ * a browser needs the actual Blob, which the camera's data/blob URI resolves to.
+ */
+async function photoForm(imageUri: string): Promise<FormData> {
+  const formData = new FormData();
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(imageUri)).blob();
+    formData.append('file', blob, 'face.jpg');
+  } else {
+    formData.append('file', { uri: imageUri, name: 'face.jpg', type: 'image/jpeg' } as unknown as Blob);
+  }
+  return formData;
+}
+
 export const faceApi = {
   getStatus: (userId: number): Promise<FaceStatus> =>
     apiClient.get<FaceStatus>(`/face/status/${userId}`).then((r) => r.data),
 
-  register: (userId: number, imageUri: string): Promise<FaceRegisterResponse> => {
-    const formData = new FormData();
-    formData.append('file', { uri: imageUri, name: 'face.jpg', type: 'image/jpeg' } as unknown as Blob);
-    return faceUpload<FaceRegisterResponse>(`/face/register/${userId}`, formData);
-  },
+  register: async (userId: number, imageUri: string): Promise<FaceRegisterResponse> =>
+    faceUpload<FaceRegisterResponse>(`/face/register/${userId}`, await photoForm(imageUri)),
 
-  verify: (userId: number, imageUri: string): Promise<FaceVerifyResponse> => {
-    const formData = new FormData();
-    formData.append('file', { uri: imageUri, name: 'face.jpg', type: 'image/jpeg' } as unknown as Blob);
-    return faceUpload<FaceVerifyResponse>(`/face/verify/${userId}`, formData);
-  },
+  verify: async (userId: number, imageUri: string): Promise<FaceVerifyResponse> =>
+    faceUpload<FaceVerifyResponse>(`/face/verify/${userId}`, await photoForm(imageUri)),
+
+  /** Attach the photo taken with an offline check-in to the synced record. */
+  attachToAttendance: async (attendanceId: number, imageUri: string): Promise<AttendanceRecord> =>
+    faceUpload<AttendanceRecord>(`/attendance/${attendanceId}/face`, await photoForm(imageUri)),
 };

@@ -8,17 +8,21 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { isAxiosError } from 'axios';
-import { useCheckin } from '../hooks/useCheckin';
-import { useFaceVerify } from '../hooks/useFaceRegister';
+import { useQueryClient } from '@tanstack/react-query';
+import { faceApi } from '../api/face.api';
+import { OutboxItem } from '../offline/outbox';
+import { keepPhoto } from '../offline/photos';
+import { capture, errorMessage, reportAttempt, submit } from '../offline/sync';
 import { AttendanceRecord } from '../types/attendance';
+import { Fix, getFix } from '../utils/location';
+import { reviewReason } from '../utils/reviewReason';
 import { colors } from '../theme/colors'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Step = 'locating' | 'ready' | 'face_verify' | 'verifying' | 'submitting' | 'success' | 'error';
+type Step = 'locating' | 'ready' | 'face_verify' | 'verifying' | 'submitting' | 'success' | 'queued' | 'error';
 
 interface Props {
   visible: boolean;
@@ -60,44 +64,39 @@ function formatTime(iso: string, tz: string): string {
 
 export default function CheckinModal({ visible, onClose, userId, siteTimezone = 'Asia/Jakarta' }: Props) {
   const [step, setStep] = useState<Step>('locating');
-  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [fix, setFix] = useState<Fix | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [retryToFace, setRetryToFace] = useState(false);
   const [result, setResult] = useState<AttendanceRecord | null>(null);
+  const [queuedAt, setQueuedAt] = useState<string | null>(null);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
+  const pendingRef = useRef<OutboxItem | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
-
-  const checkin = useCheckin();
-  const verify = useFaceVerify();
+  const queryClient = useQueryClient();
 
   const requestAndLocate = useCallback(async () => {
     setStep('locating');
-    setCoords(null);
+    setFix(null);
     setErrorMsg('');
     setRetryToFace(false);
     setResult(null);
+    setQueuedAt(null);
     setCapturedUri(null);
+    pendingRef.current = null;
 
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorMsg('Izin lokasi diperlukan untuk absensi. Aktifkan di Pengaturan > Aplikasi > Izin Lokasi.');
-        setStep('error');
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      setCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      setFix(await getFix());
       setStep('ready');
-    } catch {
-      setErrorMsg('Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Gagal mendapatkan lokasi.';
+      if (userId) reportAttempt(userId, 'CHECKIN', 'NO_GPS', msg);
+      setErrorMsg(msg);
       setStep('error');
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (visible) {
@@ -120,20 +119,21 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
   }
 
   async function handleCapture() {
-    console.log('[CheckinModal] handleCapture — cameraRef:', !!cameraRef.current,
-      '| coords:', !!coords, '| userId:', userId);
-    if (!cameraRef.current || !coords || !userId || isCapturing) {
-      console.warn('[CheckinModal] handleCapture EARLY RETURN — guard failed');
-      return;
-    }
+    if (!cameraRef.current || !fix || !userId || isCapturing) return;
     setIsCapturing(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
-      console.log('[CheckinModal] photo taken — uri:', photo?.uri?.slice(0, 80));
       if (!photo?.uri) return;
-      // Store URI in state and change step — mirrors FaceRegisterModal's pattern.
-      // React commits the render (CameraView unmounts) before the useEffect below
-      // fires the actual upload, matching the timing that makes registration reliable.
+      // The check-in time is the moment of the photo, even if sending happens later.
+      pendingRef.current = capture('checkin', userId, {
+        latitude: fix.latitude,
+        longitude: fix.longitude,
+        accuracy_m: fix.accuracy ?? undefined,
+        is_mocked: fix.mocked || undefined,
+      });
+      // Store URI in state and change step — React commits the render
+      // (CameraView unmounts) before the effect below starts the upload,
+      // the timing that makes uploads reliable on Android.
       setCapturedUri(photo.uri);
       setStep('verifying');
     } catch {
@@ -145,54 +145,73 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
     }
   }
 
+  async function send(item: OutboxItem) {
+    setStep('submitting');
+    const outcome = await submit(item);
+    if (outcome.status === 'sent') {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      setResult(outcome.record ?? null);
+      setStep('success');
+    } else if (outcome.status === 'queued') {
+      setQueuedAt(item.capturedAt);
+      setStep('queued');
+    } else {
+      setRetryToFace(false);
+      setErrorMsg(outcome.message);
+      setStep('error');
+    }
+  }
+
   // Runs after React commits the 'verifying' render (CameraView fully unmounted).
-  // Mirrors the FaceRegisterModal upload timing that works reliably on Android.
   useEffect(() => {
-    if (step !== 'verifying' || !capturedUri || !userId || !coords) return;
+    const item = pendingRef.current;
+    if (step !== 'verifying' || !capturedUri || !userId || !item) return;
     const uri = capturedUri;
     setCapturedUri(null);
 
     const run = async () => {
+      let res;
       try {
-        console.log('[CheckinModal] starting verify — userId:', userId);
-        const res = await verify.mutateAsync({ userId, imageUri: uri });
-        console.log('[CheckinModal] verify result — verified:', res.verified);
-        if (res.verified) {
-          setStep('submitting');
-          console.log('[CheckinModal] starting checkin — coords:', coords);
-          const record = await checkin.mutateAsync(coords);
-          setResult(record);
-          setStep('success');
-        } else {
-          setRetryToFace(true);
-          setErrorMsg('Wajah tidak dikenali. Pastikan wajah Anda menghadap kamera dan coba lagi.');
-          setStep('error');
-        }
+        res = await faceApi.verify(userId, uri);
       } catch (e) {
-        if (__DEV__) console.error('[CheckinModal] face/checkin error:', e);
-        if (isAxiosError(e) && e.response?.status === 404) {
+        const status = isAxiosError(e) ? e.response?.status : undefined;
+        if (status === 404) {
           setRetryToFace(false);
           setErrorMsg('Wajah belum terdaftar. Silakan daftarkan wajah di halaman Profil terlebih dahulu.');
-        } else if (isAxiosError(e) && e.response?.data?.detail) {
-          setRetryToFace(true);
-          setErrorMsg(e.response.data.detail as string);
-        } else if (isAxiosError(e) && !e.response) {
-          const baseURL = e.config?.baseURL ?? 'unknown';
-          setRetryToFace(true);
-          setErrorMsg(`Tidak dapat terhubung ke server.\nURL: ${baseURL}\nError: ${e.message}`);
-        } else if (isAxiosError(e)) {
-          setRetryToFace(false);
-          setErrorMsg(`HTTP ${e.response?.status ?? '?'}: ${e.response?.data?.detail ?? 'Gagal melakukan check in.'}`);
-        } else {
-          const msg = e instanceof Error ? e.message : String(e);
-          setRetryToFace(true);
-          setErrorMsg(`Kesalahan: ${msg}`);
+          setStep('error');
+          return;
         }
+        if (status === undefined || status >= 500) {
+          // No signal or server trouble: record the check-in now and attach
+          // the photo when it syncs. It is marked for supervisor review.
+          item.photoPath = await keepPhoto(uri, item.id);
+          await send(item);
+          return;
+        }
+        const msg = errorMessage(e);
+        reportAttempt(userId, 'CHECKIN', 'FACE_ERROR', msg, item.body);
+        setRetryToFace(true);
+        setErrorMsg(msg);
         setStep('error');
+        return;
       }
+
+      if (!res.verified) {
+        reportAttempt(userId, 'CHECKIN', 'FACE_MISMATCH', `similarity ${res.similarity}`, item.body);
+        setRetryToFace(true);
+        setErrorMsg('Wajah tidak dikenali. Pastikan wajah Anda menghadap kamera dan coba lagi.');
+        setStep('error');
+        return;
+      }
+      item.body.face_token = res.face_token;
+      await send(item);
     };
-    run();
-  }, [step, capturedUri, userId, coords, verify, checkin]);
+    run().catch((e) => {
+      setRetryToFace(false);
+      setErrorMsg(`Kesalahan: ${errorMessage(e)}`);
+      setStep('error');
+    });
+  }, [step, capturedUri, userId]);
 
   function renderContent() {
     if (step === 'locating') {
@@ -213,8 +232,12 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           </View>
           <Text style={styles.stateTitle}>Lokasi Ditemukan</Text>
           <Text style={styles.coordText}>
-            {coords?.latitude.toFixed(6)}, {coords?.longitude.toFixed(6)}
+            {fix?.latitude.toFixed(6)}, {fix?.longitude.toFixed(6)}
+            {fix?.accuracy != null ? `  ±${Math.round(fix.accuracy)} m` : ''}
           </Text>
+          {fix?.stale && (
+            <Text style={styles.stateSubtitle}>Memakai posisi terakhir yang tersimpan di HP.</Text>
+          )}
           <Pressable style={styles.confirmBtn} onPress={openFaceVerify}>
             <Ionicons name="log-in-outline" size={20} color={colors.white} />
             <Text style={styles.confirmBtnText}>Konfirmasi Check In</Text>
@@ -234,7 +257,13 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           {/* Floating controls */}
           <View style={styles.cameraControls}>
             <Text style={styles.cameraHint}>Posisikan wajah di dalam lingkaran</Text>
-            <Pressable style={styles.shutterBtn} onPress={handleCapture} disabled={isCapturing}>
+            <Pressable
+              style={styles.shutterBtn}
+              onPress={handleCapture}
+              disabled={isCapturing}
+              accessibilityRole="button"
+              accessibilityLabel="Ambil foto"
+            >
               {isCapturing
                 ? <ActivityIndicator color={colors.success} />
                 : <View style={styles.shutterInner} />}
@@ -263,6 +292,25 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       );
     }
 
+    if (step === 'queued' && queuedAt) {
+      return (
+        <View style={styles.stateBox}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.warning + '20' }]}>
+            <Ionicons name="cloud-upload-outline" size={36} color={colors.warning} />
+          </View>
+          <Text style={styles.stateTitle}>Absen Tersimpan di HP</Text>
+          <Text style={styles.timeText}>{formatTime(queuedAt, siteTimezone)}</Text>
+          <Text style={styles.stateSubtitle}>
+            Belum ada sinyal ke server. Jam absen Anda sudah tercatat dan akan dikirim
+            otomatis saat koneksi kembali. Tidak perlu absen ulang.
+          </Text>
+          <Pressable style={styles.doneBtn} onPress={onClose}>
+            <Text style={styles.doneBtnText}>Mengerti</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
     if (step === 'success' && result) {
       const statusColor = getStatusColor(result.status);
       return (
@@ -277,6 +325,11 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
               {getStatusLabel(result.status)}
             </Text>
           </View>
+          {result.needs_review && (
+            <Text style={styles.stateSubtitle}>
+              Absen tercatat. Supervisor akan meninjau karena {reviewReason(result.risk_flags)}.
+            </Text>
+          )}
           <Pressable style={styles.doneBtn} onPress={onClose}>
             <Text style={styles.doneBtnText}>Selesai</Text>
           </Pressable>
@@ -292,6 +345,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           </View>
           <Text style={styles.stateTitle}>Gagal</Text>
           <Text style={styles.errorText}>{errorMsg}</Text>
+          <Text style={styles.stateSubtitle}>Percobaan ini tercatat dan bisa dilihat supervisor.</Text>
           {retryToFace ? (
             <Pressable
               style={styles.retryBtn}

@@ -17,6 +17,11 @@ export interface AttendanceRecord {
   site_timezone: string;
   overtime_request_id: number | null;
   overtime_request_status: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  is_offline?: boolean;
+  risk_flags?: string[];
+  needs_review?: boolean;
+  review_status?: 'APPROVED' | 'REJECTED' | null;
+  review_note?: string | null;
 }
 
 export interface TeamAttendanceRecord {
