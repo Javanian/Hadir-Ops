@@ -128,8 +128,9 @@ cp backend/.env.example backend/.env
 docker compose up -d --build
 docker compose logs -f backend   # wait until the face model has loaded
 
-# 3. Sample data: sites, shifts, supervisor/employee hierarchy, attendance
+# 3. Sample data: sites, shifts, supervisor/employee hierarchy, attendance, leave
 docker compose exec backend python seed.py
+docker compose exec backend python seed_recent.py   # attendance for the last 7 days
 
 # 4. Mobile app
 cd mobile

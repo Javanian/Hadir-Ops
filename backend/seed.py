@@ -8,6 +8,7 @@ Creates:
   • Original test users (admin / supervisor / employee)
   • 5 supervisors + 5 employees with @example.com emails
   • 10 attendance records per employee (Jan 1–10, 2026)
+  • A few leave requests around today (sick, permit, annual)
 
 Usage:
     python seed.py
@@ -24,7 +25,7 @@ from sqlalchemy import func, select, text
 
 from app.core.database import AsyncSessionLocal
 from app.core.security import get_password_hash
-from app.models.models import Attendance, OvertimeRequest, Role, Shift, Site, User, WorkSchedule
+from app.models.models import Attendance, LeaveRequest, OvertimeRequest, Role, Shift, Site, User, WorkSchedule
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +542,7 @@ async def seed():
                     is_weekend=is_wknd,
                     is_holiday=False,
                     status=status,
+                    work_date=att_date,
                 )
                 db.add(att)
                 await db.flush()
@@ -586,6 +588,44 @@ async def seed():
 
         await db.commit()
         print(f"    Overtime requests created: {total_ot}")
+
+    # ── Leave requests (relative to today, so the demo always has some) ─────────
+    async with AsyncSessionLocal() as db:
+        existing_leave = (await db.execute(select(func.count()).select_from(LeaveRequest))).scalar_one()
+        if existing_leave:
+            print(f"    Leave requests already present: {existing_leave}")
+        else:
+            today = date.today()
+            emps = (await db.execute(
+                select(User).where(User.email.like("emp1%@example.com")).order_by(User.employee_id).limit(8)
+            )).scalars().all()
+            # (offset from today, days, type, status, reason)
+            plan = [
+                (0, 2, "SICK", "APPROVED", "Demam, ada surat dokter dari klinik"),
+                (-3, 1, "PERMIT", "APPROVED", "Mengurus perpanjangan SIM"),
+                (2, 1, "PERMIT", "PENDING", "Menghadiri wisuda anak"),
+                (7, 4, "ANNUAL", "PENDING", "Pulang kampung untuk acara keluarga"),
+                (0, 3, "ANNUAL", "APPROVED", "Liburan keluarga"),
+                (5, 2, "ANNUAL", "REJECTED", "Liburan"),
+                (1, 1, "SICK", "PENDING", "Kontrol ke dokter gigi"),
+                (-6, 1, "PERMIT", "CANCELLED", "Urusan bank"),
+            ]
+            for emp, (offset, days, kind, status_, reason) in zip(emps, plan):
+                start = today + timedelta(days=offset)
+                decided = status_ in ("APPROVED", "REJECTED")
+                db.add(LeaveRequest(
+                    user_id=emp.id,
+                    leave_type=kind,
+                    start_date=start,
+                    end_date=start + timedelta(days=days - 1),
+                    reason=reason,
+                    status=status_,
+                    reviewed_by=emp.supervisor_id if decided else None,
+                    reviewed_at=datetime.now().astimezone() if decided else None,
+                    review_note="Bentrok dengan jadwal audit, ajukan minggu depan" if status_ == "REJECTED" else None,
+                ))
+            await db.commit()
+            print(f"    Leave requests created: {min(len(emps), len(plan))}")
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print("\n" + "=" * 60)

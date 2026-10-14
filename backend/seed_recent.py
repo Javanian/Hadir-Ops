@@ -13,10 +13,12 @@ All timestamps stored as UTC using ZoneInfo.
 
 Usage (inside backend container):
     python seed_recent.py
+    SEED_TODAY=2026-03-11 python seed_recent.py   # fixed window
 """
 
 import asyncio
 import hashlib
+import os
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from datetime import timezone as dt_tz
@@ -30,8 +32,10 @@ from app.models.models import Attendance, Shift, Site, User
 # Config
 # ---------------------------------------------------------------------------
 
-TODAY = date(2026, 3, 11)
-DAYS_BACK = 7   # TODAY inclusive → Mar 5–11
+# The last DAYS_BACK days up to today. Set SEED_TODAY=YYYY-MM-DD for a fixed,
+# reproducible window (e.g. for screenshots).
+TODAY = date.fromisoformat(os.environ["SEED_TODAY"]) if os.environ.get("SEED_TODAY") else date.today()
+DAYS_BACK = 7   # TODAY inclusive
 
 SHIFT_START_H, SHIFT_START_M = 7, 0    # 07:00 local
 SHIFT_END_H,   SHIFT_END_M   = 17, 0   # 17:00 local
@@ -264,6 +268,7 @@ async def seed_recent():
                         is_weekend=scenario["is_weekend"],
                         is_holiday=False,
                         status=scenario["status"],
+                        work_date=d,
                     ))
                     inserted += 1
                 except Exception as e:
