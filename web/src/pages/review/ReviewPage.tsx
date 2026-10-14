@@ -134,7 +134,75 @@ export function ReviewPage() {
         ))}
       </div>
 
-      <div className="rounded-lg border border-divider overflow-hidden">
+      {/* Phones: one card per record, so the decision buttons stay on screen */}
+      {tab !== 'attempts' && (
+        <div className="md:hidden space-y-3">
+          {records.isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)
+          ) : records.isError ? (
+            <div className="rounded-xl border border-divider bg-white">
+              <table className="w-full"><tbody><ErrorRow cols={1} onRetry={() => void records.refetch()} /></tbody></table>
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="rounded-xl border border-divider bg-white px-4 py-12 text-center text-sm text-text-secondary">
+              {tab === 'pending' ? 'Tidak ada absen yang perlu ditinjau.' : 'Belum ada riwayat tinjauan.'}
+            </p>
+          ) : (
+            rows.map((r) => (
+              <article key={r.id} className="rounded-xl border border-divider bg-white p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-text-primary truncate">{r.employee_name}</p>
+                    <p className="text-xs text-text-secondary font-mono">{r.employee_id}</p>
+                  </div>
+                  <StatusBadge status={r.status} />
+                </div>
+                <div className="text-sm text-text-primary">
+                  {formatDateTime(r.checkin_time, r.site_timezone)}
+                  {r.is_offline && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
+                      <WifiOff className="h-3 w-3" />
+                      terkirim {r.received_at ? formatDateTime(r.received_at, r.site_timezone) : 'kemudian'}
+                    </p>
+                  )}
+                </div>
+                <FlagList record={r} />
+                {r.latitude != null && r.longitude != null && (
+                  <a
+                    href={mapsUrl(r.latitude, r.longitude)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-11 items-center gap-1 text-sm text-brand hover:underline"
+                  >
+                    Lihat di peta <ExternalLink className="h-3.5 w-3.5" />
+                    {r.gps_accuracy_m != null && (
+                      <span className="ml-1 text-xs text-text-secondary">±{Math.round(r.gps_accuracy_m)} m</span>
+                    )}
+                  </a>
+                )}
+                {tab === 'pending' ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={() => decide.mutate({ id: r.id, decision: 'APPROVED' })} disabled={decide.isPending}>
+                      <Check className="h-4 w-4" />
+                      Setujui
+                    </Button>
+                    <Button variant="outline" onClick={() => setRejecting(r)} disabled={decide.isPending}>
+                      <X className="h-4 w-4" />
+                      Tolak
+                    </Button>
+                  </div>
+                ) : (
+                  <Badge variant={r.review_status === 'APPROVED' ? 'success' : 'danger'}>
+                    {r.review_status === 'APPROVED' ? 'Disetujui' : 'Ditolak'}
+                  </Badge>
+                )}
+              </article>
+            ))
+          )}
+        </div>
+      )}
+
+      <div className={`rounded-lg border border-divider overflow-hidden ${tab === 'attempts' ? '' : 'hidden md:block'}`}>
         <div className="overflow-x-auto">
           {tab === 'attempts' ? (
             <AttemptsTable
@@ -183,19 +251,10 @@ export function ReviewPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={r.status === 'OUT_OF_RADIUS' ? 'danger' : r.status === 'LATE' ? 'warning' : 'success'}>
-                          {r.status === 'OUT_OF_RADIUS' ? 'Di luar area' : r.status === 'LATE' ? 'Terlambat' : r.status === 'EARLY' ? 'Lebih awal' : 'Tepat waktu'}
-                        </Badge>
+                        <StatusBadge status={r.status} />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5 max-w-xs">
-                          {r.risk_flags.map((f) => (
-                            <Badge key={f} variant={INFO_FLAGS.has(f.replace('CHECKOUT_', '')) ? 'outline' : 'warning'}>
-                              {flagLabel(f)}
-                            </Badge>
-                          ))}
-                          {r.status === 'OUT_OF_RADIUS' && <Badge variant="danger">Di luar radius lokasi</Badge>}
-                        </div>
+                        <FlagList record={r} className="max-w-xs" />
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell text-xs text-text-secondary whitespace-nowrap">
                         {r.latitude != null && r.longitude != null ? (
@@ -274,6 +333,27 @@ export function ReviewPage() {
 }
 
 // ── Pieces ───────────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: TeamAttendanceRecord['status'] }) {
+  return (
+    <Badge variant={status === 'OUT_OF_RADIUS' ? 'danger' : status === 'LATE' ? 'warning' : 'success'}>
+      {status === 'OUT_OF_RADIUS' ? 'Di luar area' : status === 'LATE' ? 'Terlambat' : status === 'EARLY' ? 'Lebih awal' : 'Tepat waktu'}
+    </Badge>
+  )
+}
+
+function FlagList({ record, className = '' }: { record: TeamAttendanceRecord; className?: string }) {
+  return (
+    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+      {record.risk_flags.map((f) => (
+        <Badge key={f} variant={INFO_FLAGS.has(f.replace('CHECKOUT_', '')) ? 'outline' : 'warning'}>
+          {flagLabel(f)}
+        </Badge>
+      ))}
+      {record.status === 'OUT_OF_RADIUS' && <Badge variant="danger">Di luar radius lokasi</Badge>}
+    </div>
+  )
+}
 
 function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
