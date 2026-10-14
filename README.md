@@ -35,6 +35,7 @@ Web dashboard and mobile app with fictional sample data.
 - Automatic check-out. A background worker closes open records after their shift ends. A real check-out that arrives later from an offline phone replaces the automatic one.
 - Overtime. Weekend and holiday work is counted as overtime at check-out. Weekday overtime goes through a request and approval flow, and only one pending or approved request is allowed per attendance record.
 - Sick days, permits and annual leave. Employees submit from the mobile app (up to 30 days per request, starting at most 7 days back or 90 days ahead) and can cancel while it is pending. Overlapping requests are refused, also when two arrive at once. Supervisors approve or reject their direct reports' requests in the web dashboard, a rejection needs a note, and the dashboard shows who is on leave today.
+- Attendance recap per employee for up to 62 days: workdays, present, late, sick, permit and annual leave, and days absent without notice (a past workday with no check-in and no approved leave), with CSV export. Workdays come from the site's shift schedules, temporary assignments and holidays.
 - Assignments, holidays, sites with a map picker, reports and exports in the web dashboard.
 - Role-based access for `ADMIN`, `SUPERVISOR` and `EMPLOYEE`. Supervisors only see and approve their direct reports; employees only see their own records.
 
@@ -86,7 +87,7 @@ Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and
 
 ### Tests and load
 
-`backend/tests` runs against a real PostgreSQL database built from `database.sql`: 56 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lock, login lockout, token invalidation after a password change, and the leave request rules. CI runs them on every push with `pgvector/pgvector:pg16`, and also lints and builds the web dashboard and type-checks the mobile app.
+`backend/tests` runs against a real PostgreSQL database built from `database.sql`: 60 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lock, login lockout, token invalidation after a password change, the leave request rules and the attendance recap. CI runs them on every push with `pgvector/pgvector:pg16`, and also lints and builds the web dashboard and type-checks the mobile app.
 
 ```bash
 cd backend

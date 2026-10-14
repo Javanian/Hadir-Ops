@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatsCard } from '@/components/dashboard/StatsCard'
 import { attendanceApi } from '@/api/attendance.api'
+import { reportsApi } from '@/api/reports.api'
+import { RecapTable } from '@/components/reports/RecapTable'
 import { daysAgoISO, formatDate, formatDuration, formatTime } from '@/utils/datetime'
 import type { TeamAttendanceRecord, AttendanceStatus } from '@/types/attendance'
 
@@ -101,8 +103,16 @@ function thirtyDaysAgoStr(): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+type View = 'recap' | 'detail'
+
+const VIEWS: Array<{ value: View; label: string }> = [
+  { value: 'recap', label: 'Rekap per karyawan' },
+  { value: 'detail', label: 'Detail absensi' },
+]
+
 export function ReportsPage() {
   const [queryParams, setQueryParams] = useState<QueryParams | null>(null)
+  const [view, setView] = useState<View>('recap')
 
   const {
     register,
@@ -123,7 +133,7 @@ export function ReportsPage() {
   const statusFilter = watch('status_filter') ?? ''
 
   // Manual-trigger query — only runs after form submit
-  const { data: rawData, isFetching } = useQuery({
+  const { data: rawData, isFetching: detailFetching } = useQuery({
     queryKey: ['reports', queryParams],
     queryFn: () =>
       attendanceApi.getTeam({
@@ -131,9 +141,25 @@ export function ReportsPage() {
         to_date: queryParams!.to_date,
         limit: 1000,
       }),
-    enabled: queryParams !== null,
+    enabled: queryParams !== null && view === 'detail',
     staleTime: 60_000,
   })
+
+  const { data: recapData, isFetching: recapFetching, isError: recapError } = useQuery({
+    queryKey: ['reports', 'recap', queryParams],
+    queryFn: () => reportsApi.recap(queryParams!.from_date, queryParams!.to_date),
+    enabled: queryParams !== null && view === 'recap',
+    staleTime: 60_000,
+  })
+
+  const recapRows = useMemo(() => {
+    if (!recapData) return []
+    const q = employeeSearch.trim().toLowerCase()
+    if (!q) return recapData
+    return recapData.filter((r) => r.name.toLowerCase().includes(q) || r.employee_id.toLowerCase().includes(q))
+  }, [recapData, employeeSearch])
+
+  const isFetching = view === 'detail' ? detailFetching : recapFetching
 
   // Client-side filtering
   const filteredData = useMemo(() => {
@@ -172,7 +198,7 @@ export function ReportsPage() {
     setQueryParams({ from_date: values.from_date, to_date: values.to_date })
   }
 
-  const hasData = rawData !== undefined
+  const hasData = view === 'detail' && rawData !== undefined
 
   return (
     <div className="space-y-6">
@@ -182,6 +208,23 @@ export function ReportsPage() {
         <p className="text-text-secondary text-sm mt-1">
           Buat laporan berdasarkan rentang tanggal dan filter karyawan.
         </p>
+      </div>
+
+      <div className="inline-flex rounded-xl border border-divider bg-white p-1" role="tablist" aria-label="Jenis laporan">
+        {VIEWS.map((v) => (
+          <button
+            key={v.value}
+            type="button"
+            role="tab"
+            aria-selected={view === v.value}
+            onClick={() => setView(v.value)}
+            className={`min-h-10 rounded-lg px-4 text-sm font-medium transition-colors ${
+              view === v.value ? 'bg-brand text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
       </div>
 
       {/* Filter form */}
@@ -246,7 +289,9 @@ export function ReportsPage() {
             </label>
             <select
               {...register('status_filter')}
-              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 bg-white"
+              disabled={view === 'recap'}
+              title={view === 'recap' ? 'Filter status hanya untuk detail absensi' : undefined}
+              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 bg-white disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-disabled"
             >
               <option value="">Semua Status</option>
               <option value="ONTIME">Tepat Waktu</option>
@@ -264,8 +309,22 @@ export function ReportsPage() {
         </div>
       </form>
 
+      {view === 'recap' && queryParams !== null && (
+        recapFetching ? (
+          <div className="rounded-2xl border border-slate-200/80 bg-white shadow-soft p-4 space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : recapError ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            Gagal memuat rekap. Coba lagi, atau persempit rentang tanggal.
+          </p>
+        ) : recapData ? (
+          <RecapTable rows={recapRows} fromDate={queryParams.from_date} toDate={queryParams.to_date} />
+        ) : null
+      )}
+
       {/* Summary cards — shown only after first fetch */}
-      {isFetching ? (
+      {view === 'detail' && detailFetching ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-xl" />
@@ -316,7 +375,7 @@ export function ReportsPage() {
       ) : null}
 
       {/* Results table — shown only after first fetch */}
-      {isFetching ? (
+      {view === 'detail' && detailFetching ? (
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-soft overflow-hidden">
           <div className="p-4">
             <Skeleton className="h-8 w-48" />
