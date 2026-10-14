@@ -147,6 +147,8 @@ class UserService:
 
         if "password" in changed and data.password is not None:
             user.password_hash = get_password_hash(data.password)
+            # Tokens issued before the reset stop working (see get_current_user)
+            user.password_changed_at = datetime.now(timezone.utc)
 
         await self.db.commit()
 

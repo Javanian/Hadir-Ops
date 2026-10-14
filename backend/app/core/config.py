@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     FACE_MODEL_NAME: str = "buffalo_s"
     FACE_SIMILARITY_THRESHOLD: float = 0.3
     FACE_MAX_WIDTH: int = 640
+    MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024  # face photos; phones send well under 1 MB
     # A face token proves a successful verification. It is accepted for a
     # check-in or check-out whose event time is within this many minutes of
     # the verification, so a token fetched just before the signal dropped

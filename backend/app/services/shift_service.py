@@ -81,8 +81,20 @@ class ShiftService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
         return _shift_to_response(shift)
 
-    async def create_shift(self, data: ShiftCreate) -> ShiftResponse:
+    @staticmethod
+    def _assert_can_manage_site(current_user, site_id: int) -> None:
+        """ADMIN manages every site; a SUPERVISOR only their own."""
+        if current_user is None or current_user.role.name == "ADMIN":
+            return
+        if current_user.site_id is None or current_user.site_id != site_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Supervisors can only change shifts of their own site.",
+            )
+
+    async def create_shift(self, data: ShiftCreate, current_user=None) -> ShiftResponse:
         await self._assert_site_exists(data.site_id)
+        self._assert_can_manage_site(current_user, data.site_id)
         self._validate_time_logic(data.start_time, data.end_time, data.is_cross_midnight)
 
         shift = await self.repo.create(
@@ -111,10 +123,11 @@ class ShiftService:
         shift = await self.repo.get_by_id(shift.id)
         return _shift_to_response(shift)
 
-    async def update_shift(self, shift_id: int, data: ShiftUpdate) -> ShiftResponse:
+    async def update_shift(self, shift_id: int, data: ShiftUpdate, current_user=None) -> ShiftResponse:
         shift = await self.repo.get_by_id(shift_id)
         if not shift:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
+        self._assert_can_manage_site(current_user, shift.site_id)
 
         updates = data.model_dump(exclude_none=True)
         if not updates:
@@ -138,11 +151,12 @@ class ShiftService:
     # ── Work Schedules ────────────────────────────────────────────────────────
 
     async def add_schedule(
-        self, shift_id: int, data: WorkScheduleCreate
+        self, shift_id: int, data: WorkScheduleCreate, current_user=None
     ) -> WorkScheduleResponse:
         shift = await self.repo.get_by_id(shift_id)
         if not shift:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
+        self._assert_can_manage_site(current_user, shift.site_id)
 
         # Check duplicate day
         existing_days = {ws.day_of_week for ws in shift.work_schedules}
@@ -160,12 +174,14 @@ class ShiftService:
             toleransi_telat_menit=ws.toleransi_telat_menit,
         )
 
-    async def delete_schedule(self, schedule_id: int) -> None:
+    async def delete_schedule(self, schedule_id: int, current_user=None) -> None:
         ws = await self.repo.get_schedule(schedule_id)
         if not ws:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
             )
+        shift = await self.repo.get_by_id(ws.shift_id)
+        self._assert_can_manage_site(current_user, shift.site_id if shift else -1)
         await self.repo.delete_schedule(ws)
 
     # ── Holidays ──────────────────────────────────────────────────────────────

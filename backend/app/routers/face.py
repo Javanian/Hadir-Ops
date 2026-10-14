@@ -2,9 +2,9 @@
 Face Recognition Router — Phase 3
 ===================================
 Endpoints:
-  POST   /face/register/{user_id}  — store embedding (any user: own face; ADMIN/SUPERVISOR: any user)
-  POST   /face/verify/{user_id}    — verify against stored embedding (any auth user)
-  GET    /face/status/{user_id}    — check whether user has a face registered (any auth user)
+  POST   /face/register/{user_id}  — store embedding (own face; SUPERVISOR: direct reports; ADMIN: anyone)
+  POST   /face/verify/{user_id}    — verify against stored embedding (same access rule)
+  GET    /face/status/{user_id}    — whether a face is registered (same access rule)
   DELETE /face/{user_id}           — remove embedding (ADMIN only)
 
 The InsightFace model is loaded once at startup and lives in app.state.face_app.
@@ -15,10 +15,12 @@ logic or any Phase 1/2 module.
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access import require_user_access
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.core.security import create_face_token
+from app.core.uploads import read_image_upload
 from app.repositories.user_repository import UserRepository
 from app.services.face_service import FaceService
 
@@ -46,10 +48,10 @@ def _get_face_service(request: Request) -> FaceService:
 
 @router.post(
     "/register/{user_id}",
-    summary="Register (or replace) face embedding — any user for own face; ADMIN/SUPERVISOR for any user",
+    summary="Register (or replace) face embedding — own face; SUPERVISOR for direct reports; ADMIN for anyone",
     responses={
         200: {"description": "Embedding stored successfully"},
-        403: {"description": "EMPLOYEE attempting to register another user's face"},
+        403: {"description": "Not your own face, and not a user you manage"},
         404: {"description": "User not found"},
         422: {"description": "No face detected / multiple faces detected / invalid image"},
     },
@@ -61,19 +63,15 @@ async def register_face(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    # IDOR protection: EMPLOYEE can only register their own face
-    if current_user.role.name == "EMPLOYEE" and current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only register your own face.",
-        )
+    # Own face; a supervisor for direct reports; ADMIN for anyone
+    await require_user_access(db, current_user, user_id)
 
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    image_bytes = await file.read()
+    image_bytes = await read_image_upload(file)
     face_svc = _get_face_service(request)
     embedding = face_svc.extract_embedding(image_bytes)
 
@@ -103,6 +101,9 @@ async def verify_face(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # Comparing photos against someone else's enrolled face is limited to the
+    # people who manage that account.
+    await require_user_access(db, current_user, user_id)
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user:
@@ -113,7 +114,7 @@ async def verify_face(
             detail="No face registered for this user",
         )
 
-    image_bytes = await file.read()
+    image_bytes = await read_image_upload(file)
     face_svc = _get_face_service(request)
 
     # pgvector returns the embedding as a numpy array or list — normalise to list
@@ -133,8 +134,9 @@ async def verify_face(
 async def face_status(
     user_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
+    await require_user_access(db, current_user, user_id)
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
     if not user:

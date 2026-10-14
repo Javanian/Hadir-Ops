@@ -49,9 +49,9 @@ async def get_shift(
 async def create_shift(
     data: ShiftCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_role("ADMIN", "SUPERVISOR")),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
-    return await ShiftService(db).create_shift(data)
+    return await ShiftService(db).create_shift(data, current_user)
 
 
 @router.patch(
@@ -63,9 +63,9 @@ async def update_shift(
     shift_id: int,
     data: ShiftUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_role("ADMIN", "SUPERVISOR")),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
-    return await ShiftService(db).update_shift(shift_id, data)
+    return await ShiftService(db).update_shift(shift_id, data, current_user)
 
 
 @router.delete(
@@ -93,9 +93,9 @@ async def add_schedule(
     shift_id: int,
     data: WorkScheduleCreate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_role("ADMIN", "SUPERVISOR")),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
-    return await ShiftService(db).add_schedule(shift_id, data)
+    return await ShiftService(db).add_schedule(shift_id, data, current_user)
 
 
 @router.delete(
@@ -106,9 +106,9 @@ async def add_schedule(
 async def delete_schedule(
     schedule_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_role("ADMIN", "SUPERVISOR")),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
-    await ShiftService(db).delete_schedule(schedule_id)
+    await ShiftService(db).delete_schedule(schedule_id, current_user)
 
 
 # ── Holidays ───────────────────────────────────────────────────────────────────

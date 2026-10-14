@@ -98,10 +98,14 @@ class AttendanceRepository:
         status: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
+        user_ids: Optional[List[int]] = None,
     ) -> List[Attendance]:
+        """`user_ids=None` means no restriction; an empty list matches nothing."""
         stmt = self._with_relations().order_by(Attendance.checkin_time.desc())
         if user_id is not None:
             stmt = stmt.where(Attendance.user_id == user_id)
+        if user_ids is not None:
+            stmt = stmt.where(Attendance.user_id.in_(user_ids or [-1]))
         if from_date is not None:
             stmt = stmt.where(Attendance.checkin_time >= _date_to_utc(from_date))
         if to_date is not None:

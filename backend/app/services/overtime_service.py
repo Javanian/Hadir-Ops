@@ -22,6 +22,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access import require_user_access
 from app.repositories.attendance_repository import AttendanceRepository
 from app.repositories.overtime_repository import OvertimeRepository
 from app.schemas.overtime import ApproveBody, OvertimeRequestCreate, OvertimeRequestResponse, RejectBody
@@ -52,18 +53,7 @@ class OvertimeService:
 
     async def _assert_can_access(self, req, current_user) -> None:
         """Raise 403 if the current user cannot access this OT request."""
-        owner_id = self._req_user_id(req)
-        role = current_user.role.name
-        if role == "EMPLOYEE":
-            if owner_id != current_user.id:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
-        elif role == "SUPERVISOR":
-            sub_ids = await self._get_subordinate_ids(current_user.id)
-            if owner_id not in sub_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied: employee is not your direct subordinate.",
-                )
+        await require_user_access(self.db, current_user, self._req_user_id(req))
 
     # ── Submit overtime request ────────────────────────────────────────────────
 
@@ -78,8 +68,7 @@ class OvertimeService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Attendance record not found.",
                 )
-            if current_user.role.name == "EMPLOYEE" and att.user_id != current_user.id:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+            await require_user_access(self.db, current_user, att.user_id)
             if att.checkout_time is None:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -240,9 +229,9 @@ class OvertimeService:
         limit: int = 100,
         offset: int = 0,
     ) -> List[OvertimeRequestResponse]:
-        """Role-scoped list: EMPLOYEE=own, SUPERVISOR=team, ADMIN=all."""
+        """Role-scoped list: SUPERVISOR=team, ADMIN=all, everyone else=own."""
         role = current_user.role.name
-        if role == "EMPLOYEE":
+        if role not in ("ADMIN", "SUPERVISOR"):
             records = await self.repo.get_all(
                 user_id=current_user.id,
                 ot_status=ot_status,
@@ -286,14 +275,6 @@ class OvertimeService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attendance record not found.",
             )
-        if current_user.role.name == "EMPLOYEE" and att.user_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
-        elif current_user.role.name == "SUPERVISOR":
-            sub_ids = await self._get_subordinate_ids(current_user.id)
-            if att.user_id not in sub_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied: employee is not your direct subordinate.",
-                )
+        await require_user_access(self.db, current_user, att.user_id)
         records = await self.repo.get_by_attendance(attendance_id)
         return [self._to_response(r) for r in records]

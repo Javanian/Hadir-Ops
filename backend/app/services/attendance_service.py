@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import decode_face_token
 
+from app.core.access import require_user_access, visible_user_ids
 from app.repositories.attendance_repository import AttendanceRepository
 from app.repositories.overtime_repository import OvertimeRepository
 from app.repositories.shift_repository import ShiftRepository
@@ -768,6 +769,7 @@ class AttendanceService:
 
     async def list_attendance(
         self,
+        current_user,
         user_id: Optional[int] = None,
         from_date: Optional[date] = None,
         to_date: Optional[date] = None,
@@ -782,6 +784,7 @@ class AttendanceService:
             status=att_status,
             limit=limit,
             offset=offset,
+            user_ids=await visible_user_ids(self.db, current_user),
         )
         return [_attendance_response(r) for r in records]
 
@@ -842,10 +845,6 @@ class AttendanceService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attendance record not found.",
             )
-        # IDOR protection: EMPLOYEE can only view their own records
-        if current_user.role.name == "EMPLOYEE" and att.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied.",
-            )
+        # Object-level access: own records, a supervisor's direct reports, or ADMIN
+        await require_user_access(self.db, current_user, att.user_id)
         return _attendance_response(att)

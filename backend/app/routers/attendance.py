@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFi
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.uploads import read_image_upload
 from app.core.dependencies import get_current_user, require_role
 from app.schemas.attendance import (
     AttemptBatch,
@@ -170,7 +171,7 @@ async def attach_face(
     from app.routers.face import _get_face_service
 
     face_service = _get_face_service(request)
-    image_bytes = await file.read()
+    image_bytes = await read_image_upload(file)
     return await AttendanceService(db).attach_face_evidence(
         attendance_id, current_user, face_service, image_bytes
     )
@@ -205,7 +206,7 @@ async def my_attendance(
 @router.get(
     "",
     response_model=List[AttendanceResponse],
-    summary="List all attendance records (ADMIN/SUPERVISOR)",
+    summary="List attendance records — SUPERVISOR sees own team; ADMIN sees all",
 )
 async def list_attendance(
     user_id: Optional[int] = Query(None, description="Filter by user ID"),
@@ -215,9 +216,10 @@ async def list_attendance(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_role("ADMIN", "SUPERVISOR")),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await AttendanceService(db).list_attendance(
+        current_user,
         user_id=user_id,
         from_date=from_date,
         to_date=to_date,
