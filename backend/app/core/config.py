@@ -39,9 +39,29 @@ class Settings(BaseSettings):
     TIMEZONE: str = "Asia/Jakarta"
 
     # Face Recognition (Phase 3)
+    FACE_ENABLED: bool = True
     FACE_MODEL_NAME: str = "buffalo_s"
     FACE_SIMILARITY_THRESHOLD: float = 0.3
     FACE_MAX_WIDTH: int = 640
+    # A face token proves a successful verification. It is accepted for a
+    # check-in or check-out whose event time is within this many minutes of
+    # the verification, so a token fetched just before the signal dropped
+    # still counts when the queued event is delivered later.
+    FACE_TOKEN_WINDOW_MINUTES: int = 10
+
+    # Offline and device-time handling
+    OFFLINE_MAX_AGE_HOURS: int = 72          # older queued events are refused
+    OFFLINE_THRESHOLD_SECONDS: int = 120     # event older than this = delivered late
+    CLOCK_SKEW_TOLERANCE_SECONDS: int = 300  # device clock vs monotonic age
+
+    # Geofence: a reading whose accuracy circle touches the site radius is
+    # accepted and flagged for review. Accuracy beyond the cap is not trusted.
+    GPS_ACCURACY_CAP_M: int = 150
+
+    # Runtime
+    ENVIRONMENT: str = "development"  # "production" enables startup checks
+    AUTO_CHECKOUT_ENABLED: bool = True
+    AUTO_CHECKOUT_INTERVAL_SECONDS: int = 60
 
     @property
     def cors_origins_list(self) -> List[str]:
@@ -49,6 +69,16 @@ class Settings(BaseSettings):
             return json.loads(self.CORS_ORIGINS)
         except Exception:
             return ["http://localhost:3000"]
+
+    def check_production_safety(self) -> None:
+        """Refuse to start a production instance with development secrets."""
+        if self.ENVIRONMENT.lower() != "production":
+            return
+        if self.SECRET_KEY.startswith("change-this") or len(self.SECRET_KEY) < 32:
+            raise RuntimeError(
+                "SECRET_KEY is the development default or shorter than 32 characters. "
+                "Set a random SECRET_KEY before running with ENVIRONMENT=production."
+            )
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

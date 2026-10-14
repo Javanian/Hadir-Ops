@@ -169,7 +169,10 @@ class AttendanceRepository:
         status: str,
         is_weekend: bool,
         is_holiday: bool,
+        **durable,
     ) -> Attendance:
+        """Insert a check-in. `durable` carries the device-event columns
+        (work_date, client_event_id, captured_at, risk_flags, ...)."""
         att = Attendance(
             user_id=user_id,
             site_id=site_id,
@@ -183,11 +186,63 @@ class AttendanceRepository:
             work_duration_minutes=0,
             overtime_minutes=0,
             auto_checkout=False,
+            **durable,
         )
         self.db.add(att)
         await self.db.flush()
         await self.db.refresh(att)
         return att
+
+    async def get_by_client_event(self, client_event_id: str) -> Optional[Attendance]:
+        result = await self.db.execute(
+            self._with_relations().where(Attendance.client_event_id == client_event_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_checkout_event(self, checkout_event_id: str) -> Optional[Attendance]:
+        result = await self.db.execute(
+            self._with_relations().where(Attendance.checkout_event_id == checkout_event_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_auto_closed_before(
+        self, user_id: int, event_utc: datetime, window_hours: int = 24
+    ) -> Optional[Attendance]:
+        """Latest record closed by the auto-checkout worker that a late (offline)
+        manual check-out at `event_utc` could belong to."""
+        result = await self.db.execute(
+            self._with_relations()
+            .where(
+                Attendance.user_id == user_id,
+                Attendance.auto_checkout.is_(True),
+                Attendance.checkin_time < event_utc,
+                Attendance.checkin_time >= event_utc - timedelta(hours=window_hours),
+            )
+            .order_by(Attendance.checkin_time.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_review_queue(
+        self,
+        user_ids: Optional[List[int]],
+        pending_only: bool = True,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> List[Attendance]:
+        stmt = self._with_relations().order_by(Attendance.checkin_time.desc())
+        if pending_only:
+            stmt = stmt.where(Attendance.needs_review.is_(True))
+        else:
+            stmt = stmt.where(
+                (Attendance.needs_review.is_(True)) | (Attendance.review_status.is_not(None))
+            )
+        if user_ids is not None:
+            if not user_ids:
+                return []
+            stmt = stmt.where(Attendance.user_id.in_(user_ids))
+        result = await self.db.execute(stmt.limit(limit).offset(offset))
+        return list(result.scalars().all())
 
     async def checkout(
         self,

@@ -16,6 +16,7 @@ from sqlalchemy import (
     Time,
     func,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
 try:
@@ -72,7 +73,12 @@ class User(Base):
 
     role = relationship("Role", back_populates="users")
     site = relationship("Site", back_populates="users")
-    attendance = relationship("Attendance", back_populates="user", cascade="all, delete-orphan")
+    attendance = relationship(
+        "Attendance",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="Attendance.user_id",
+    )
     audit_logs = relationship(
         "AuditLog",
         back_populates="user",
@@ -150,7 +156,24 @@ class Attendance(Base):
     status = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User", back_populates="attendance")
+    # Durable check-in (see migration_durable_checkin.sql)
+    work_date = Column(Date, nullable=True)                 # site-local date, one check-in per day
+    client_event_id = Column(String(64), nullable=True)     # device-generated idempotency key
+    checkout_event_id = Column(String(64), nullable=True)
+    captured_at = Column(DateTime(timezone=True), nullable=True)   # when the device recorded it
+    received_at = Column(DateTime(timezone=True), nullable=True)   # when the server received it
+    gps_accuracy_m = Column(Double, nullable=True)
+    is_offline = Column(Boolean, nullable=False, default=False)
+    face_similarity = Column(Double, nullable=True)
+    risk_flags = Column(ARRAY(String(40)), nullable=False, default=list)
+    needs_review = Column(Boolean, nullable=False, default=False)
+    review_status = Column(String(20), nullable=True)       # APPROVED | REJECTED
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    review_note = Column(String(500), nullable=True)
+
+    user = relationship("User", back_populates="attendance", foreign_keys=[user_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
     site = relationship("Site")
     shift = relationship("Shift", back_populates="attendance")
     overtime_requests = relationship(
@@ -194,6 +217,30 @@ class TemporaryAssignment(Base):
     site    = relationship("Site")
     shift   = relationship("Shift")
     creator = relationship("User", foreign_keys=[created_by])
+
+
+class CheckinAttempt(Base):
+    """A check-in or check-out the device tried and could not complete.
+
+    Stored so a failure leaves evidence for the supervisor instead of an empty day.
+    """
+
+    __tablename__ = "checkin_attempts"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    client_event_id = Column(String(64), nullable=False, unique=True)
+    kind = Column(String(20), nullable=False)          # CHECKIN | CHECKOUT
+    reason = Column(String(40), nullable=False)        # see schemas.attendance.AttemptReason
+    detail = Column(String(500), nullable=True)
+    captured_at = Column(DateTime(timezone=True), nullable=False)
+    received_at = Column(DateTime(timezone=True), server_default=func.now())
+    latitude = Column(Double, nullable=True)
+    longitude = Column(Double, nullable=True)
+    gps_accuracy_m = Column(Double, nullable=True)
+    app_version = Column(String(30), nullable=True)
+
+    user = relationship("User")
 
 
 class AuditLog(Base):

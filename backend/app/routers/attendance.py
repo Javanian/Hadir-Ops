@@ -9,19 +9,31 @@ Endpoints:
   GET   /attendance                     — ADMIN / SUPERVISOR: list all with filters
   GET   /attendance/{id}                — any user (EMPLOYEE: own only — IDOR protected)
   POST  /attendance/trigger-auto-checkout — ADMIN only: manually trigger batch auto-checkout
+  POST  /attendance/attempts            — any user: report check-ins the app could not complete
+  GET   /attendance/attempts            — SUPERVISOR: own team; ADMIN: all
+  GET   /attendance/review              — SUPERVISOR / ADMIN: records flagged for review
+  POST  /attendance/{id}/review         — SUPERVISOR / ADMIN: approve or reject a flagged record
+  POST  /attendance/{id}/face           — owner: attach a face photo to a record made offline
+
+Check-in and check-out return 201 when a record is written and 200 when the
+same client_event_id was already processed (safe retry).
 """
 
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.schemas.attendance import (
+    AttemptBatch,
+    AttemptBatchResult,
+    AttemptOut,
     AttendanceResponse,
     AutoCheckoutResult,
+    ReviewDecision,
     CheckinRequest,
     CheckoutRequest,
     TeamAttendanceRecord,
@@ -45,15 +57,20 @@ router = APIRouter(prefix="/attendance", tags=["Attendance"])
 )
 async def checkin(
     data: CheckinRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    return await AttendanceService(db).checkin(current_user, data)
+    record, created = await AttendanceService(db).checkin(current_user, data)
+    if not created:
+        response.status_code = 200
+    return record
 
 
 @router.post(
     "/checkout",
     response_model=AttendanceResponse,
+    status_code=201,
     summary="Check-out (any authenticated user)",
     responses={
         404: {"description": "No open check-in found"},
@@ -61,10 +78,102 @@ async def checkin(
 )
 async def checkout(
     data: CheckoutRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    return await AttendanceService(db).checkout(current_user, data)
+    record, created = await AttendanceService(db).checkout(current_user, data)
+    if not created:
+        response.status_code = 200
+    return record
+
+
+# ── Failed attempts ───────────────────────────────────────────────────────────
+
+@router.post(
+    "/attempts",
+    response_model=AttemptBatchResult,
+    summary="Report check-ins or check-outs the app could not complete",
+)
+async def report_attempts(
+    data: AttemptBatch,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    accepted, duplicates = await AttendanceService(db).record_attempts(current_user, data.attempts)
+    return AttemptBatchResult(accepted=accepted, duplicates=duplicates)
+
+
+@router.get(
+    "/attempts",
+    response_model=List[AttemptOut],
+    summary="Failed attempts — SUPERVISOR sees own team; ADMIN sees all",
+)
+async def list_attempts(
+    from_date: Optional[date] = Query(None),
+    to_date: Optional[date] = Query(None),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
+):
+    return await AttendanceService(db).list_attempts(
+        current_user, from_date=from_date, to_date=to_date, limit=limit, offset=offset
+    )
+
+
+# ── Review queue ──────────────────────────────────────────────────────────────
+
+@router.get(
+    "/review",
+    response_model=List[TeamAttendanceRecord],
+    summary="Records flagged for review — SUPERVISOR sees own team; ADMIN sees all",
+)
+async def review_queue(
+    state: str = Query("pending", pattern="^(pending|all)$"),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
+):
+    return await AttendanceService(db).list_review_queue(
+        current_user, pending_only=(state == "pending"), limit=limit, offset=offset
+    )
+
+
+@router.post(
+    "/{attendance_id}/review",
+    response_model=AttendanceResponse,
+    summary="Approve or reject a flagged record (a note is required to reject)",
+)
+async def review_record(
+    attendance_id: int,
+    data: ReviewDecision,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
+):
+    return await AttendanceService(db).review(attendance_id, current_user, data.decision, data.note)
+
+
+@router.post(
+    "/{attendance_id}/face",
+    response_model=AttendanceResponse,
+    summary="Attach the face photo taken with an offline check-in",
+)
+async def attach_face(
+    attendance_id: int,
+    request: Request,
+    file: UploadFile = File(..., description="JPEG or PNG — must contain exactly one face"),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.routers.face import _get_face_service
+
+    face_service = _get_face_service(request)
+    image_bytes = await file.read()
+    return await AttendanceService(db).attach_face_evidence(
+        attendance_id, current_user, face_service, image_bytes
+    )
 
 
 # ── Queries ───────────────────────────────────────────────────────────────────

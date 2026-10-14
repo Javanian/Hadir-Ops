@@ -85,14 +85,53 @@ CREATE TABLE attendance (
     is_weekend BOOLEAN DEFAULT FALSE,
     is_holiday BOOLEAN DEFAULT FALSE,
     status VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    -- Durable check-in: idempotency, device time, GPS accuracy, review queue
+    work_date DATE,
+    client_event_id VARCHAR(64),
+    checkout_event_id VARCHAR(64),
+    captured_at TIMESTAMPTZ,
+    received_at TIMESTAMPTZ,
+    gps_accuracy_m DOUBLE PRECISION,
+    is_offline BOOLEAN NOT NULL DEFAULT FALSE,
+    face_similarity DOUBLE PRECISION,
+    risk_flags VARCHAR(40)[] NOT NULL DEFAULT '{}',
+    needs_review BOOLEAN NOT NULL DEFAULT FALSE,
+    review_status VARCHAR(20),
+    reviewed_by INT REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    review_note VARCHAR(500)
 );
 
--- NOTE: unique_daily_checkin index intentionally omitted.
--- Duplicate check-in prevention is enforced in the application layer
--- using a UTC range query spanning the site-local calendar day,
--- because DATE(checkin_time) returns UTC calendar date which crosses
--- midnight at a different wall-clock time than the site's local midnight.
+-- One check-in per user per site-local work date. work_date is computed by the
+-- application from the site timezone (DATE(checkin_time) would use the UTC date).
+CREATE UNIQUE INDEX uq_attendance_user_work_date
+    ON attendance (user_id, work_date) WHERE work_date IS NOT NULL;
+CREATE UNIQUE INDEX uq_attendance_client_event
+    ON attendance (client_event_id) WHERE client_event_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_attendance_checkout_event
+    ON attendance (checkout_event_id) WHERE checkout_event_id IS NOT NULL;
+CREATE INDEX idx_attendance_needs_review
+    ON attendance (checkin_time DESC) WHERE needs_review;
+CREATE INDEX idx_attendance_open
+    ON attendance (user_id) WHERE checkout_time IS NULL;
+
+CREATE TABLE checkin_attempts (
+    id              SERIAL PRIMARY KEY,
+    user_id         INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_event_id VARCHAR(64) NOT NULL UNIQUE,
+    kind            VARCHAR(20) NOT NULL,
+    reason          VARCHAR(40) NOT NULL,
+    detail          VARCHAR(500),
+    captured_at     TIMESTAMPTZ NOT NULL,
+    received_at     TIMESTAMPTZ DEFAULT NOW(),
+    latitude        DOUBLE PRECISION,
+    longitude       DOUBLE PRECISION,
+    gps_accuracy_m  DOUBLE PRECISION,
+    app_version     VARCHAR(30)
+);
+CREATE INDEX idx_checkin_attempts_user_time
+    ON checkin_attempts (user_id, captured_at DESC);
 
 CREATE TABLE overtime_requests (
     id SERIAL PRIMARY KEY,

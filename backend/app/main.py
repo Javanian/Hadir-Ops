@@ -1,64 +1,89 @@
 import asyncio
+import logging
+import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from insightface.app import FaceAnalysis
+from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.routers import assignments, attendance, auth, face, overtime, shifts, sites, users
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+log = logging.getLogger("hadirops")
+
 limiter = Limiter(key_func=get_remote_address)
+
+# Any constant works; it only has to be the same for every worker process.
+_AUTO_CHECKOUT_LOCK_ID = 7_420_001
+
+_worker_state = {"last_run": None, "last_error": None}
 
 
 # ── Auto-checkout background worker ───────────────────────────────────────────
 
+async def run_auto_checkout_once() -> tuple[int, int] | None:
+    """
+    One pass of the auto-checkout job. Returns (shift_end, overtime_end) counts,
+    or None if another process holds the lock.
+
+    Several uvicorn workers or containers each run this loop. A Postgres
+    advisory lock, held on a dedicated connection for the whole pass, makes
+    sure only one of them closes records at a time.
+    """
+    from app.core.database import AsyncSessionLocal, engine
+    from app.services.attendance_service import AttendanceService
+
+    async with engine.connect() as lock_conn:
+        got = await lock_conn.scalar(text("SELECT pg_try_advisory_lock(:k)"), {"k": _AUTO_CHECKOUT_LOCK_ID})
+        await lock_conn.commit()
+        if not got:
+            return None
+        try:
+            async with AsyncSessionLocal() as db:
+                shift_end = await AttendanceService(db).run_auto_checkout()
+            async with AsyncSessionLocal() as db:
+                ot_end = await AttendanceService(db).run_overtime_end_checkout()
+            return shift_end, ot_end
+        finally:
+            await lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _AUTO_CHECKOUT_LOCK_ID})
+            await lock_conn.commit()
+
+
 async def _auto_checkout_worker():
-    """
-    Runs forever (every 60 s) and auto-checkouts any attendance record
-    whose shift end time has passed.  Also auto-checkouts records whose
-    APPROVED overtime end time has passed.  Imported lazily to avoid
-    circular imports during module loading.
-    """
+    """Runs forever and never lets one failed pass stop the next one."""
     # Short initial delay so the app finishes startup before first run
     await asyncio.sleep(30)
     while True:
         try:
-            from datetime import datetime, timezone
-            from app.core.database import AsyncSessionLocal
-            from app.services.attendance_service import AttendanceService
-            from app.repositories.attendance_repository import AttendanceRepository
-            async with AsyncSessionLocal() as db:
-                # 1. Normal shift-end auto-checkout (existing logic)
-                count = await AttendanceService(db).run_auto_checkout()
-                if count:
-                    print(f"[auto-checkout] Shift-end: {count} record(s).", flush=True)
-
-                # 2. Approved overtime end auto-checkout
-                now_utc = datetime.now(timezone.utc)
-                att_repo = AttendanceRepository(db)
-                ot_records = await att_repo.get_open_with_approved_overtime_due(now_utc)
-                for att in ot_records:
-                    checkin = att.checkin_time
-                    work_mins = max(0, int((now_utc - checkin).total_seconds() / 60))
-                    # overtime_minutes is already written by the approve action;
-                    # we only set checkout_time and work_duration_minutes here.
-                    att.checkout_time = now_utc
-                    att.work_duration_minutes = work_mins
-                    att.auto_checkout = True
-                if ot_records:
-                    await db.commit()
-                    print(
-                        f"[auto-checkout] OT-end: {len(ot_records)} record(s).",
-                        flush=True,
-                    )
+            result = await run_auto_checkout_once()
+            _worker_state["last_run"] = datetime.now(timezone.utc)
+            _worker_state["last_error"] = None
+            if result and any(result):
+                log.info("auto-checkout closed %d at shift end, %d at overtime end", *result)
         except Exception as exc:
-            # Never crash the worker; production logging goes here (Phase 7)
-            print(f"[auto-checkout] Error: {exc}", flush=True)
-        await asyncio.sleep(60)
+            _worker_state["last_error"] = str(exc)[:300]
+            log.exception("auto-checkout pass failed")
+        await asyncio.sleep(settings.AUTO_CHECKOUT_INTERVAL_SECONDS)
+
+
+def _load_face_model():
+    # Imported here so the API can start (and be tested) without the model
+    # when FACE_ENABLED is false.
+    from insightface.app import FaceAnalysis
+
+    model = FaceAnalysis(name=settings.FACE_MODEL_NAME, providers=["CPUExecutionProvider"])
+    model.prepare(ctx_id=0, det_size=(640, 640))
+    return model
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -66,25 +91,27 @@ async def _auto_checkout_worker():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────────────────────────────
-    # 1. Load InsightFace model once (shared across all requests)
-    face_model = FaceAnalysis(
-        name=settings.FACE_MODEL_NAME,
-        providers=["CPUExecutionProvider"],
-    )
-    face_model.prepare(ctx_id=0, det_size=(640, 640))
-    app.state.face_app = face_model
+    settings.check_production_safety()
+
+    # 1. Load InsightFace model once (shared across all requests).
+    # If face is enabled and the model fails to load, startup fails loudly
+    # rather than running with check-ins that can never be verified.
+    app.state.face_app = _load_face_model() if settings.FACE_ENABLED else None
 
     # 2. Start auto-checkout background task
-    checkout_task = asyncio.create_task(_auto_checkout_worker())
+    checkout_task = (
+        asyncio.create_task(_auto_checkout_worker()) if settings.AUTO_CHECKOUT_ENABLED else None
+    )
 
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
-    checkout_task.cancel()
-    try:
-        await checkout_task
-    except asyncio.CancelledError:
-        pass
+    if checkout_task is not None:
+        checkout_task.cancel()
+        try:
+            await checkout_task
+        except asyncio.CancelledError:
+            pass
 
     from app.core.database import engine
     await engine.dispose()
@@ -139,7 +166,46 @@ app.include_router(overtime.router)
 app.include_router(assignments.router)
 
 
-# ── Health check ──────────────────────────────────────────────────────────────
+# ── Health checks ─────────────────────────────────────────────────────────────
+
+@app.get("/health/live", tags=["System"])
+async def liveness():
+    """The process is up. Use for container restart decisions."""
+    return {"status": "ok"}
+
+
 @app.get("/health", tags=["System"])
-async def health_check():
-    return {"status": "ok", "service": "HadirOps", "phase": "5"}
+@app.get("/health/ready", tags=["System"])
+async def readiness(request: Request):
+    """
+    Ready to take check-ins: the database answers and, when enabled, the face
+    model is loaded. Returns 503 otherwise so a load balancer can route around it.
+    """
+    from app.core.database import engine
+
+    checks = {}
+    healthy = True
+
+    started = time.perf_counter()
+    try:
+        async with engine.connect() as conn:
+            await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=3)
+        checks["database"] = {"ok": True, "latency_ms": round((time.perf_counter() - started) * 1000, 1)}
+    except Exception as exc:
+        healthy = False
+        checks["database"] = {"ok": False, "error": type(exc).__name__}
+
+    if settings.FACE_ENABLED:
+        face_ok = getattr(request.app.state, "face_app", None) is not None
+        checks["face_model"] = {"ok": face_ok}
+        healthy = healthy and face_ok
+
+    last_run = _worker_state["last_run"]
+    checks["auto_checkout"] = {
+        "enabled": settings.AUTO_CHECKOUT_ENABLED,
+        "last_run": last_run.isoformat() if last_run else None,
+        "last_error": _worker_state["last_error"],
+    }
+
+    body = {"status": "ok" if healthy else "degraded", "service": "HadirOps", "checks": checks}
+    return JSONResponse(body, status_code=200 if healthy else 503)

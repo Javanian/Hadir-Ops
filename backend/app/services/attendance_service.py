@@ -18,7 +18,11 @@ from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.security import decode_face_token
 
 from app.repositories.attendance_repository import AttendanceRepository
 from app.repositories.overtime_repository import OvertimeRepository
@@ -31,6 +35,7 @@ from app.schemas.attendance import (
     CheckoutRequest,
     TeamAttendanceRecord,
 )
+from app.services import checkin_rules as rules
 
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
@@ -190,9 +195,70 @@ class AttendanceService:
         self.shift_repo = ShiftRepository(db)
         self.site_repo = SiteRepository(db)
 
+    # ── Durable check-in helpers ─────────────────────────────────────────────
+
+    def _resolve_event_time(self, data, received_at: datetime) -> rules.EventTime:
+        try:
+            return rules.resolve_event_time(
+                received_at,
+                data.captured_at.astimezone(utc) if data.captured_at else None,
+                data.capture_age_ms,
+                offline_threshold_s=settings.OFFLINE_THRESHOLD_SECONDS,
+                max_age_hours=settings.OFFLINE_MAX_AGE_HOURS,
+                clock_tolerance_s=settings.CLOCK_SKEW_TOLERANCE_SECONDS,
+            )
+        except rules.EventTimeError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    @staticmethod
+    def _check_face_token(token: Optional[str], user_id: int, event_at: datetime):
+        """Return (similarity, flags). A missing or stale token is flagged, never refused."""
+        if not settings.FACE_ENABLED:
+            return None, []
+        if not token:
+            return None, [rules.FACE_NOT_VERIFIED]
+        try:
+            payload = decode_face_token(token)
+        except ValueError:
+            return None, [rules.FACE_NOT_VERIFIED]
+        if payload.get("sub") != str(user_id):
+            return None, [rules.FACE_NOT_VERIFIED]
+        verified_at = datetime.fromtimestamp(payload["iat"], tz=utc)
+        if abs(event_at - verified_at) > timedelta(minutes=settings.FACE_TOKEN_WINDOW_MINUTES):
+            return None, [rules.FACE_NOT_VERIFIED]
+        return payload.get("sim"), []
+
+    async def _replay_checkin(self, current_user, client_event_id: str):
+        existing = await self.repo.get_by_client_event(client_event_id)
+        if existing is None:
+            return None
+        if existing.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This event id belongs to another user.",
+            )
+        return _attendance_response(existing)
+
     # ── Check-in ──────────────────────────────────────────────────────────────
 
-    async def checkin(self, current_user, data: CheckinRequest) -> AttendanceResponse:
+    async def checkin(self, current_user, data: CheckinRequest):
+        """
+        Record a check-in. Returns (response, created).
+
+        Durable behaviour:
+          - client_event_id makes retries safe: the same id returns the stored record
+          - captured_at / capture_age_ms let a queued offline check-in keep its real time
+          - GPS accuracy, mock location, missing face proof and clock problems become
+            risk flags and send the record to the review queue instead of failing
+        """
+        received_at = datetime.now(utc)
+        event_id = str(data.client_event_id) if data.client_event_id else None
+
+        if event_id:
+            replay = await self._replay_checkin(current_user, event_id)
+            if replay is not None:
+                return replay, False
+
         # 1. User must belong to a site
         if not current_user.site_id:
             raise HTTPException(
@@ -207,8 +273,9 @@ class AttendanceService:
                 detail="Assigned site not found.",
             )
 
-        # 2. Get current time in site's local timezone
-        now = _now_site(site.timezone)
+        # 2. When did this happen? (now, or earlier for a queued offline event)
+        event = self._resolve_event_time(data, received_at)
+        now = event.at.astimezone(ZoneInfo(site.timezone))
 
         # 2b. Check for a temporary assignment — overrides site and shift
         from app.repositories.assignment_repository import AssignmentRepository
@@ -220,7 +287,7 @@ class AttendanceService:
             _override_site = await self.site_repo.get_by_id(_assignment.site_id)
             if _override_site:
                 site = _override_site
-                now = _now_site(site.timezone)
+                now = event.at.astimezone(ZoneInfo(site.timezone))
                 # Pre-load the assigned shift from the override site
                 _all_shifts = await self.shift_repo.get_all(site_id=site.id)
                 _prefetched_shift = next(
@@ -229,22 +296,40 @@ class AttendanceService:
 
         # 3. Prevent double check-in (same site-local calendar day)
         existing = await self.repo.get_today_checkin(current_user.id, now.date(), site.timezone)
+        if existing and event_id and existing.client_event_id == event_id:
+            # The same event committed by a parallel retry after the replay check above
+            return _attendance_response(existing, site.timezone), False
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Already checked in today at {existing.checkin_time.strftime('%H:%M:%S')}.",
             )
 
-        # 4. GPS validation
+        # 4. GPS validation, using the accuracy the phone reported
         distance_m = haversine_meters(
             data.latitude, data.longitude,
             site.latitude, site.longitude,
         )
-        in_radius = distance_m <= site.radius_meter
+        geo = rules.evaluate_geofence(
+            distance_m, site.radius_meter, data.accuracy_m,
+            accuracy_cap_m=settings.GPS_ACCURACY_CAP_M,
+        )
+        in_radius = geo.in_radius
+        flags = list(event.flags)
 
         # SALES role: always treated as within radius (no location restriction)
         if current_user.role.name == "SALES":
             in_radius = True
+        else:
+            flags += geo.flags
+
+        if data.is_mocked:
+            flags.append(rules.MOCK_LOCATION)
+
+        face_similarity, face_flags = self._check_face_token(
+            data.face_token, current_user.id, event.at
+        )
+        flags += face_flags
 
         # 5. Find active shift (use pre-fetched shift from temporary assignment if available)
         is_early_checkin = False
@@ -273,30 +358,14 @@ class AttendanceService:
                 )
             # Overtime check-in: no shift, status is ONTIME/OUT_OF_RADIUS only
             att_status = "ONTIME" if in_radius else "OUT_OF_RADIUS"
-            today_db_dow = _python_weekday_to_db(now.weekday())
-            is_weekend = today_db_dow in {0, 6}
-            holiday = await self.shift_repo.get_holiday_by_date(now.date())
-            is_holiday = holiday is not None
-            att = await self.repo.create(
-                user_id=current_user.id,
-                site_id=site.id,
-                shift_id=None,
-                checkin_time=checkin_utc,
-                latitude=data.latitude,
-                longitude=data.longitude,
-                status=att_status,
-                is_weekend=is_weekend,
-                is_holiday=is_holiday,
-            )
-            await self.db.commit()
-            att = await self.repo.get_by_id(att.id)
-            return _attendance_response(att, site.timezone)
-
-        # 6. Determine status
-        if is_early_checkin:
-            att_status = "EARLY" if in_radius else "OUT_OF_RADIUS"
+            shift_id = None
         else:
-            att_status = _determine_status(now, active_shift, in_radius)
+            # 6. Determine status
+            if is_early_checkin:
+                att_status = "EARLY" if in_radius else "OUT_OF_RADIUS"
+            else:
+                att_status = _determine_status(now, active_shift, in_radius)
+            shift_id = active_shift.id
 
         # 7. Weekend / holiday flags (using site-local date/weekday)
         today_db_dow = _python_weekday_to_db(now.weekday())
@@ -304,26 +373,75 @@ class AttendanceService:
         holiday = await self.shift_repo.get_holiday_by_date(now.date())
         is_holiday = holiday is not None
 
-        # 8. Persist (store UTC)
-        att = await self.repo.create(
-            user_id=current_user.id,
-            site_id=site.id,
-            shift_id=active_shift.id,
-            checkin_time=checkin_utc,
-            latitude=data.latitude,
-            longitude=data.longitude,
-            status=att_status,
-            is_weekend=is_weekend,
-            is_holiday=is_holiday,
-        )
-        await self.db.commit()
+        # 8. Persist (store UTC). The unique indexes on (user_id, work_date) and
+        # client_event_id settle a race between two identical submissions.
+        try:
+            att = await self.repo.create(
+                user_id=current_user.id,
+                site_id=site.id,
+                shift_id=shift_id,
+                checkin_time=checkin_utc,
+                latitude=data.latitude,
+                longitude=data.longitude,
+                status=att_status,
+                is_weekend=is_weekend,
+                is_holiday=is_holiday,
+                work_date=now.date(),
+                client_event_id=event_id,
+                captured_at=data.captured_at,
+                received_at=received_at,
+                gps_accuracy_m=data.accuracy_m,
+                is_offline=event.is_offline,
+                face_similarity=face_similarity,
+                risk_flags=flags,
+                needs_review=rules.review_needed(flags, att_status),
+            )
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            if event_id:
+                replay = await self._replay_checkin(current_user, event_id)
+                if replay is not None:
+                    return replay, False
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Already checked in today.",
+            )
         att = await self.repo.get_by_id(att.id)
-        return _attendance_response(att, site.timezone)
+        return _attendance_response(att, site.timezone), True
 
     # ── Check-out ─────────────────────────────────────────────────────────────
 
-    async def checkout(self, current_user, data: CheckoutRequest) -> AttendanceResponse:
+    async def checkout(self, current_user, data: CheckoutRequest):
+        """
+        Record a check-out. Returns (response, created).
+
+        A check-out queued offline can arrive after the auto-checkout worker has
+        closed the record at shift end. In that case the real time from the
+        phone replaces the automatic one.
+        """
+        received_at = datetime.now(utc)
+        event_id = str(data.client_event_id) if data.client_event_id else None
+
+        if event_id:
+            existing = await self.repo.get_by_checkout_event(event_id)
+            if existing is not None:
+                if existing.user_id != current_user.id:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="This event id belongs to another user.",
+                    )
+                return _attendance_response(existing), False
+
+        event = self._resolve_event_time(data, received_at)
+        checkout_utc = event.at
+
         att = await self.repo.get_open_for_user(current_user.id)
+        if att is not None and att.checkin_time >= checkout_utc:
+            # The open record started after this (late) check-out; it belongs earlier.
+            att = None
+        if att is None and event.is_offline:
+            att = await self.repo.get_auto_closed_before(current_user.id, checkout_utc)
         if not att:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -331,8 +449,6 @@ class AttendanceService:
             )
 
         site_tz = att.site.timezone if att.site else "Asia/Jakarta"
-        now = _now_site(site_tz)
-        checkout_utc = now.astimezone(utc)
 
         work_min = _work_duration(att.checkin_time, checkout_utc)
         # Weekend / holiday → all hours are overtime automatically (no approval needed)
@@ -367,16 +483,40 @@ class AttendanceService:
                         attendance_id=att.id,
                     )
 
-        att = await self.repo.checkout(
-            att,
-            checkout_time=checkout_utc,
-            work_duration_minutes=work_min,
-            auto_checkout=False,
-            overtime_minutes=overtime_min,
-        )
+        # Risk flags from the check-out are kept with a CHECKOUT_ prefix
+        new_flags = list(event.flags)
+        if data.is_mocked:
+            new_flags.append(rules.MOCK_LOCATION)
+        _, face_flags = self._check_face_token(data.face_token, current_user.id, checkout_utc)
+        new_flags += face_flags
+        new_flags = [rules.CHECKOUT_PREFIX + f for f in new_flags]
+        if new_flags:
+            merged = list(att.risk_flags or [])
+            merged += [f for f in new_flags if f not in merged]
+            att.risk_flags = merged
+            if rules.review_needed(new_flags):
+                att.needs_review = True
+        if event_id:
+            att.checkout_event_id = event_id
+
+        try:
+            att = await self.repo.checkout(
+                att,
+                checkout_time=checkout_utc,
+                work_duration_minutes=work_min,
+                auto_checkout=False,
+                overtime_minutes=overtime_min,
+            )
+        except IntegrityError:
+            await self.db.rollback()
+            if event_id:
+                existing = await self.repo.get_by_checkout_event(event_id)
+                if existing is not None and existing.user_id == current_user.id:
+                    return _attendance_response(existing), False
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Check-out conflict.")
         # Re-fetch with full relationships (including overtime_requests) after commit
         att = await self.repo.get_by_id(att.id)
-        return _attendance_response(att, site_tz)
+        return _attendance_response(att, site_tz), True
 
     # ── Auto-checkout (background worker) ────────────────────────────────────
 
@@ -485,6 +625,144 @@ class AttendanceService:
                 processed += 1
 
         return processed
+
+    async def run_overtime_end_checkout(self) -> int:
+        """Close open records whose APPROVED overtime end time has passed."""
+        now_utc = datetime.now(utc)
+        records = await self.repo.get_open_with_approved_overtime_due(now_utc)
+        for att in records:
+            # overtime_minutes is already written by the approve action;
+            # only checkout_time and work_duration_minutes are set here.
+            att.checkout_time = now_utc
+            att.work_duration_minutes = _work_duration(att.checkin_time, now_utc)
+            att.auto_checkout = True
+        if records:
+            await self.db.commit()
+        return len(records)
+
+    # ── Review queue ──────────────────────────────────────────────────────────
+
+    async def _scope_user_ids(self, current_user) -> Optional[List[int]]:
+        """None = no restriction (ADMIN); otherwise the supervisor's direct reports."""
+        if current_user.role.name == "ADMIN":
+            return None
+        from app.repositories.user_repository import UserRepository
+        return await UserRepository(self.db).get_subordinate_ids(current_user.id)
+
+    async def list_review_queue(
+        self, current_user, pending_only: bool = True, limit: int = 200, offset: int = 0
+    ) -> List[TeamAttendanceRecord]:
+        user_ids = await self._scope_user_ids(current_user)
+        records = await self.repo.get_review_queue(user_ids, pending_only, limit, offset)
+        return [TeamAttendanceRecord.from_attendance(r) for r in records]
+
+    async def review(self, attendance_id: int, current_user, decision: str, note: Optional[str]):
+        att = await self.repo.get_by_id(attendance_id)
+        if not att:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found.")
+        user_ids = await self._scope_user_ids(current_user)
+        if user_ids is not None and att.user_id not in user_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your team member.")
+        if decision == "REJECTED" and not note:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A note is required when rejecting, so the employee knows why.",
+            )
+        att.review_status = decision
+        att.review_note = note
+        att.reviewed_by = current_user.id
+        att.reviewed_at = datetime.now(utc)
+        att.needs_review = False
+        await self.db.commit()
+        att = await self.repo.get_by_id(att.id)
+        return _attendance_response(att)
+
+    # ── Face evidence for a record created without face proof ────────────────
+
+    async def attach_face_evidence(self, attendance_id: int, current_user, face_service, image_bytes: bytes):
+        """Verify a photo taken at check-in time (e.g. while offline) and clear
+        FACE_NOT_VERIFIED when it matches. A mismatch stays flagged for review."""
+        att = await self.repo.get_by_id(attendance_id)
+        if not att or att.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found.")
+        if current_user.face_embedding is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No face registered for this user")
+
+        result = face_service.verify(image_bytes, list(current_user.face_embedding))
+        flags = list(att.risk_flags or [])
+        if result["verified"]:
+            flags = [f for f in flags if f != rules.FACE_NOT_VERIFIED]
+            att.face_similarity = result["similarity"]
+        elif "FACE_MISMATCH" not in flags:
+            flags.append("FACE_MISMATCH")
+        att.risk_flags = flags
+        if att.review_status is None:
+            att.needs_review = rules.review_needed(flags, att.status) or "FACE_MISMATCH" in flags
+        await self.db.commit()
+        att = await self.repo.get_by_id(att.id)
+        return _attendance_response(att)
+
+    # ── Failed attempts ───────────────────────────────────────────────────────
+
+    async def record_attempts(self, current_user, attempts) -> tuple:
+        rows = [
+            {
+                "client_event_id": str(a.client_event_id),
+                "kind": a.kind,
+                "reason": a.reason,
+                "detail": a.detail,
+                "captured_at": a.captured_at,
+                "latitude": a.latitude,
+                "longitude": a.longitude,
+                "gps_accuracy_m": a.accuracy_m,
+                "app_version": a.app_version,
+            }
+            for a in attempts
+        ]
+        from app.repositories.attempt_repository import AttemptRepository
+        inserted = await AttemptRepository(self.db).insert_many(current_user.id, rows)
+        return inserted, len(rows) - inserted
+
+    async def list_attempts(
+        self,
+        current_user,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        limit: int = 200,
+        offset: int = 0,
+    ):
+        from app.repositories.attempt_repository import AttemptRepository
+        from app.repositories.attendance_repository import _date_to_utc
+        from app.schemas.attendance import AttemptOut
+
+        user_ids = await self._scope_user_ids(current_user)
+        tz = current_user.site.timezone if current_user.site else "UTC"
+        rows = await AttemptRepository(self.db).list(
+            user_ids,
+            from_utc=_date_to_utc(from_date, tz) if from_date else None,
+            to_utc=_date_to_utc(to_date + timedelta(days=1), tz) if to_date else None,
+            limit=limit,
+            offset=offset,
+        )
+        return [
+            AttemptOut(
+                id=r.id,
+                user_id=r.user_id,
+                employee_id=r.user.employee_id,
+                employee_name=r.user.name,
+                kind=r.kind,
+                reason=r.reason,
+                detail=r.detail,
+                captured_at=r.captured_at,
+                received_at=r.received_at,
+                latitude=r.latitude,
+                longitude=r.longitude,
+                gps_accuracy_m=r.gps_accuracy_m,
+                app_version=r.app_version,
+                site_timezone=r.user.site.timezone if r.user.site else "Asia/Jakarta",
+            )
+            for r in rows
+        ]
 
     # ── Queries ───────────────────────────────────────────────────────────────
 

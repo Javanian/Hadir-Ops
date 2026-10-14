@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
+from app.core.security import create_face_token
 from app.repositories.user_repository import UserRepository
 from app.services.face_service import FaceService
 
@@ -28,8 +29,14 @@ router = APIRouter(prefix="/face", tags=["Face Recognition"])
 
 def _get_face_service(request: Request) -> FaceService:
     """Build a FaceService from the app-level InsightFace model."""
+    face_app = getattr(request.app.state, "face_app", None)
+    if face_app is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Face recognition is not available on this server.",
+        )
     return FaceService(
-        face_app=request.app.state.face_app,
+        face_app=face_app,
         similarity_threshold=settings.FACE_SIMILARITY_THRESHOLD,
         max_width=settings.FACE_MAX_WIDTH,
     )
@@ -94,7 +101,7 @@ async def verify_face(
     request: Request,
     file: UploadFile = File(..., description="JPEG or PNG — must contain exactly one face"),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)
@@ -111,7 +118,12 @@ async def verify_face(
 
     # pgvector returns the embedding as a numpy array or list — normalise to list
     stored = list(user.face_embedding)
-    return face_svc.verify(image_bytes, stored)
+    result = face_svc.verify(image_bytes, stored)
+    # A verified user checking their own face gets a short-lived token that
+    # the check-in / check-out request carries as proof.
+    if result["verified"] and current_user.id == user_id:
+        result["face_token"] = create_face_token(user_id, result["similarity"])
+    return result
 
 
 @router.get(

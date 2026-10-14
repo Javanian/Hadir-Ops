@@ -10,6 +10,8 @@ python-multipart==0.0.17
 slowapi==0.1.9
 pgvector==0.3.5
 python-dotenv==1.0.1
+# IANA time zones for per-site time (Windows and slim images ship none)
+tzdata==2025.2
 onnxruntime==1.17.3
 # Phase 3 — Face Recognition
 insightface

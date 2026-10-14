@@ -40,3 +40,34 @@ def decode_token(token: str) -> dict:
         return payload
     except InvalidTokenError as e:
         raise ValueError(f"Invalid token: {str(e)}")
+
+
+def create_face_token(user_id: int, similarity: float) -> str:
+    """Signed proof that `user_id` passed face verification just now.
+
+    The check-in endpoint accepts it when the event time is within
+    FACE_TOKEN_WINDOW_MINUTES of `iat`, so expiry is checked there, not here.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "type": "face",
+        "sim": round(float(similarity), 4),
+        "iat": int(now.timestamp()),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def decode_face_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"require": ["sub", "iat"], "verify_iat": False},
+        )
+    except InvalidTokenError as e:
+        raise ValueError(f"Invalid face token: {e}")
+    if payload.get("type") != "face":
+        raise ValueError("Not a face token")
+    return payload

@@ -28,13 +28,22 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:-hadirops}:${DB_PASSWORD}@db:5432/${DB_NAME:-hadirops}
       - DB_SCHEMA=${DB_SCHEMA:-hadirops}
+      - ENVIRONMENT=production   # refuses to start with the development SECRET_KEY
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - insightface_models:/root/.insightface
-    # No --reload, no source volume mount
+    # No --reload, no source volume mount. Each worker runs the auto check-out
+    # loop; a Postgres advisory lock lets only one of them work at a time.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+    healthcheck:
+      # 503 (database down or face model missing) makes urlopen raise
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
 
 volumes:
   pgdata:
