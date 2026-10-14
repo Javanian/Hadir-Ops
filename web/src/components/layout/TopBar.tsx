@@ -11,7 +11,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const { user } = useAuthStore()
   const logout = useLogout()
   const { pathname } = useLocation()
-  const pageTitle = ({ dashboard: 'Ringkasan kehadiran', users: 'Pengguna', sites: 'Lokasi kerja', assignments: 'Penugasan', shifts: 'Jadwal shift', holidays: 'Hari libur', attendance: 'Presensi', overtime: 'Pengajuan lembur', reports: 'Laporan' } as Record<string, string>)[pathname.split('/')[1]] ?? 'Ruang kerja'
+  const pageTitle = ({ dashboard: 'Ringkasan kehadiran', users: 'Pengguna', sites: 'Lokasi kerja', assignments: 'Penugasan', shifts: 'Jadwal shift', holidays: 'Hari libur', attendance: 'Presensi', review: 'Tinjauan absen', leave: 'Izin & cuti', overtime: 'Pengajuan lembur', reports: 'Laporan' } as Record<string, string>)[pathname.split('/')[1]] ?? 'Ruang kerja'
 
   return (
     <header className="h-16 flex items-center px-4 md:px-8 border-b border-slate-200/80 bg-white/75 backdrop-blur-md gap-4 flex-shrink-0">

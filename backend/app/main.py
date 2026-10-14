@@ -13,7 +13,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.routers import assignments, attendance, auth, face, overtime, shifts, sites, users
+from app.routers import assignments, attendance, auth, face, leave, overtime, shifts, sites, users
 
 logging.basicConfig(
     level=logging.INFO,
@@ -164,6 +164,7 @@ app.include_router(face.router)
 app.include_router(attendance.router)
 app.include_router(overtime.router)
 app.include_router(assignments.router)
+app.include_router(leave.router)
 
 
 # ── Health checks ─────────────────────────────────────────────────────────────

@@ -122,7 +122,7 @@ async def seed():
 
     async with AsyncSessionLocal() as db:
         await db.execute(text(
-            "TRUNCATE checkin_attempts, overtime_requests, attendance, temporary_assignments, "
+            "TRUNCATE leave_requests, checkin_attempts, overtime_requests, attendance, temporary_assignments, "
             "work_schedules, shifts, holidays, audit_logs, users, sites RESTART IDENTITY CASCADE"
         ))
         site_id = (await db.execute(text(

@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Users, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { Users, CheckCircle, Clock, AlertCircle, CalendarX } from 'lucide-react'
 import { attendanceApi } from '@/api/attendance.api'
 import { overtimeApi } from '@/api/overtime.api'
+import { leaveApi } from '@/api/leave.api'
 import { StatsCard } from '@/components/dashboard/StatsCard'
 import { AttendanceChart } from '@/components/dashboard/AttendanceChart'
 import { Badge } from '@/components/ui/badge'
@@ -53,6 +54,18 @@ export function DashboardPage() {
     staleTime: 30_000,
   })
 
+  // Q4 — approved leave covering today, and requests waiting for a decision
+  const { data: onLeave = [], isLoading: leaveLoading } = useQuery({
+    queryKey: ['leave', 'today', today],
+    queryFn: () => leaveApi.listTeam({ status: 'APPROVED', from_date: today, to_date: today, limit: 500 }),
+    staleTime: 60_000,
+  })
+  const { data: pendingLeave = [] } = useQuery({
+    queryKey: ['leave', 'pending'],
+    queryFn: () => leaveApi.listTeam({ status: 'PENDING', limit: 500 }),
+    staleTime: 30_000,
+  })
+
   const ontimeCount = useMemo(
     () => todayRecords.filter((r) => r.status === 'ONTIME').length,
     [todayRecords],
@@ -91,7 +104,7 @@ export function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
         <StatsCard
           icon={<Users size={20} />}
           title="Hadir Hari Ini"
@@ -119,6 +132,14 @@ export function DashboardPage() {
           value={pendingOT.length}
           loading={otLoading}
           variant="danger"
+        />
+        <StatsCard
+          icon={<CalendarX size={20} />}
+          title="Izin / Cuti Hari Ini"
+          value={onLeave.length}
+          loading={leaveLoading}
+          variant="default"
+          subtitle={pendingLeave.length > 0 ? `${pendingLeave.length} pengajuan menunggu` : undefined}
         />
       </div>
 

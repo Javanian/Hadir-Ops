@@ -56,3 +56,14 @@ export function daysAgoISO(n: number, timeZone?: string): string {
   const date = new Date(Date.UTC(y, m - 1, d - n))
   return date.toISOString().slice(0, 10)
 }
+
+/** Format a plain YYYY-MM-DD date (no time, no timezone shift). */
+export function formatPlainDate(isoDate: string, opts: Intl.DateTimeFormatOptions = {}): string {
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    ...opts,
+  }).format(new Date(`${isoDate}T00:00:00Z`))
+}

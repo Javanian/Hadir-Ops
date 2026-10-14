@@ -34,6 +34,7 @@ Web dashboard and mobile app with fictional sample data.
 - Shift matching and lateness. Each site has its own timezone. Timestamps are stored in UTC and business rules (today's shift, `ONTIME` or `LATE` with tolerance) run in site-local time.
 - Automatic check-out. A background worker closes open records after their shift ends. A real check-out that arrives later from an offline phone replaces the automatic one.
 - Overtime. Weekend and holiday work is counted as overtime at check-out. Weekday overtime goes through a request and approval flow, and only one pending or approved request is allowed per attendance record.
+- Sick days, permits and annual leave. Employees submit from the mobile app (up to 30 days per request, starting at most 7 days back or 90 days ahead) and can cancel while it is pending. Overlapping requests are refused, also when two arrive at once. Supervisors approve or reject their direct reports' requests in the web dashboard, a rejection needs a note, and the dashboard shows who is on leave today.
 - Assignments, holidays, sites with a map picker, reports and exports in the web dashboard.
 - Role-based access for `ADMIN`, `SUPERVISOR` and `EMPLOYEE`. Supervisors only see and approve their direct reports; employees only see their own records.
 
@@ -85,7 +86,7 @@ Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and
 
 ### Tests and load
 
-`backend/tests` runs against a real PostgreSQL database built from `database.sql`: 38 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks and the worker lock. CI runs them on every push with `pgvector/pgvector:pg16`, and also builds the web dashboard and type-checks the mobile app.
+`backend/tests` runs against a real PostgreSQL database built from `database.sql`: 56 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lock, login lockout, token invalidation after a password change, and the leave request rules. CI runs them on every push with `pgvector/pgvector:pg16`, and also builds the web dashboard and type-checks the mobile app.
 
 ```bash
 cd backend
@@ -108,9 +109,10 @@ The offline flow was also driven end to end in the Expo web build: the browser w
 
 ```bash
 docker compose exec -T db psql -U hadirops -d hadirops < backend/migration_durable_checkin.sql
+docker compose exec -T db psql -U hadirops -d hadirops < backend/migration_leave.sql
 ```
 
-The migration is idempotent. It backfills the site-local `work_date` for existing check-ins. If an older bug left two check-ins on one day for the same person, the later one keeps a `NULL` work date instead of being deleted.
+Both migrations are idempotent. `migration_durable_checkin.sql` backfills the site-local `work_date` for existing check-ins; if an older bug left two check-ins on one day for the same person, the later one keeps a `NULL` work date instead of being deleted. `migration_leave.sql` only adds the `leave_requests` table.
 
 ## Run locally
 

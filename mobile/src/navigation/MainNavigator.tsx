@@ -4,6 +4,7 @@ import React from 'react';
 import HomeScreen from '../screens/HomeScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import OvertimeScreen from '../screens/OvertimeScreen';
+import LeaveScreen from '../screens/LeaveScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SubordinateAttendanceScreen from '../screens/SubordinateAttendanceScreen';
 import { useAuthState } from '../store/authStore';
@@ -13,6 +14,7 @@ export type MainTabParamList = {
   Home: undefined;
   History: undefined;
   Overtime: { from?: 'history'; attendance_id?: number } | undefined;
+  Leave: undefined;
   Team: undefined;
   Profile: undefined;
 };
@@ -28,6 +30,7 @@ const TAB_ICONS: Record<
   Home: { active: 'home', inactive: 'home-outline' },
   History: { active: 'time', inactive: 'time-outline' },
   Overtime: { active: 'calendar', inactive: 'calendar-outline' },
+  Leave: { active: 'document-text', inactive: 'document-text-outline' },
   Team: { active: 'people', inactive: 'people-outline' },
   Profile: { active: 'person', inactive: 'person-outline' },
 };
@@ -36,6 +39,7 @@ const TAB_LABELS: Record<keyof MainTabParamList, string> = {
   Home: 'Beranda',
   History: 'Riwayat',
   Overtime: 'Lembur',
+  Leave: 'Izin',
   Team: 'Tim',
   Profile: 'Profil',
 };
@@ -73,6 +77,7 @@ export default function MainNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="History" component={HistoryScreen} />
       <Tab.Screen name="Overtime" component={OvertimeScreen} />
+      <Tab.Screen name="Leave" component={LeaveScreen} />
       {canSeeTeam && (
         <Tab.Screen name="Team" component={SubordinateAttendanceScreen} />
       )}

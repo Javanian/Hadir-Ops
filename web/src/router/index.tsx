@@ -14,6 +14,7 @@ import { OvertimePage } from '@/pages/overtime/OvertimePage'
 import { ReportsPage } from '@/pages/reports/ReportsPage'
 import { AssignmentsPage } from '@/pages/assignments/AssignmentsPage'
 import { ReviewPage } from '@/pages/review/ReviewPage'
+import { LeavePage } from '@/pages/leave/LeavePage'
 
 export const router = createBrowserRouter([
   // Public routes
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
           { path: '/shifts', element: <ShiftsPage /> },
           { path: '/attendance', element: <AttendancePage /> },
           { path: '/review', element: <ReviewPage /> },
+          { path: '/leave', element: <LeavePage /> },
           { path: '/overtime', element: <OvertimePage /> },
           { path: '/reports', element: <ReportsPage /> },
         ],
