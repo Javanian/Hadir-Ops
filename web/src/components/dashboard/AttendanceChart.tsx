@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import type { TeamAttendanceRecord } from '@/types/attendance'
 import { Skeleton } from '@/components/ui/skeleton'
+import { daysAgoISO, localDateISO } from '@/utils/datetime'
 
 interface AttendanceChartProps {
   records: TeamAttendanceRecord[]
@@ -26,13 +27,9 @@ interface DayData {
 function buildChartData(records: TeamAttendanceRecord[]): DayData[] {
   // Build last 7 days (today inclusive) as YYYY-MM-DD keys
   const days: string[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    days.push(d.toISOString().slice(0, 10))
-  }
+  for (let i = 6; i >= 0; i--) days.push(daysAgoISO(i))
 
-  // Group records by UTC-date (YYYY-MM-DD from checkin_time)
+  // Group records by the site-local date of the check-in
   const grouped: Record<string, DayData> = {}
   for (const day of days) {
     const date = new Date(day + 'T12:00:00Z')
@@ -45,7 +42,7 @@ function buildChartData(records: TeamAttendanceRecord[]): DayData[] {
   }
 
   for (const rec of records) {
-    const day = rec.checkin_time.slice(0, 10)
+    const day = localDateISO(rec.checkin_time, rec.site_timezone)
     if (grouped[day] && rec.status) {
       if (rec.status === 'ONTIME') grouped[day].ONTIME++
       else if (rec.status === 'LATE') grouped[day].LATE++

@@ -15,7 +15,7 @@ import { AttendanceDetailModal } from '@/components/attendance/AttendanceDetailM
 import { attendanceApi } from '@/api/attendance.api'
 import { useHasRole } from '@/hooks/useAuth'
 import { showSuccess, showError } from '@/utils/toast'
-import { formatDate, formatTime, formatDuration } from '@/utils/datetime'
+import { formatDate, formatDuration, formatTime, localDateISO } from '@/utils/datetime'
 import type { TeamAttendanceRecord, AttendanceStatus } from '@/types/attendance'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ function exportCSV(records: TeamAttendanceRecord[]) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `absensi_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `absensi_${localDateISO()}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }

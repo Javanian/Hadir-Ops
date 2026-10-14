@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatsCard } from '@/components/dashboard/StatsCard'
 import { attendanceApi } from '@/api/attendance.api'
-import { formatDate, formatTime, formatDuration } from '@/utils/datetime'
+import { daysAgoISO, formatDate, formatDuration, formatTime } from '@/utils/datetime'
 import type { TeamAttendanceRecord, AttendanceStatus } from '@/types/attendance'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -92,13 +92,11 @@ function exportCSV(records: TeamAttendanceRecord[], fromDate: string, toDate: st
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  return daysAgoISO(0)
 }
 
 function thirtyDaysAgoStr(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 29)
-  return d.toISOString().slice(0, 10)
+  return daysAgoISO(29)
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

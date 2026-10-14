@@ -7,18 +7,8 @@ import { StatsCard } from '@/components/dashboard/StatsCard'
 import { AttendanceChart } from '@/components/dashboard/AttendanceChart'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/authStore'
-import { formatTime } from '@/utils/datetime'
+import { daysAgoISO, formatTime } from '@/utils/datetime'
 import type { BadgeProps } from '@/components/ui/badge'
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function nDaysAgoStr(n: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
-}
 
 function statusBadgeVariant(status: string | null): BadgeProps['variant'] {
   if (status === 'ONTIME') return 'success'
@@ -37,8 +27,9 @@ function statusLabel(status: string | null): string {
 export function DashboardPage() {
   const { user } = useAuthStore()
 
-  const today = todayStr()
-  const sevenDaysAgo = nDaysAgoStr(6)
+  const tz = user?.site_timezone ?? undefined
+  const today = daysAgoISO(0, tz)
+  const sevenDaysAgo = daysAgoISO(6, tz)
 
   // Q1 — today's attendance (auto-refresh 30s, also drives recent activity)
   const { data: todayRecords = [], isLoading: todayLoading } = useQuery({

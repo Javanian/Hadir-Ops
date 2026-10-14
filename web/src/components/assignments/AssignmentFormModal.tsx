@@ -19,6 +19,7 @@ import { usersApi } from '@/api/users.api'
 import { isAxiosError } from '@/api/axios'
 import { showSuccess } from '@/utils/toast'
 import type { UserListItem } from '@/types/users'
+import { localDateISO } from '@/utils/datetime'
 
 const schema = z.object({
   user_id:    z.number({ required_error: 'Pilih karyawan' }),
@@ -145,7 +146,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
     setShowUserDropdown(false)
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localDateISO()
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>

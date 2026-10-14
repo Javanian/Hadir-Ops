@@ -14,6 +14,7 @@ import { sitesApi } from '@/api/sites.api'
 import { showSuccess, showError } from '@/utils/toast'
 import { TIMEZONE_SHORT } from '@/types/sites'
 import type { AssignmentResponse } from '@/types/assignments'
+import { localDateISO } from '@/utils/datetime'
 
 const fmt = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -26,7 +27,7 @@ function formatTime(t: string) {
 }
 
 function getStatus(row: AssignmentResponse): 'AKTIF' | 'AKAN DATANG' | 'SELESAI' {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localDateISO()
   if (row.end_date < today) return 'SELESAI'
   if (row.start_date > today) return 'AKAN DATANG'
   return 'AKTIF'
