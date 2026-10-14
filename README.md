@@ -113,7 +113,7 @@ docker compose down -v           # stop and delete the database volume
 
 ## Repository notes
 
-- Source, SQL migrations, app assets, npm lockfiles and `.env.example` are tracked. Local environment files, agent and MCP configuration, dependencies, build output and runtime data are not.
+- Source, SQL migrations, app assets, npm lockfiles and `.env.example` are tracked. Local environment files, editor settings, dependencies, build output and runtime data are not.
 - Containers, the database, native package identifiers (`com.hadirops.mobile`) and the seed admin account all use the `hadirops` name.
 - The user interface is in Indonesian.
 
