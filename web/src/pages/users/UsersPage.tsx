@@ -30,6 +30,12 @@ import { showSuccess, showError } from '@/utils/toast'
 import type { UserListItem } from '@/types/users'
 import type { UserRole } from '@/types/auth'
 
+// The action column stays pinned to the right edge while the rest of the
+// table scrolls sideways on narrow screens.
+const STICKY_ACTIONS_HEAD = 'sticky right-0 bg-slate-800'
+const STICKY_ACTIONS_CELL =
+  'sticky right-0 bg-white group-hover:bg-surface shadow-[-12px_0_12px_-12px_rgba(15,23,42,0.25)] lg:shadow-none'
+
 const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: 'Admin',
   SUPERVISOR: 'Supervisor',
@@ -257,7 +263,7 @@ export function UsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Pengguna</h1>
           <p className="text-sm text-text-secondary mt-1">
@@ -318,7 +324,9 @@ export function UsersPage() {
                   {hg.headers.map((h) => (
                     <th
                       key={h.id}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
+                      className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap ${
+                        h.column.id === 'actions' ? STICKY_ACTIONS_HEAD : ''
+                      }`}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     </th>
@@ -362,10 +370,10 @@ export function UsersPage() {
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-t border-divider hover:bg-surface transition-colors"
+                    className="group border-t border-divider hover:bg-surface transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
+                      <td key={cell.id} className={`px-4 py-3 ${cell.column.id === 'actions' ? STICKY_ACTIONS_CELL : ''}`}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}

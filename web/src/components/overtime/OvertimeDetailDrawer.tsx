@@ -77,8 +77,9 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
   // Fetch linked attendance for site_timezone + checkin/checkout context
   const { data: attendance, isLoading: attLoading } = useQuery({
     queryKey: ['attendance-detail', request?.attendance_id],
-    queryFn: () => attendanceApi.getById(request!.attendance_id),
-    enabled: open && request != null,
+    queryFn: () => attendanceApi.getById(request!.attendance_id!),
+    // Overtime requested before working has no attendance record yet
+    enabled: open && request != null && request.attendance_id != null,
     staleTime: 60_000,
   })
 
@@ -124,7 +125,9 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
             <DialogTitle>Detail Pengajuan Lembur</DialogTitle>
             <DialogDescription>
               {request
-                ? `Pengajuan #${request.id} — Absensi #${request.attendance_id}`
+                ? `Pengajuan #${request.id}${request.employee_name ? ` · ${request.employee_name}` : ''} — ${
+                    request.attendance_id != null ? `Absensi #${request.attendance_id}` : 'diajukan sebelum kerja'
+                  }`
                 : ''}
             </DialogDescription>
           </DialogHeader>
@@ -179,9 +182,11 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
                   Absensi Terkait
                 </p>
                 <DetailRow label="ID Absensi">
-                  <span className="font-mono">#{overtime.attendance_id}</span>
+                  {overtime.attendance_id != null
+                    ? <span className="font-mono">#{overtime.attendance_id}</span>
+                    : <span className="text-text-secondary">Belum ada — lembur diajukan sebelum kerja</span>}
                 </DetailRow>
-                {attendance ? (
+                {overtime.attendance_id == null ? null : attendance ? (
                   <>
                     <DetailRow label="Check-in">
                       {formatDateTime(attendance.checkin_time, tz)}

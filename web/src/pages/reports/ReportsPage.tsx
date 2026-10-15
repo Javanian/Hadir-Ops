@@ -378,7 +378,7 @@ export function ReportsPage() {
             icon={<TrendingUp size={20} />}
             title="Total Lembur"
             value={formatDuration(summary.totalOvertime)}
-            variant="default"
+            variant="overtime"
           />
         </div>
       ) : null}

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 
-type StatsCardVariant = 'default' | 'success' | 'warning' | 'danger'
+type StatsCardVariant = 'default' | 'success' | 'warning' | 'danger' | 'overtime'
 
 interface StatsCardProps {
   icon: React.ReactNode
@@ -17,6 +17,7 @@ const variantStyles: Record<StatsCardVariant, { bg: string; icon: string }> = {
   success: { bg: 'bg-green-100', icon: 'text-green-600' },
   warning: { bg: 'bg-amber-100', icon: 'text-amber-600' },
   danger: { bg: 'bg-red-100', icon: 'text-red-600' },
+  overtime: { bg: 'bg-violet-100', icon: 'text-violet-600' },
 }
 
 export function StatsCard({
@@ -30,7 +31,7 @@ export function StatsCard({
   const styles = variantStyles[variant]
 
   return (
-    <div className="group bg-white rounded-2xl border border-slate-200/80 shadow-soft p-5 flex items-center gap-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-lift">
+    <div className="group bg-white rounded-2xl border border-slate-200/80 shadow-soft p-4 flex flex-col items-start gap-3 transition duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:p-5 sm:flex-row sm:items-center sm:gap-4">
       <div
         className={cn(
           'h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-inset ring-slate-900/5',
@@ -41,7 +42,7 @@ export function StatsCard({
         <span className={styles.icon} aria-hidden="true">{icon}</span>
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-text-secondary truncate">{title}</p>
+        <p className="text-xs text-text-secondary sm:truncate">{title}</p>
         {loading ? (
           <Skeleton className="h-6 w-14 mt-1" />
         ) : (

@@ -185,22 +185,22 @@ export function AttendancePage() {
         </div>
         {isAdmin && (
           <Button
-            variant="destructive"
+            variant="outline"
             onClick={() => setShowAutoCheckoutConfirm(true)}
             disabled={autoCheckoutMutation.isPending}
           >
             <Clock className="h-4 w-4" />
-            Trigger Auto-Checkout
+            Jalankan Auto-Checkout
           </Button>
         )}
       </div>
 
       {/* Filter bar */}
       <div className="rounded-lg border border-divider bg-surface p-4">
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
           {/* Date range */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="attendance-from" className="text-xs font-medium text-text-secondary whitespace-nowrap">
+          <div className="col-span-2 flex items-center gap-2 sm:col-auto">
+            <label htmlFor="attendance-from" className="w-14 text-xs font-medium text-text-secondary whitespace-nowrap sm:w-auto">
               Dari:
             </label>
             <input
@@ -208,11 +208,11 @@ export function AttendancePage() {
               type="date"
               value={fromDate}
               onChange={(e) => { setFromDate(e.target.value); setPage(0) }}
-              className="h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="h-9 min-w-0 flex-1 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 sm:flex-none"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="attendance-to" className="text-xs font-medium text-text-secondary whitespace-nowrap">
+          <div className="col-span-2 flex items-center gap-2 sm:col-auto">
+            <label htmlFor="attendance-to" className="w-14 text-xs font-medium text-text-secondary whitespace-nowrap sm:w-auto">
               Sampai:
             </label>
             <input
@@ -221,7 +221,7 @@ export function AttendancePage() {
               value={toDate}
               min={fromDate}
               onChange={(e) => { setToDate(e.target.value); setPage(0) }}
-              className="h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="h-9 min-w-0 flex-1 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 sm:flex-none"
             />
           </div>
 
@@ -230,7 +230,7 @@ export function AttendancePage() {
             aria-label="Filter status"
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as AttendanceStatus | ''); setPage(0) }}
-            className="h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
+            className="col-span-2 h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 sm:col-auto"
           >
             <option value="">Semua Status</option>
             <option value="ONTIME">Tepat Waktu</option>
@@ -239,7 +239,7 @@ export function AttendancePage() {
           </select>
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[180px]">
+          <div className="relative col-span-2 min-w-[180px] flex-1 sm:col-auto">
             <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-secondary" />
             <input
               aria-label="Cari karyawan"
@@ -404,7 +404,7 @@ export function AttendancePage() {
                         <div className="flex flex-col gap-0.5">
                           {/* Check-in */}
                           <div className="flex items-center justify-between gap-2 min-w-[140px]">
-                            <span className="text-[10px] text-text-secondary whitespace-nowrap">
+                            <span className="text-xs text-text-secondary whitespace-nowrap">
                               {formatDate(record.checkin_time, tz)}
                             </span>
                             <span className="text-xs font-medium text-text-primary whitespace-nowrap">
@@ -415,7 +415,7 @@ export function AttendancePage() {
                           {/* Check-out */}
                           {record.checkout_time ? (
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-text-secondary whitespace-nowrap">
+                              <span className="text-xs text-text-secondary whitespace-nowrap">
                                 {formatDate(record.checkout_time, tz)}
                               </span>
                               <span className="text-xs font-medium text-text-primary whitespace-nowrap">
@@ -429,11 +429,11 @@ export function AttendancePage() {
                           )}
                         </div>
                       </td>
-                      {/* Durasi: Reguler dan Overtime ditumpuk */}
+                      {/* Durasi: reguler dan lembur ditumpuk */}
                       <td className="px-4 py-3 hidden md:table-cell text-center">
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center justify-between gap-2 min-w-[100px]">
-                            <span className="text-[10px] font-semibold text-blue-600 whitespace-nowrap">
+                            <span className="text-xs font-medium text-text-secondary whitespace-nowrap">
                               Reguler
                             </span>
                             <span className="text-xs text-text-secondary whitespace-nowrap">
@@ -444,8 +444,8 @@ export function AttendancePage() {
                           </div>
                           <div className="border-t border-divider" />
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-semibold text-orange-500 whitespace-nowrap">
-                              Overtime
+                            <span className="text-xs font-semibold text-violet-600 whitespace-nowrap">
+                              Lembur
                             </span>
                             <span className="text-xs text-text-secondary whitespace-nowrap">
                               {record.overtime_minutes > 0
@@ -514,7 +514,7 @@ export function AttendancePage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Trigger Auto-Checkout</AlertDialogTitle>
+            <AlertDialogTitle>Jalankan Auto-Checkout</AlertDialogTitle>
             <AlertDialogDescription>
               Proses ini akan secara otomatis melakukan checkout untuk semua karyawan yang
               melewati waktu akhir shift tetapi belum melakukan checkout.

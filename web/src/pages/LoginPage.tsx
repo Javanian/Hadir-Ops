@@ -205,7 +205,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-text-secondary lg:text-left">HadirOps · Attendance and workforce operations</p>
+        <p className="text-center text-xs text-text-secondary lg:text-left">HadirOps · Presensi dan operasional karyawan</p>
       </div>
     </div>
   )

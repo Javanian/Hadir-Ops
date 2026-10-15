@@ -25,6 +25,12 @@ import { showSuccess, showError } from '@/utils/toast'
 import { DAY_LABELS } from '@/types/shifts'
 import type { ShiftResponse } from '@/types/shifts'
 
+// The action column stays pinned to the right edge while the rest of the
+// table scrolls sideways on narrow screens.
+const STICKY_ACTIONS_HEAD = 'sticky right-0 bg-slate-800'
+const STICKY_ACTIONS_CELL =
+  'sticky right-0 bg-white group-hover:bg-surface shadow-[-12px_0_12px_-12px_rgba(15,23,42,0.25)] lg:shadow-none'
+
 function formatTime(t: string): string {
   return t.substring(0, 5) // "HH:MM:SS" → "HH:MM"
 }
@@ -77,14 +83,14 @@ export function ShiftsPage() {
       accessorKey: 'name',
       header: 'Nama Shift',
       cell: ({ row }) => (
-        <span className="font-medium text-text-primary">{row.original.name ?? '—'}</span>
+        <span className="font-medium text-text-primary whitespace-nowrap">{row.original.name ?? '—'}</span>
       ),
     },
     {
       accessorKey: 'site_id',
       header: 'Lokasi',
       cell: ({ row }) => (
-        <span className="text-sm text-text-secondary">{siteName(row.original.site_id)}</span>
+        <span className="text-sm text-text-secondary whitespace-nowrap">{siteName(row.original.site_id)}</span>
       ),
     },
     {
@@ -92,11 +98,11 @@ export function ShiftsPage() {
       header: 'Jam Kerja',
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-sm">
+          <span className="font-mono text-sm whitespace-nowrap">
             {formatTime(row.original.start_time)} – {formatTime(row.original.end_time)}
           </span>
           {row.original.is_cross_midnight && (
-            <Badge variant="warning" className="text-xs">+1 hari</Badge>
+            <Badge variant="outline" className="text-xs whitespace-nowrap">+1 hari</Badge>
           )}
         </div>
       ),
@@ -105,7 +111,7 @@ export function ShiftsPage() {
       accessorKey: 'work_hours_standard',
       header: 'Std. Jam',
       cell: ({ row }) => (
-        <span className="text-sm text-text-secondary">{row.original.work_hours_standard} jam</span>
+        <span className="text-sm text-text-secondary whitespace-nowrap">{row.original.work_hours_standard} jam</span>
       ),
     },
     {
@@ -113,7 +119,7 @@ export function ShiftsPage() {
       header: 'Hari Kerja',
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-text-secondary">{getScheduleSummary(row.original)}</span>
+          <span className="text-xs text-text-secondary whitespace-nowrap">{getScheduleSummary(row.original)}</span>
           {row.original.schedules.length > 0 && (
             <Badge variant="success" className="text-xs">{row.original.schedules.length} hari</Badge>
           )}
@@ -172,7 +178,7 @@ export function ShiftsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Shift</h1>
           <p className="text-sm text-text-secondary mt-1">
@@ -217,7 +223,9 @@ export function ShiftsPage() {
                   {hg.headers.map((h) => (
                     <th
                       key={h.id}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
+                      className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap ${
+                        h.column.id === 'actions' ? STICKY_ACTIONS_HEAD : ''
+                      }`}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     </th>
@@ -260,10 +268,10 @@ export function ShiftsPage() {
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-t border-divider hover:bg-surface transition-colors"
+                    className="group border-t border-divider hover:bg-surface transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
+                      <td key={cell.id} className={`px-4 py-3 ${cell.column.id === 'actions' ? STICKY_ACTIONS_CELL : ''}`}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}

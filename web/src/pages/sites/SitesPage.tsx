@@ -44,7 +44,7 @@ export function SitesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Lokasi</h1>
           <p className="text-sm text-text-secondary mt-1">
@@ -69,7 +69,7 @@ export function SitesPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell">
                   Koordinat
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell">
                   Radius
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
@@ -141,11 +141,11 @@ export function SitesPage() {
                         {site.latitude.toFixed(5)}, {site.longitude.toFixed(5)}
                       </a>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-text-secondary">{site.radius_meter} m</span>
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <span className="text-text-secondary whitespace-nowrap">{site.radius_meter} m</span>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant="info">
+                      <Badge variant="outline" className="whitespace-nowrap">
                         {TIMEZONE_SHORT[site.timezone] ?? site.timezone}
                       </Badge>
                     </td>

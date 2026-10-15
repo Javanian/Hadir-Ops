@@ -76,7 +76,7 @@ export function AssignmentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-text-primary">Penugasan Sementara</h1>
           <p className="text-sm text-text-secondary mt-1">
@@ -196,7 +196,7 @@ export function AssignmentsPage() {
                       {/* Lokasi */}
                       <td className="px-4 py-3">
                         <div className="text-text-primary">{row.site.name}</div>
-                        <Badge variant="info" className="mt-0.5 text-[10px]">
+                        <Badge variant="info" className="mt-0.5 text-xs">
                           {TIMEZONE_SHORT[row.site.timezone] ?? row.site.timezone}
                         </Badge>
                       </td>
@@ -223,7 +223,7 @@ export function AssignmentsPage() {
 
                       {/* Status */}
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_BADGE[st]}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_BADGE[st]}`}>
                           {st}
                         </span>
                       </td>

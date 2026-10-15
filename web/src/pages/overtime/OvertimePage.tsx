@@ -65,15 +65,17 @@ export function OvertimePage() {
     retry: false,
   })
 
-  // Client-side search: filter by ID or attendance_id
+  // Client-side search: employee name / id, request id or attendance id
   const filteredData = useMemo(() => {
     if (!data) return []
     if (!search.trim()) return data
-    const q = search.trim().toLowerCase()
+    const q = search.trim().toLowerCase().replace(/^#/, '')
     return data.filter(
       (r) =>
-        String(r.id).includes(q) ||
-        String(r.attendance_id).includes(q),
+        (r.employee_name ?? '').toLowerCase().includes(q) ||
+        (r.employee_id ?? '').toLowerCase().includes(q) ||
+        String(r.id) === q ||
+        (r.attendance_id !== null && String(r.attendance_id) === q),
     )
   }, [data, search])
 
@@ -95,7 +97,7 @@ export function OvertimePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Lembur</h1>
           <p className="text-sm text-text-secondary mt-1">
@@ -127,33 +129,33 @@ export function OvertimePage() {
 
       {/* Summary cards — shown when "All" tab is active */}
       {activeTab === '' && !isLoading && data && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           <div className="rounded-lg border border-divider bg-surface p-4">
             <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">Menunggu</p>
-            <p className="text-2xl font-bold text-yellow-500 mt-1">{counts.pending}</p>
+            <p className="text-2xl font-bold text-amber-700 mt-1 tabular-nums">{counts.pending}</p>
           </div>
           <div className="rounded-lg border border-divider bg-surface p-4">
             <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">Disetujui</p>
-            <p className="text-2xl font-bold text-green-600 mt-1">{counts.approved}</p>
+            <p className="text-2xl font-bold text-green-700 mt-1 tabular-nums">{counts.approved}</p>
           </div>
           <div className="rounded-lg border border-divider bg-surface p-4">
             <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">Ditolak</p>
-            <p className="text-2xl font-bold text-red-500 mt-1">{counts.rejected}</p>
+            <p className="text-2xl font-bold text-red-700 mt-1 tabular-nums">{counts.rejected}</p>
           </div>
         </div>
       )}
 
       {/* Search bar */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <Input
           aria-label="Cari pengajuan lembur"
-          placeholder="Cari ID pengajuan atau ID absensi..."
+          placeholder="Cari nama karyawan atau nomor pengajuan..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
         {!isLoading && data && (
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-text-secondary whitespace-nowrap tabular-nums">
             {filteredData.length} dari {data.length} pengajuan
           </p>
         )}
@@ -169,6 +171,9 @@ export function OvertimePage() {
                   # Pengajuan
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
+                  Karyawan
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap hidden lg:table-cell">
                   # Absensi
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
@@ -192,7 +197,7 @@ export function OvertimePage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-t border-divider">
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <Skeleton className="h-4 w-full" />
                       </td>
@@ -201,7 +206,7 @@ export function OvertimePage() {
                 ))
               ) : isError ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
                       <p className="text-text-secondary text-sm">Gagal memuat data lembur.</p>
@@ -214,7 +219,7 @@ export function OvertimePage() {
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-text-secondary text-sm">
+                  <td colSpan={8} className="px-4 py-12 text-center text-text-secondary text-sm">
                     Tidak ada pengajuan lembur ditemukan.
                   </td>
                 </tr>
@@ -228,15 +233,23 @@ export function OvertimePage() {
                     <td className="px-4 py-3">
                       <span className="font-mono text-sm text-text-secondary">#{req.id}</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-sm font-medium text-text-primary">
-                        #{req.attendance_id}
-                      </span>
+                    <td className="px-4 py-3 min-w-[10rem]">
+                      <p className="font-medium text-text-primary">{req.employee_name ?? '—'}</p>
+                      {req.employee_id && (
+                        <p className="text-xs text-text-secondary font-mono">{req.employee_id}</p>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-text-primary">
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      {req.attendance_id !== null ? (
+                        <span className="font-mono text-sm text-text-secondary">#{req.attendance_id}</span>
+                      ) : (
+                        <span className="text-xs text-text-secondary">Diajukan sebelum kerja</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-text-primary whitespace-nowrap">
                       {fmtDateTime(req.requested_start)}
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-text-primary">
+                    <td className="px-4 py-3 hidden md:table-cell text-text-primary whitespace-nowrap">
                       {fmtDateTime(req.requested_end)}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-center text-text-secondary">

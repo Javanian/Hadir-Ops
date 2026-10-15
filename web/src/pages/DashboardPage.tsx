@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Users, CheckCircle, Clock, AlertCircle, CalendarX } from 'lucide-react'
+import { Users, CheckCircle, Clock, Timer, CalendarX } from 'lucide-react'
 import { attendanceApi } from '@/api/attendance.api'
 import { overtimeApi } from '@/api/overtime.api'
 import { leaveApi } from '@/api/leave.api'
@@ -104,7 +104,7 @@ export function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 sm:gap-4">
         <StatsCard
           icon={<Users size={20} />}
           title="Hadir Hari Ini"
@@ -127,11 +127,11 @@ export function DashboardPage() {
           variant="warning"
         />
         <StatsCard
-          icon={<AlertCircle size={20} />}
-          title="Lembur Pending"
+          icon={<Timer size={20} />}
+          title="Lembur Menunggu"
           value={pendingOT.length}
           loading={otLoading}
-          variant="danger"
+          variant="overtime"
         />
         <StatsCard
           icon={<CalendarX size={20} />}
