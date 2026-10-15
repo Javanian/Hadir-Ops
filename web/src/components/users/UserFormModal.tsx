@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Field } from '@/components/ui/field'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -115,17 +116,15 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
 
         {isEdit ? (
           <form onSubmit={handleEdit((d) => editMutation.mutate(d))} className="space-y-4">
-            <div className="space-y-1.5">
+            <Field error={ee.name?.message}>
               <Label>Nama Lengkap *</Label>
               <Input placeholder="Nama lengkap" {...regEdit('name')} />
-              {ee.name && <p className="text-xs text-red-500">{ee.name.message}</p>}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field error={ee.email?.message}>
               <Label>Email *</Label>
               <Input type="email" placeholder="email@perusahaan.com" {...regEdit('email')} />
-              {ee.email && <p className="text-xs text-red-500">{ee.email.message}</p>}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field>
               <Label>Role *</Label>
               <Controller control={controlEdit} name="role" render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
@@ -138,17 +137,17 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
                   </SelectContent>
                 </Select>
               )} />
-            </div>
+            </Field>
 
             {watchEdit('role') === 'EMPLOYEE' && (
-              <div className="space-y-1.5">
+              <Field>
                 <Label>Supervisor</Label>
                 <Input
                   placeholder="ID supervisor (opsional)"
                   type="number"
                   onChange={(e) => setEditValue('supervisor_id', e.target.value ? parseInt(e.target.value) : null)}
                 />
-              </div>
+              </Field>
             )}
             <div className="flex items-center gap-3">
               <input type="checkbox" id="is_active_edit" {...regEdit('is_active')} className="h-4 w-4 accent-brand" />
@@ -163,22 +162,19 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
           </form>
         ) : (
           <form onSubmit={handleCreate((d) => createMutation.mutate(d))} className="space-y-4">
-            <div className="space-y-1.5">
+            <Field error={ce.employee_id?.message}>
               <Label>ID Karyawan *</Label>
               <Input placeholder="cth. EMP001" {...regCreate('employee_id')} />
-              {ce.employee_id && <p className="text-xs text-red-500">{ce.employee_id.message}</p>}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field error={ce.name?.message}>
               <Label>Nama Lengkap *</Label>
               <Input placeholder="Nama lengkap" {...regCreate('name')} />
-              {ce.name && <p className="text-xs text-red-500">{ce.name.message}</p>}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field error={ce.email?.message}>
               <Label>Email *</Label>
               <Input type="email" placeholder="email@perusahaan.com" {...regCreate('email')} />
-              {ce.email && <p className="text-xs text-red-500">{ce.email.message}</p>}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field>
               <Label>Role *</Label>
               <Controller control={controlCreate} name="role" render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
@@ -191,10 +187,10 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
                   </SelectContent>
                 </Select>
               )} />
-            </div>
+            </Field>
 
             {watchCreate('role') === 'EMPLOYEE' && (
-              <div className="space-y-1.5">
+              <Field>
                 <Label>Supervisor</Label>
                 <Input
                   placeholder="ID supervisor (opsional)"
@@ -203,13 +199,12 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
                     regCreate('supervisor_id').onChange({ target: { value: e.target.value ? parseInt(e.target.value) : null } })
                   }
                 />
-              </div>
+              </Field>
             )}
-            <div className="space-y-1.5">
+            <Field error={ce.password?.message}>
               <Label>Password *</Label>
               <Input type="password" placeholder="Minimal 8 karakter" {...regCreate('password')} />
-              {ce.password && <p className="text-xs text-red-500">{ce.password.message}</p>}
-            </div>
+            </Field>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>Batal</Button>
               <Button type="submit" disabled={createMutation.isPending}>

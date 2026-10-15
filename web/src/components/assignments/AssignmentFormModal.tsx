@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Field } from '@/components/ui/field'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -158,7 +159,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-2">
 
           {/* Pilih Karyawan — searchable */}
-          <div className="space-y-1.5">
+          <Field error={errors.user_id?.message}>
             <Label>Pilih Karyawan *</Label>
             <div className="relative">
               <Input
@@ -194,18 +195,15 @@ export function AssignmentFormModal({ open, onClose }: Props) {
                 </div>
               )}
             </div>
-            {errors.user_id && (
-              <p className="text-xs text-red-500">{errors.user_id.message}</p>
-            )}
             {selectedUser && (
               <p className="text-xs text-text-secondary">
                 Terpilih: <strong>{selectedUser.name}</strong> ({selectedUser.employee_id})
               </p>
             )}
-          </div>
+          </Field>
 
           {/* Pilih Lokasi */}
-          <div className="space-y-1.5">
+          <Field error={errors.site_id?.message}>
             <Label>Pilih Lokasi *</Label>
             <Controller
               control={control}
@@ -228,13 +226,10 @@ export function AssignmentFormModal({ open, onClose }: Props) {
                 </Select>
               )}
             />
-            {errors.site_id && (
-              <p className="text-xs text-red-500">{errors.site_id.message}</p>
-            )}
-          </div>
+          </Field>
 
           {/* Pilih Shift */}
-          <div className="space-y-1.5">
+          <Field error={errors.shift_id?.message}>
             <Label>Pilih Shift *</Label>
             <Controller
               control={control}
@@ -258,33 +253,25 @@ export function AssignmentFormModal({ open, onClose }: Props) {
                 </Select>
               )}
             />
-            {errors.shift_id && (
-              <p className="text-xs text-red-500">{errors.shift_id.message}</p>
-            )}
-          </div>
+          </Field>
 
           {/* Tanggal Mulai & Selesai */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <Field error={errors.start_date?.message}>
               <Label>Tanggal Mulai *</Label>
               <Input type="date" min={today} {...register('start_date')} />
-              {errors.start_date && (
-                <p className="text-xs text-red-500">{errors.start_date.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field error={errors.end_date?.message}>
               <Label>Tanggal Selesai *</Label>
               <Input type="date" min={today} {...register('end_date')} />
-              {errors.end_date && (
-                <p className="text-xs text-red-500">{errors.end_date.message}</p>
-              )}
-            </div>
+            </Field>
           </div>
 
           {/* Catatan */}
           <div className="space-y-1.5">
-            <Label>Catatan (opsional)</Label>
+            <Label htmlFor="assignment-notes">Catatan (opsional)</Label>
             <textarea
+              id="assignment-notes"
               className="w-full px-3 py-2 text-sm border border-divider rounded-md bg-white text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-brand/30 resize-none"
               rows={2}
               placeholder="Alasan penugasan, instruksi khusus, dll."

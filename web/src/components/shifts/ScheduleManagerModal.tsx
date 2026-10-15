@@ -159,6 +159,7 @@ export function ScheduleManagerModal({ open, onClose, shift }: Props) {
                   }`}
                 >
                   <Input
+                    aria-label={`Toleransi terlambat ${DAY_LABELS[d]} (menit)`}
                     type="number"
                     min={0}
                     max={120}

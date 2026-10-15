@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Download, FileBarChart } from 'lucide-react'
+import { Search, Download, FileBarChart, Users, CheckCircle, Clock, MapPinOff, Hourglass, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -235,45 +235,53 @@ export function ReportsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* From date */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">
+            <label htmlFor="report-from-date" className="block text-xs font-medium text-text-secondary mb-1">
               Dari Tanggal
             </label>
             <input
+              id="report-from-date"
               type="date"
+              aria-invalid={Boolean(errors.from_date)}
+              aria-describedby={errors.from_date ? 'report-from-date-error' : undefined}
               {...register('from_date')}
               className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
             />
             {errors.from_date && (
-              <p className="text-xs text-red-500 mt-1">{errors.from_date.message}</p>
+              <p id="report-from-date-error" className="text-xs text-red-600 mt-1">{errors.from_date.message}</p>
             )}
           </div>
 
           {/* To date */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">
+            <label htmlFor="report-to-date" className="block text-xs font-medium text-text-secondary mb-1">
               Sampai Tanggal
             </label>
             <input
+              id="report-to-date"
               type="date"
+              aria-invalid={Boolean(errors.to_date)}
+              aria-describedby={errors.to_date ? 'report-to-date-error' : undefined}
               {...register('to_date')}
               className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
             />
             {errors.to_date && (
-              <p className="text-xs text-red-500 mt-1">{errors.to_date.message}</p>
+              <p id="report-to-date-error" className="text-xs text-red-600 mt-1">{errors.to_date.message}</p>
             )}
           </div>
 
           {/* Employee search */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">
+            <label htmlFor="report-employee-search" className="block text-xs font-medium text-text-secondary mb-1">
               Nama / ID Karyawan
             </label>
             <div className="relative">
               <Search
                 size={14}
+                aria-hidden="true"
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-text-disabled"
               />
               <input
+                id="report-employee-search"
                 type="text"
                 placeholder="Cari..."
                 {...register('employee_search')}
@@ -284,10 +292,11 @@ export function ReportsPage() {
 
           {/* Status filter */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">
+            <label htmlFor="report-status" className="block text-xs font-medium text-text-secondary mb-1">
               Status
             </label>
             <select
+              id="report-status"
               {...register('status_filter')}
               disabled={view === 'recap'}
               title={view === 'recap' ? 'Filter status hanya untuk detail absensi' : undefined}
@@ -325,48 +334,48 @@ export function ReportsPage() {
 
       {/* Summary cards — shown only after first fetch */}
       {view === 'detail' && detailFetching ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
       ) : hasData ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
           <StatsCard
-            icon={<span className="text-base font-bold">#</span>}
+            icon={<Users size={20} />}
             title="Total Hadir"
             value={summary.total}
             variant="default"
           />
           <StatsCard
-            icon={<span className="text-base">✓</span>}
+            icon={<CheckCircle size={20} />}
             title="Tepat Waktu"
             value={summary.ontime}
             subtitle={`${summary.ontimePct}%`}
             variant="success"
           />
           <StatsCard
-            icon={<span className="text-base">⏰</span>}
+            icon={<Clock size={20} />}
             title="Terlambat"
             value={summary.late}
             subtitle={`${summary.latePct}%`}
             variant="warning"
           />
           <StatsCard
-            icon={<span className="text-base">📍</span>}
+            icon={<MapPinOff size={20} />}
             title="Di Luar Radius"
             value={summary.outOfRadius}
             subtitle={`${summary.outPct}%`}
             variant="danger"
           />
           <StatsCard
-            icon={<span className="text-base">⌛</span>}
+            icon={<Hourglass size={20} />}
             title="Rata-rata Durasi"
             value={formatDuration(summary.avgWork)}
             variant="default"
           />
           <StatsCard
-            icon={<span className="text-base">📈</span>}
+            icon={<TrendingUp size={20} />}
             title="Total Lembur"
             value={formatDuration(summary.totalOvertime)}
             variant="default"

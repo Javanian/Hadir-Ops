@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Field } from '@/components/ui/field'
 import { holidaysApi } from '@/api/shifts.api'
 import { isAxiosError } from '@/api/axios'
 import { showSuccess, showError } from '@/utils/toast'
@@ -130,13 +131,10 @@ export function HolidayFormModal({ open, onClose, editingHoliday }: Props) {
               <p className="text-sm font-medium text-text-primary">{editingHoliday?.holiday_date}</p>
               <p className="text-xs text-text-secondary">Tanggal tidak dapat diubah.</p>
             </div>
-            <div className="space-y-1.5">
+            <Field error={ee.description?.message}>
               <Label>Keterangan</Label>
               <Input placeholder="cth. Hari Raya Idul Fitri" {...regEdit('description')} />
-              {ee.description && (
-                <p className="text-xs text-red-500">{ee.description.message}</p>
-              )}
-            </div>
+            </Field>
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
@@ -155,20 +153,14 @@ export function HolidayFormModal({ open, onClose, editingHoliday }: Props) {
           </form>
         ) : (
           <form onSubmit={handleCreate((d) => createMutation.mutate(d))} className="space-y-4">
-            <div className="space-y-1.5">
+            <Field error={ce.holiday_date?.message}>
               <Label>Tanggal *</Label>
               <Input type="date" {...regCreate('holiday_date')} />
-              {ce.holiday_date && (
-                <p className="text-xs text-red-500">{ce.holiday_date.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field error={ce.description?.message}>
               <Label>Keterangan</Label>
               <Input placeholder="cth. Hari Raya Idul Fitri" {...regCreate('description')} />
-              {ce.description && (
-                <p className="text-xs text-red-500">{ce.description.message}</p>
-              )}
-            </div>
+            </Field>
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"

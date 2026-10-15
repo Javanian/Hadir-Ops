@@ -92,6 +92,7 @@ export function AssignmentsPage() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3">
         <select
+          aria-label="Filter lokasi"
           className="text-sm border border-divider rounded-md px-3 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/30"
           value={filterSiteId}
           onChange={(e) => setFilterSiteId(e.target.value === '' ? '' : Number(e.target.value))}
@@ -235,6 +236,7 @@ export function AssignmentsPage() {
                             size="icon"
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
                             onClick={() => setDeleting(row)}
+                            aria-label={`Hapus penugasan ${row.user.full_name}`}
                             title="Hapus"
                           >
                             <Trash2 className="h-4 w-4" />

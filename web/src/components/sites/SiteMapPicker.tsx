@@ -183,6 +183,7 @@ export function SiteMapPicker({ latitude, longitude, radiusMeter, onChange }: Si
       {/* Search bar — NOT a <form> to avoid nested form inside SiteFormModal */}
       <div className="flex gap-2 p-2 border-b border-border shrink-0">
         <Input
+          aria-label="Cari lokasi di peta"
           placeholder="Cari lokasi (cth. Jakarta, Bandung)…"
           value={searchQuery}
           onChange={handleSearchChange}

@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Field } from '@/components/ui/field'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -121,14 +122,13 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
             className="w-1/4 min-w-[260px] flex flex-col overflow-y-auto px-6 py-4 gap-4"
           >
             {/* Nama Lokasi */}
-            <div className="space-y-1.5">
+            <Field error={errors.name?.message}>
               <Label>Nama Lokasi *</Label>
               <Input placeholder="cth. Site Jakarta" {...register('name')} />
-              {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-            </div>
+            </Field>
 
             {/* Latitude */}
-            <div className="space-y-1.5">
+            <Field error={errors.latitude?.message}>
               <Label>Latitude *</Label>
               <Input
                 type="number"
@@ -136,11 +136,10 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
                 placeholder="-6.2903"
                 {...register('latitude', { valueAsNumber: true })}
               />
-              {errors.latitude && <p className="text-xs text-red-500">{errors.latitude.message}</p>}
-            </div>
+            </Field>
 
             {/* Longitude */}
-            <div className="space-y-1.5">
+            <Field error={errors.longitude?.message}>
               <Label>Longitude *</Label>
               <Input
                 type="number"
@@ -148,24 +147,20 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
                 placeholder="106.7981"
                 {...register('longitude', { valueAsNumber: true })}
               />
-              {errors.longitude && <p className="text-xs text-red-500">{errors.longitude.message}</p>}
-            </div>
+            </Field>
 
             {/* Radius */}
-            <div className="space-y-1.5">
+            <Field error={errors.radius_meter?.message}>
               <Label>Radius Absensi (meter) *</Label>
               <Input
                 type="number"
                 placeholder="100"
                 {...register('radius_meter', { valueAsNumber: true })}
               />
-              {errors.radius_meter && (
-                <p className="text-xs text-red-500">{errors.radius_meter.message}</p>
-              )}
-            </div>
+            </Field>
 
             {/* Timezone */}
-            <div className="space-y-1.5">
+            <Field error={errors.timezone?.message}>
               <Label>Zona Waktu *</Label>
               <Controller
                 control={control}
@@ -181,8 +176,7 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
                   </Select>
                 )}
               />
-              {errors.timezone && <p className="text-xs text-red-500">{errors.timezone.message}</p>}
-            </div>
+            </Field>
 
             {/* Hint */}
             <p className="text-xs text-muted-foreground">

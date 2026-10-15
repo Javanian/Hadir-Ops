@@ -139,6 +139,7 @@ export function ShiftsPage() {
             variant="ghost"
             size="icon"
             onClick={() => { setEditingShift(row.original); setModalOpen(true) }}
+            aria-label={`Ubah shift ${row.original.name ?? ''}`}
             title="Edit"
           >
             <Pencil className="h-4 w-4" />
@@ -149,6 +150,7 @@ export function ShiftsPage() {
               size="icon"
               className="text-red-500 hover:text-red-700 hover:bg-red-50"
               onClick={() => setDeletingShift(row.original)}
+              aria-label={`Hapus shift ${row.original.name ?? ''}`}
               title="Hapus"
             >
               <Trash2 className="h-4 w-4" />

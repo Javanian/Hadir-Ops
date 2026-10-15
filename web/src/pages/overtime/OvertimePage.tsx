@@ -146,6 +146,7 @@ export function OvertimePage() {
       {/* Search bar */}
       <div className="flex items-center gap-3">
         <Input
+          aria-label="Cari pengajuan lembur"
           placeholder="Cari ID pengajuan atau ID absensi..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}

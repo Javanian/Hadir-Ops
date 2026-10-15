@@ -200,10 +200,11 @@ export function AttendancePage() {
         <div className="flex flex-wrap gap-3">
           {/* Date range */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-text-secondary whitespace-nowrap">
+            <label htmlFor="attendance-from" className="text-xs font-medium text-text-secondary whitespace-nowrap">
               Dari:
             </label>
             <input
+              id="attendance-from"
               type="date"
               value={fromDate}
               onChange={(e) => { setFromDate(e.target.value); setPage(0) }}
@@ -211,10 +212,11 @@ export function AttendancePage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-text-secondary whitespace-nowrap">
+            <label htmlFor="attendance-to" className="text-xs font-medium text-text-secondary whitespace-nowrap">
               Sampai:
             </label>
             <input
+              id="attendance-to"
               type="date"
               value={toDate}
               min={fromDate}
@@ -225,6 +227,7 @@ export function AttendancePage() {
 
           {/* Status filter */}
           <select
+            aria-label="Filter status"
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as AttendanceStatus | ''); setPage(0) }}
             className="h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
@@ -237,8 +240,9 @@ export function AttendancePage() {
 
           {/* Search */}
           <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-secondary" />
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-secondary" />
             <input
+              aria-label="Cari karyawan"
               type="text"
               placeholder="Cari nama atau ID karyawan..."
               value={search}

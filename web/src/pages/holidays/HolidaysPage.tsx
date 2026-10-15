@@ -185,6 +185,7 @@ export function HolidaysPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => { setEditingHoliday(holiday); setModalOpen(true) }}
+                          aria-label={`Ubah hari libur ${holiday.description ?? holiday.holiday_date}`}
                           title="Edit"
                         >
                           <Pencil className="h-4 w-4" />
@@ -194,6 +195,7 @@ export function HolidaysPage() {
                           size="icon"
                           className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           onClick={() => setDeletingHoliday(holiday)}
+                          aria-label={`Hapus hari libur ${holiday.description ?? holiday.holiday_date}`}
                           title="Hapus"
                         >
                           <Trash2 className="h-4 w-4" />

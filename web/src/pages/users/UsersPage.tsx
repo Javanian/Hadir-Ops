@@ -211,6 +211,7 @@ export function UsersPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate(`/users/${row.original.id}`)}
+            aria-label={`Detail ${row.original.name}`}
             title="Detail"
           >
             <Eye className="h-4 w-4" />
@@ -221,6 +222,7 @@ export function UsersPage() {
                 variant="ghost"
                 size="icon"
                 onClick={() => { setEditingUser(row.original); setModalOpen(true) }}
+                aria-label={`Ubah ${row.original.name}`}
                 title="Edit"
               >
                 <Pencil className="h-4 w-4" />
@@ -230,6 +232,7 @@ export function UsersPage() {
                 size="icon"
                 className="text-red-500 hover:text-red-700 hover:bg-red-50"
                 onClick={() => setDeletingUser(row.original)}
+                aria-label={`Hapus ${row.original.name}`}
                 title="Hapus"
               >
                 <Trash2 className="h-4 w-4" />
@@ -275,8 +278,9 @@ export function UsersPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+          <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
           <Input
+            aria-label="Cari pengguna"
             placeholder="Cari nama atau ID karyawan..."
             value={search}
             onChange={(e) => updateSearch(e.target.value)}

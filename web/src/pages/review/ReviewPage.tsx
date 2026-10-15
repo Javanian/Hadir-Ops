@@ -309,6 +309,7 @@ export function ReviewPage() {
             </DialogDescription>
           </DialogHeader>
           <textarea
+            aria-label="Alasan penolakan"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}

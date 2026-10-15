@@ -155,6 +155,7 @@ export function SitesPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEdit(site)}
+                          aria-label={`Ubah lokasi ${site.name}`}
                           title="Edit"
                         >
                           <Pencil className="h-4 w-4" />
@@ -164,6 +165,7 @@ export function SitesPage() {
                           size="icon"
                           className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           onClick={() => setDeletingSite(site)}
+                          aria-label={`Hapus lokasi ${site.name}`}
                           title="Hapus"
                         >
                           <Trash2 className="h-4 w-4" />

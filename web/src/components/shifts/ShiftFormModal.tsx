@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Field } from '@/components/ui/field'
 import { Badge } from '@/components/ui/badge'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -123,7 +124,7 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
 
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
           {/* Site */}
-          <div className="space-y-1.5">
+          <Field error={errors.site_id?.message}>
             <Label>Lokasi Kerja *</Label>
             <Controller
               control={control}
@@ -149,32 +150,24 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
             {isEdit && (
               <p className="text-xs text-text-secondary">Lokasi tidak dapat diubah setelah shift dibuat.</p>
             )}
-            {errors.site_id && <p className="text-xs text-red-500">{errors.site_id.message}</p>}
-          </div>
+          </Field>
 
           {/* Name */}
-          <div className="space-y-1.5">
+          <Field error={errors.name?.message}>
             <Label>Nama Shift *</Label>
             <Input placeholder="cth. Pagi, Siang, Malam" {...register('name')} />
-            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-          </div>
+          </Field>
 
           {/* Times */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <Field error={errors.start_time?.message}>
               <Label>Jam Mulai *</Label>
               <Input type="time" {...register('start_time')} />
-              {errors.start_time && (
-                <p className="text-xs text-red-500">{errors.start_time.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
+            </Field>
+            <Field error={errors.end_time?.message}>
               <Label>Jam Selesai *</Label>
               <Input type="time" {...register('end_time')} />
-              {errors.end_time && (
-                <p className="text-xs text-red-500">{errors.end_time.message}</p>
-              )}
-            </div>
+            </Field>
           </div>
 
           {/* Cross-midnight warning */}
@@ -188,7 +181,7 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
           )}
 
           {/* Work hours */}
-          <div className="space-y-1.5">
+          <Field error={errors.work_hours_standard?.message}>
             <Label>Jam Kerja Standar (jam) *</Label>
             <Input
               type="number"
@@ -197,10 +190,7 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
               max={24}
               {...register('work_hours_standard', { valueAsNumber: true })}
             />
-            {errors.work_hours_standard && (
-              <p className="text-xs text-red-500">{errors.work_hours_standard.message}</p>
-            )}
-          </div>
+          </Field>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>Batal</Button>

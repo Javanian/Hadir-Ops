@@ -37,7 +37,8 @@ export function StatsCard({
           styles.bg,
         )}
       >
-        <span className={styles.icon}>{icon}</span>
+        {/* Decorative: the title next to it says what the number is */}
+        <span className={styles.icon} aria-hidden="true">{icon}</span>
       </div>
       <div className="min-w-0">
         <p className="text-xs text-text-secondary truncate">{title}</p>
