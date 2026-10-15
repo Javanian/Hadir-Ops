@@ -19,6 +19,7 @@ import OfflineBanner from '../components/OfflineBanner';
 import OutboxStatus from '../components/OutboxStatus';
 import { useOutbox } from '../offline/outbox';
 import { colors } from '../theme/colors'
+import { roleLabel } from '../utils/roles'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -234,7 +235,7 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>{user?.role ?? '-'}</Text>
+            <Text style={styles.roleBadgeText}>{roleLabel(user?.role)}</Text>
           </View>
         </View>
 
@@ -498,10 +499,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   ctaCheckin: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.successStrong,
   },
   ctaCheckout: {
-    backgroundColor: colors.warning,
+    backgroundColor: colors.action,
   },
   ctaDisabled: {
     backgroundColor: colors.textSubtle,

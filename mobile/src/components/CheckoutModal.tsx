@@ -182,7 +182,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
     if (step === 'locating') {
       return (
         <View style={styles.stateBox}>
-          <ActivityIndicator size="large" color={colors.warning} />
+          <ActivityIndicator size="large" color={colors.action} />
           <Text style={styles.stateTitle}>Mendapatkan Lokasi</Text>
           <Text style={styles.stateSubtitle}>Harap tunggu sebentar…</Text>
         </View>
@@ -193,7 +193,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
       return (
         <View style={styles.stateBox}>
           <View style={styles.iconCircle}>
-            <Ionicons name="log-out-outline" size={32} color={colors.warning} />
+            <Ionicons name="log-out-outline" size={32} color={colors.action} />
           </View>
           <Text style={styles.stateTitle}>Konfirmasi Check Out</Text>
           <Text style={styles.stateSubtitle}>
@@ -228,7 +228,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
               accessibilityLabel="Ambil foto"
             >
               {isCapturing
-                ? <ActivityIndicator color={colors.warning} />
+                ? <ActivityIndicator color={colors.action} />
                 : <View style={styles.shutterInner} />}
             </Pressable>
           </View>
@@ -239,7 +239,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
     if (step === 'verifying') {
       return (
         <View style={styles.stateBox}>
-          <ActivityIndicator size="large" color={colors.warning} />
+          <ActivityIndicator size="large" color={colors.action} />
           <Text style={styles.stateTitle}>Memverifikasi Wajah…</Text>
           <Text style={styles.stateSubtitle}>Harap tunggu sebentar.</Text>
         </View>
@@ -249,7 +249,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
     if (step === 'submitting') {
       return (
         <View style={styles.stateBox}>
-          <ActivityIndicator size="large" color={colors.warning} />
+          <ActivityIndicator size="large" color={colors.action} />
           <Text style={styles.stateTitle}>Mencatat Absensi Pulang…</Text>
         </View>
       );
@@ -277,8 +277,8 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
     if (step === 'success' && result) {
       return (
         <View style={styles.stateBox}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.warningTintStrong }]}>
-            <Ionicons name="checkmark-circle" size={40} color={colors.warning} />
+          <View style={[styles.iconCircle, { backgroundColor: colors.successTintStrong }]}>
+            <Ionicons name="checkmark-circle" size={40} color={colors.success} />
           </View>
           <Text style={styles.stateTitle}>Check Out Berhasil!</Text>
           {result.checkout_time && (
@@ -294,7 +294,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
             {result.overtime_minutes > 0 && (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Lembur</Text>
-                <Text style={[styles.summaryValue, { color: colors.warning }]}>
+                <Text style={[styles.summaryValue, { color: colors.overtime }]}>
                   {formatDuration(result.overtime_minutes)}
                 </Text>
               </View>
@@ -325,12 +325,12 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
               style={styles.retryBtn}
               onPress={() => { setErrorMsg(''); setStep('face_verify'); }}
             >
-              <Ionicons name="camera-outline" size={18} color={colors.warning} />
+              <Ionicons name="camera-outline" size={18} color={colors.action} />
               <Text style={styles.retryBtnText}>Coba Lagi</Text>
             </Pressable>
           ) : (
             <Pressable style={styles.retryBtn} onPress={requestAndLocate}>
-              <Ionicons name="refresh-outline" size={18} color={colors.warning} />
+              <Ionicons name="refresh-outline" size={18} color={colors.action} />
               <Text style={styles.retryBtnText}>Coba Lagi</Text>
             </Pressable>
           )}
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.warningTintStrong,
+    backgroundColor: colors.actionTintStrong,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     height: 52,
-    backgroundColor: colors.warning,
+    backgroundColor: colors.action,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: colors.warning,
+    borderColor: colors.action,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   retryBtnText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.warning,
+    color: colors.action,
   },
   // ── Camera (fills remaining space below header) ────────────────────────────
   cameraWrapper: {
@@ -573,6 +573,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.warning,
+    backgroundColor: colors.action,
   },
 });

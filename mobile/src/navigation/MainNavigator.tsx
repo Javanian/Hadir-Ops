@@ -8,6 +8,7 @@ import LeaveScreen from '../screens/LeaveScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SubordinateAttendanceScreen from '../screens/SubordinateAttendanceScreen';
 import { useAuthState } from '../store/authStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors'
 
 export type MainTabParamList = {
@@ -47,6 +48,7 @@ const TAB_LABELS: Record<keyof MainTabParamList, string> = {
 export default function MainNavigator() {
   const role = useAuthState().user?.role;
   const canSeeTeam = role === 'SUPERVISOR' || role === 'ADMIN';
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -58,12 +60,14 @@ export default function MainNavigator() {
           backgroundColor: colors.white,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
+          // icon (~28) + label (14) + padding; plus the home-indicator inset
+          height: 68 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: 11,
+          lineHeight: 14,
           fontWeight: '500',
         },
         tabBarLabel: TAB_LABELS[route.name as keyof MainTabParamList],

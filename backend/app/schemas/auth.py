@@ -60,6 +60,7 @@ class UserInfo(BaseModel):
     email: str
     role: str
     site_id: Optional[int] = None
+    site_name: Optional[str] = None
     site_timezone: Optional[str] = None
     is_active: bool
 

@@ -59,6 +59,7 @@ async def get_me(current_user=Depends(get_current_user)):
         email=current_user.email,
         role=current_user.role.name,
         site_id=current_user.site_id,
+        site_name=current_user.site.name if current_user.site else None,
         site_timezone=current_user.site.timezone if current_user.site else None,
         is_active=current_user.is_active,
     )

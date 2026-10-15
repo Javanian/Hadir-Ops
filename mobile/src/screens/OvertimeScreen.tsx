@@ -99,9 +99,9 @@ function addDays(dateStr: string, n: number): string {
 
 function statusColor(s: OvertimeRequest['status']): string {
   switch (s) {
-    case 'APPROVED': return colors.success;
-    case 'REJECTED': return colors.danger;
-    default:         return colors.warning;
+    case 'APPROVED': return colors.successStrong;
+    case 'REJECTED': return colors.dangerStrong;
+    default:         return colors.warningStrong;
   }
 }
 
@@ -532,12 +532,17 @@ function RejectModal({ item, onClose }: { item: OvertimeRequest | null; onClose:
 // ── CheckinStatusBanner ───────────────────────────────────────────────────────
 
 function CheckinStatusBanner({ item, tz }: { item: OvertimeRequest; tz: string }) {
+  // Overtime attached to an attendance record (or already in the past) was
+  // worked before it was requested; there is nothing left to "start".
+  const alreadyWorked = item.attendance_id != null || new Date(item.requested_start) <= new Date();
   if (item.status === 'PENDING') {
     return (
       <View style={[styles.checkinBanner, { backgroundColor: colors.warningTint }]}>
         <Ionicons name="hourglass-outline" size={13} color={colors.warningStrong} />
         <Text style={[styles.checkinBannerText, { color: colors.warningStrong }]}>
-          Menunggu persetujuan atasan — belum dapat memulai lembur
+          {alreadyWorked
+            ? 'Menunggu persetujuan atasan'
+            : 'Menunggu persetujuan atasan — belum dapat memulai lembur'}
         </Text>
       </View>
     );
@@ -547,7 +552,9 @@ function CheckinStatusBanner({ item, tz }: { item: OvertimeRequest; tz: string }
       <View style={[styles.checkinBanner, { backgroundColor: colors.dangerTint }]}>
         <Ionicons name="close-circle-outline" size={13} color={colors.dangerStrong} />
         <Text style={[styles.checkinBannerText, { color: colors.dangerStrong }]}>
-          Pengajuan ditolak — tidak dapat memulai lembur
+          {alreadyWorked
+            ? 'Pengajuan ditolak — jam ini tidak dihitung lembur'
+            : 'Pengajuan ditolak — tidak dapat memulai lembur'}
         </Text>
       </View>
     );
@@ -901,7 +908,7 @@ const ugh = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  avatarPending: { backgroundColor: colors.warning },
+  avatarPending: { backgroundColor: colors.warningStrong },
   avatarText: { fontSize: 15, fontWeight: '700', color: colors.white },
   info: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
@@ -910,7 +917,7 @@ const ugh = StyleSheet.create({
   pendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.warning,
+    backgroundColor: colors.warningStrong,
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1236,7 +1243,7 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   cardDate: { fontSize: 14, fontWeight: '600', color: colors.ink },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  badgeText: { fontSize: 11, color: colors.white, fontWeight: '600' },
+  badgeText: { fontSize: 12, color: colors.white, fontWeight: '600' },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   cardMeta: { fontSize: 13, color: colors.textMuted },
   crossLabel: { color: colors.overtime, fontStyle: 'italic' },
@@ -1246,7 +1253,7 @@ const styles = StyleSheet.create({
 
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   actionBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  approveBtn: { backgroundColor: colors.success },
+  approveBtn: { backgroundColor: colors.successStrong },
   rejectBtn: { backgroundColor: colors.danger },
   actionBtnText: { color: colors.white, fontWeight: '600', fontSize: 13 },
 

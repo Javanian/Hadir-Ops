@@ -9,8 +9,9 @@ export interface UserInfo {
   employee_id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'SUPERVISOR' | 'EMPLOYEE';
+  role: 'ADMIN' | 'SUPERVISOR' | 'EMPLOYEE' | 'SALES';
   site_id: number | null;
+  site_name?: string | null;
   site_timezone: string | null;
   is_active: boolean;
 }

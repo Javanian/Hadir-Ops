@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     height: 52,
-    backgroundColor: colors.success,
+    backgroundColor: colors.successStrong,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',

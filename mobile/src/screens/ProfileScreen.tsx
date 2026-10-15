@@ -17,6 +17,7 @@ import FaceRegisterModal from '../components/FaceRegisterModal';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import OfflineBanner from '../components/OfflineBanner';
 import { colors } from '../theme/colors'
+import { roleLabel } from '../utils/roles'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,13 +33,6 @@ function getRoleStyle(role: UserInfo['role']) {
   }
 }
 
-function getRoleLabel(role: UserInfo['role']): string {
-  switch (role) {
-    case 'ADMIN': return 'Admin';
-    case 'SUPERVISOR': return 'Supervisor';
-    case 'EMPLOYEE': return 'Karyawan';
-  }
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -105,7 +99,7 @@ export default function ProfileScreen() {
           {user && (
             <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg }]}>
               <Text style={[styles.roleBadgeText, { color: roleStyle.text }]}>
-                {getRoleLabel(user.role)}
+                {roleLabel(user.role)}
               </Text>
             </View>
           )}
@@ -116,7 +110,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionLabel}>Informasi Akun</Text>
           <InfoRow
             icon="id-card-outline"
-            label="Employee ID"
+            label="ID Karyawan"
             value={user?.employee_id ?? '-'}
           />
           <View style={styles.divider} />
@@ -128,8 +122,8 @@ export default function ProfileScreen() {
           <View style={styles.divider} />
           <InfoRow
             icon="location-outline"
-            label="Site"
-            value={user?.site_id != null ? `Site #${user.site_id}` : 'Tidak ada site'}
+            label="Lokasi Kerja"
+            value={user?.site_name ?? (user?.site_id != null ? `Lokasi #${user.site_id}` : 'Belum ditetapkan')}
           />
           <View style={styles.divider} />
           <InfoRow
