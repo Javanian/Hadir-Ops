@@ -1,21 +1,27 @@
 services:
   db:
-    image: pgvector/pgvector:pg16
+    # Single-host deployment. For several hosts or a managed service (MongoDB
+    # Atlas on GCP or AWS), drop this service and point MONGODB_URL at it.
+    image: mongo:8.0.12
     container_name: hadirops_db
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER:-hadirops}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME:-hadirops}
+      MONGO_INITDB_ROOT_USERNAME: ${DB_USER:-hadirops}
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASSWORD}
+    # Access control on a replica set needs a keyfile shared by its members:
+    #   openssl rand -base64 756 > deploy/mongo-keyfile
+    #   chmod 400 deploy/mongo-keyfile && sudo chown 999:999 deploy/mongo-keyfile
+    command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo/keyfile"]
     # No ports exposed to host — accessible only within Docker network
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./database.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - mongodata:/data/db
+      - ./deploy/mongo-keyfile:/etc/mongo/keyfile:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-hadirops} -d ${DB_NAME:-hadirops}"]
+      test: ["CMD-SHELL", "mongosh -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --quiet --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'db:27017'}]}).ok }\""]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   backend:
     build: ./backend
@@ -26,8 +32,8 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-hadirops}:${DB_PASSWORD}@db:5432/${DB_NAME:-hadirops}
-      - DB_SCHEMA=${DB_SCHEMA:-hadirops}
+      - MONGODB_URL=mongodb://${DB_USER:-hadirops}:${DB_PASSWORD}@db:27017/?replicaSet=rs0&authSource=admin
+      - MONGODB_DB=${DB_NAME:-hadirops}
       - ENVIRONMENT=production   # refuses to start with the development SECRET_KEY
     depends_on:
       db:
@@ -35,7 +41,7 @@ services:
     volumes:
       - insightface_models:/root/.insightface
     # No --reload, no source volume mount. Each worker runs the auto check-out
-    # loop; a Postgres advisory lock lets only one of them work at a time.
+    # loop; a lease document in MongoDB lets only one of them work at a time.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
     healthcheck:
       # 503 (database down or face model missing) makes urlopen raise
@@ -46,5 +52,5 @@ services:
       start_period: 180s
 
 volumes:
-  pgdata:
+  mongodata:
   insightface_models:

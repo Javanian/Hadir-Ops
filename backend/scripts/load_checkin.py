@@ -3,10 +3,10 @@ Morning-rush load test: every employee checks in within the same minute,
 and part of them resend the same request as a flaky network would.
 
 Seeds N employees into the database the API is using, mints their access
-tokens with the API's SECRET_KEY, fires the check-ins, and then counts rows to
-confirm there is exactly one record per employee.
+tokens with the API's SECRET_KEY, fires the check-ins, and then counts
+documents to confirm there is exactly one record per employee.
 
-    DATABASE_URL=... SECRET_KEY=... python scripts/load_checkin.py \
+    MONGODB_URL=... MONGODB_DB=... SECRET_KEY=... python scripts/load_checkin.py \
         --base-url http://127.0.0.1:8000 --users 1000 --concurrency 100 --resend 0.2
 
 Use a test database: the script deletes and recreates its own LOAD* users.
@@ -22,8 +22,8 @@ import time
 import uuid
 from pathlib import Path
 
-import asyncpg
 import httpx
+from pymongo import MongoClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core.security import create_access_token  # noqa: E402
@@ -31,53 +31,58 @@ from app.core.security import create_access_token  # noqa: E402
 LAT, LON = -6.2, 106.816666
 
 
-async def seed(db_url: str, schema: str, n: int) -> list[int]:
-    conn = await asyncpg.connect(db_url.replace("postgresql+asyncpg://", "postgresql://"))
-    try:
-        await conn.execute(f"SET search_path TO {schema}, public")
-        await conn.execute("DELETE FROM users WHERE employee_id LIKE 'LOAD%'")
-        await conn.execute("DELETE FROM sites WHERE name = 'Load test site'")
-        site_id = await conn.fetchval(
-            "INSERT INTO sites (name, latitude, longitude, radius_meter, timezone) "
-            "VALUES ('Load test site', $1, $2, 150, 'Asia/Jakarta') RETURNING id", LAT, LON
-        )
-        shift_id = await conn.fetchval(
-            "INSERT INTO shifts (site_id, name, start_time, end_time) "
-            "VALUES ($1, 'Load all day', '00:00', '23:59:59') RETURNING id", site_id
-        )
-        await conn.executemany(
-            "INSERT INTO work_schedules (shift_id, day_of_week, toleransi_telat_menit) VALUES ($1, $2, 15)",
-            [(shift_id, d) for d in range(7)],
-        )
-        role_id = await conn.fetchval("SELECT id FROM roles WHERE name = 'EMPLOYEE'")
-        rows = await conn.fetch(
-            "INSERT INTO users (employee_id, name, email, password_hash, role_id, site_id) "
-            "SELECT 'LOAD' || g, 'Load ' || g, 'load' || g || '@example.test', 'x', $1, $2 "
-            "FROM generate_series(1, $3) g RETURNING id",
-            role_id, site_id, n,
-        )
-        return [r["id"] for r in rows]
-    finally:
-        await conn.close()
+def _db():
+    return MongoClient(os.environ["MONGODB_URL"])[os.environ.get("MONGODB_DB", "hadirops")]
 
 
-async def count_rows(db_url: str, schema: str, user_ids: list[int]) -> tuple[int, int]:
-    conn = await asyncpg.connect(db_url.replace("postgresql+asyncpg://", "postgresql://"))
-    try:
-        await conn.execute(f"SET search_path TO {schema}, public")
-        total = await conn.fetchval("SELECT count(*) FROM attendance WHERE user_id = ANY($1)", user_ids)
-        users = await conn.fetchval(
-            "SELECT count(DISTINCT user_id) FROM attendance WHERE user_id = ANY($1)", user_ids
-        )
-        return total, users
-    finally:
-        await conn.close()
+def _next_ids(db, sequence: str, count: int) -> list[int]:
+    """Reserve `count` consecutive ids from the app's counters collection."""
+    doc = db.counters.find_one_and_update(
+        {"_id": sequence}, {"$inc": {"seq": count}}, upsert=True, return_document=True
+    )
+    return list(range(doc["seq"] - count + 1, doc["seq"] + 1))
+
+
+def seed(n: int) -> list[int]:
+    db = _db()
+    old = [u["_id"] for u in db.users.find({"employee_id": {"$regex": "^LOAD"}}, {"_id": 1})]
+    db.attendance.delete_many({"user_id": {"$in": old}})
+    db.users.delete_many({"_id": {"$in": old}})
+    old_sites = [s["_id"] for s in db.sites.find({"name": "Load test site"}, {"_id": 1})]
+    db.shifts.delete_many({"site_id": {"$in": old_sites}})
+    db.sites.delete_many({"_id": {"$in": old_sites}})
+
+    site_id = _next_ids(db, "sites", 1)[0]
+    db.sites.insert_one({"_id": site_id, "name": "Load test site", "latitude": LAT, "longitude": LON,
+                         "radius_meter": 150, "timezone": "Asia/Jakarta"})
+    db.shifts.insert_one({
+        "_id": _next_ids(db, "shifts", 1)[0], "site_id": site_id, "name": "Load all day",
+        "start_time": "00:00:00", "end_time": "23:59:59", "is_cross_midnight": False,
+        "work_hours_standard": 8,
+        "work_schedules": [
+            {"id": i, "day_of_week": d, "toleransi_telat_menit": 15}
+            for i, d in zip(_next_ids(db, "work_schedules", 7), range(7))
+        ],
+    })
+    ids = _next_ids(db, "users", n)
+    db.users.insert_many([
+        {"_id": uid, "employee_id": f"LOAD{g}", "name": f"Load {g}", "email": f"load{g}@example.test",
+         "password_hash": "x", "role": "EMPLOYEE", "site_id": site_id, "supervisor_id": None,
+         "face_embedding": None, "is_active": True, "failed_login_attempts": 0}
+        for g, uid in enumerate(ids, start=1)
+    ])
+    return ids
+
+
+def count_rows(user_ids: list[int]) -> tuple[int, int]:
+    db = _db()
+    total = db.attendance.count_documents({"user_id": {"$in": user_ids}})
+    users = len(db.attendance.distinct("user_id", {"user_id": {"$in": user_ids}}))
+    return total, users
 
 
 async def main(args) -> int:
-    db_url = os.environ["DATABASE_URL"]
-    schema = os.environ.get("DB_SCHEMA", "hadirops")
-    user_ids = await seed(db_url, schema, args.users)
+    user_ids = seed(args.users)
 
     jobs = []
     for uid in user_ids:
@@ -116,7 +121,7 @@ async def main(args) -> int:
         await asyncio.gather(*(one(t, b) for t, b in jobs))
         wall = time.perf_counter() - started
 
-    total, distinct = await count_rows(db_url, schema, user_ids)
+    total, distinct = count_rows(user_ids)
     latencies.sort()
     p = lambda q: latencies[min(len(latencies) - 1, int(q * len(latencies)))]  # noqa: E731
     ok = sum(v for k, v in codes.items() if k in (200, 201))

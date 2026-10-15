@@ -1,81 +1,49 @@
 """
-Test setup: a real PostgreSQL database, the real schema (database.sql) and the
-FastAPI app in-process.
+Test setup: a real MongoDB replica set, the real indexes and validators
+(app.db.schema) and the FastAPI app in-process.
 
-    TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/hadirops_test pytest
+    TEST_MONGODB_URL="mongodb://localhost:27017/?replicaSet=rs0" pytest
 
-The database is dropped and recreated from database.sql at the start of the
-run. If the pgvector extension is not installed on that server, face
-embeddings are stored as TEXT instead; nothing else changes.
+Transactions need a replica set; a single-node set is enough. The test
+database is dropped at the start of the run and emptied before each test.
 """
 
-import asyncio
 import os
-import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
-import asyncpg
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-TEST_URL = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql+asyncpg://hadirops:hadiropspass@localhost:5432/hadirops_test"
-)
-_PLAIN_URL = TEST_URL.replace("postgresql+asyncpg://", "postgresql://")
+TEST_URL = os.environ.get("TEST_MONGODB_URL", "mongodb://localhost:27017/?replicaSet=rs0")
+TEST_DB = os.environ.get("TEST_MONGODB_DB", "hadirops_test")
 
-
-async def _prepare_database() -> bool:
-    """Recreate the test database. Returns True if pgvector is available."""
-    admin_url = re.sub(r"/[^/]+$", "/postgres", _PLAIN_URL)
-    db_name = _PLAIN_URL.rsplit("/", 1)[1].split("?")[0]
-    conn = await asyncpg.connect(admin_url)
-    try:
-        await conn.execute(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)')
-        await conn.execute(f'CREATE DATABASE "{db_name}"')
-    finally:
-        await conn.close()
-
-    schema = (ROOT / "database.sql").read_text(encoding="utf-8")
-    conn = await asyncpg.connect(_PLAIN_URL)
-    try:
-        try:
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            has_vector = True
-        except asyncpg.PostgresError:
-            has_vector = False
-            schema = schema.replace("CREATE EXTENSION IF NOT EXISTS vector;", "")
-            schema = schema.replace("VECTOR(512)", "TEXT")
-            schema = re.sub(
-                r"CREATE INDEX idx_users_face_embedding.*?;", "", schema, flags=re.S
-            )
-        await conn.execute(schema)
-    finally:
-        await conn.close()
-    return has_vector
-
-
-HAS_VECTOR = asyncio.run(_prepare_database())
-if not HAS_VECTOR:
-    # Make app.models fall back to a TEXT column for face_embedding.
-    sys.modules["pgvector.sqlalchemy"] = None
-
-os.environ["DATABASE_URL"] = TEST_URL
-os.environ["DB_SCHEMA"] = "hadirops"
+os.environ["MONGODB_URL"] = TEST_URL
+os.environ["MONGODB_DB"] = TEST_DB
 os.environ["FACE_ENABLED"] = "true"
 os.environ["AUTO_CHECKOUT_ENABLED"] = "false"
 os.environ["SECRET_KEY"] = "test-secret-key-for-the-test-suite-only-0123456789"
 
 sys.path.insert(0, str(ROOT / "backend"))
 
+# Start from an empty database (a synchronous client, before any event loop).
+from pymongo import MongoClient  # noqa: E402
+
+MongoClient(TEST_URL, serverSelectionTimeoutMS=10000).drop_database(TEST_DB)
+
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
-from sqlalchemy import text  # noqa: E402
 
 SITE_LAT, SITE_LON, SITE_RADIUS = -6.200000, 106.816666, 100
+COLLECTIONS = (
+    "users", "sites", "shifts", "holidays", "attendance", "checkin_attempts",
+    "overtime_requests", "leave_requests", "temporary_assignments", "audit_logs",
+    "counters", "locks",
+)
 
 
 class StubFace:
@@ -97,6 +65,18 @@ def app():
     return fastapi_app
 
 
+@pytest_asyncio.fixture(loop_scope="session", scope="session")
+async def mongo(app):
+    """The application database, with indexes and validators in place."""
+    from app.core.database import client, get_database
+    from app.db.schema import ensure_schema
+
+    db = get_database()
+    await ensure_schema(db)
+    yield db
+    await client.close()
+
+
 @pytest.fixture
 def face(app, monkeypatch):
     stub = StubFace()
@@ -114,47 +94,50 @@ async def client(app):
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seed():
+async def seed(mongo):
     """Fresh data for each test: one site, an all-day shift, an admin,
     two supervisors and two employees (both reporting to supervisor A)."""
-    from app.core.database import AsyncSessionLocal
     from app.core.security import create_access_token, get_password_hash
+    from app.db.ids import forget_blocks, next_id
 
-    async with AsyncSessionLocal() as db:
-        await db.execute(text(
-            "TRUNCATE leave_requests, checkin_attempts, overtime_requests, attendance, temporary_assignments, "
-            "work_schedules, shifts, holidays, audit_logs, users, sites RESTART IDENTITY CASCADE"
-        ))
-        site_id = (await db.execute(text(
-            "INSERT INTO sites (name, latitude, longitude, radius_meter, timezone) "
-            "VALUES ('Plant A', :lat, :lon, :r, 'Asia/Jakarta') RETURNING id"
-        ), {"lat": SITE_LAT, "lon": SITE_LON, "r": SITE_RADIUS})).scalar_one()
-        shift_id = (await db.execute(text(
-            "INSERT INTO shifts (site_id, name, start_time, end_time) "
-            "VALUES (:s, 'All day', '00:00', '23:59:59') RETURNING id"
-        ), {"s": site_id})).scalar_one()
-        for dow in range(7):
-            await db.execute(text(
-                "INSERT INTO work_schedules (shift_id, day_of_week, toleransi_telat_menit) "
-                "VALUES (:sh, :d, 1440)"
-            ), {"sh": shift_id, "d": dow})
+    for name in COLLECTIONS:
+        await mongo[name].delete_many({})
+    forget_blocks()  # counters were wiped with the rest
 
-        pw = get_password_hash("Password1!")
-        roles = dict((await db.execute(text("SELECT name, id FROM roles"))).all())
+    now = datetime.now(timezone.utc)
+    site_id = await next_id(mongo, "sites")
+    await mongo.sites.insert_one({
+        "_id": site_id, "name": "Plant A", "latitude": SITE_LAT, "longitude": SITE_LON,
+        "radius_meter": SITE_RADIUS, "timezone": "Asia/Jakarta", "created_at": now,
+    })
+    shift_id = await next_id(mongo, "shifts")
+    await mongo.shifts.insert_one({
+        "_id": shift_id, "site_id": site_id, "name": "All day",
+        "start_time": "00:00:00", "end_time": "23:59:59",
+        "is_cross_midnight": False, "work_hours_standard": 8, "created_at": now,
+        "work_schedules": [
+            {"id": await next_id(mongo, "work_schedules"), "day_of_week": dow, "toleransi_telat_menit": 1440}
+            for dow in range(7)
+        ],
+    })
 
-        async def add_user(code, name, role, supervisor=None):
-            return (await db.execute(text(
-                "INSERT INTO users (employee_id, name, email, password_hash, role_id, site_id, supervisor_id) "
-                "VALUES (:c, :n, :e, :p, :r, :s, :sup) RETURNING id"
-            ), {"c": code, "n": name, "e": f"{code.lower()}@example.test", "p": pw,
-                "r": roles[role], "s": site_id, "sup": supervisor})).scalar_one()
+    pw = get_password_hash("Password1!")
 
-        admin = await add_user("ADM1", "Admin", "ADMIN")
-        sup_a = await add_user("SUP1", "Supervisor A", "SUPERVISOR")
-        sup_b = await add_user("SUP2", "Supervisor B", "SUPERVISOR")
-        emp = await add_user("EMP1", "Employee One", "EMPLOYEE", sup_a)
-        emp2 = await add_user("EMP2", "Employee Two", "EMPLOYEE", sup_a)
-        await db.commit()
+    async def add_user(code, name, role, supervisor=None):
+        user_id = await next_id(mongo, "users")
+        await mongo.users.insert_one({
+            "_id": user_id, "employee_id": code, "name": name, "email": f"{code.lower()}@example.test",
+            "password_hash": pw, "role": role, "site_id": site_id, "supervisor_id": supervisor,
+            "face_embedding": None, "is_active": True, "failed_login_attempts": 0,
+            "locked_until": None, "password_changed_at": None, "created_at": now,
+        })
+        return user_id
+
+    admin = await add_user("ADM1", "Admin", "ADMIN")
+    sup_a = await add_user("SUP1", "Supervisor A", "SUPERVISOR")
+    sup_b = await add_user("SUP2", "Supervisor B", "SUPERVISOR")
+    emp = await add_user("EMP1", "Employee One", "EMPLOYEE", sup_a)
+    emp2 = await add_user("EMP2", "Employee Two", "EMPLOYEE", sup_a)
 
     def auth(user_id):
         return {"Authorization": f"Bearer {create_access_token({'sub': str(user_id)})}"}

@@ -1,22 +1,22 @@
 services:
   db:
-    image: pgvector/pgvector:pg16
+    # Single-node replica set: MongoDB transactions need one.
+    image: mongo:8.0.12
     container_name: hadirops_db
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USER:-hadirops}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-hadiropspass}
-      POSTGRES_DB: ${DB_NAME:-hadirops}
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
-      - "${DB_HOST_PORT:-5433}:5432"
+      # From the host, connect with ?directConnection=true (the member is named "db")
+      - "${DB_HOST_PORT:-27018}:27017"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./database.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - mongodata:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-hadirops} -d ${DB_NAME:-hadirops}"]
+      # Initiates the replica set on first start, then reports its state
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'db:27017'}]}).ok }"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
+      start_period: 20s
 
   backend:
     build: ./backend
@@ -27,8 +27,8 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-hadirops}:${DB_PASSWORD:-hadiropspass}@db:5432/${DB_NAME:-hadirops}
-      - DB_SCHEMA=${DB_SCHEMA:-hadirops}
+      - MONGODB_URL=mongodb://db:27017/?replicaSet=rs0
+      - MONGODB_DB=${DB_NAME:-hadirops}
     depends_on:
       db:
         condition: service_healthy
@@ -70,5 +70,5 @@ services:
       - /app/node_modules   # prevent host node_modules override
 
 volumes:
-  pgdata:
+  mongodata:
   insightface_models:

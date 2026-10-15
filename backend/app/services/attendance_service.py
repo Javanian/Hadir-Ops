@@ -7,7 +7,7 @@ Responsibilities:
   - Auto-checkout worker: batch-checkout any open record whose shift has ended
   - List / get queries (with IDOR for EMPLOYEE role)
 
-All timestamps stored as UTC (TIMESTAMPTZ).  Business logic uses site-local time
+All timestamps stored as UTC (BSON dates).  Business logic uses site-local time
 via ZoneInfo(site.timezone).  day_of_week mapping: DB 0=Sunday, 1=Monday ... 6=Saturday
 """
 
@@ -18,8 +18,8 @@ from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import DuplicateKeyError
 
 from app.core.config import settings
 from app.core.security import decode_face_token
@@ -189,7 +189,7 @@ def _attendance_response(att, site_tz: Optional[str] = None) -> AttendanceRespon
 # ── Service ────────────────────────────────────────────────────────────────────
 
 class AttendanceService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.repo = AttendanceRepository(db)
         self.ot_repo = OvertimeRepository(db)
@@ -397,9 +397,7 @@ class AttendanceService:
                 risk_flags=flags,
                 needs_review=rules.review_needed(flags, att_status),
             )
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
+        except DuplicateKeyError:
             if event_id:
                 replay = await self._replay_checkin(current_user, event_id)
                 if replay is not None:
@@ -491,14 +489,15 @@ class AttendanceService:
         _, face_flags = self._check_face_token(data.face_token, current_user.id, checkout_utc)
         new_flags += face_flags
         new_flags = [rules.CHECKOUT_PREFIX + f for f in new_flags]
+        extra: dict = {}
         if new_flags:
             merged = list(att.risk_flags or [])
             merged += [f for f in new_flags if f not in merged]
-            att.risk_flags = merged
+            extra["risk_flags"] = merged
             if rules.review_needed(new_flags):
-                att.needs_review = True
+                extra["needs_review"] = True
         if event_id:
-            att.checkout_event_id = event_id
+            extra["checkout_event_id"] = event_id
 
         try:
             att = await self.repo.checkout(
@@ -507,15 +506,15 @@ class AttendanceService:
                 work_duration_minutes=work_min,
                 auto_checkout=False,
                 overtime_minutes=overtime_min,
+                **extra,
             )
-        except IntegrityError:
-            await self.db.rollback()
+        except DuplicateKeyError:
             if event_id:
                 existing = await self.repo.get_by_checkout_event(event_id)
                 if existing is not None and existing.user_id == current_user.id:
                     return _attendance_response(existing), False
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Check-out conflict.")
-        # Re-fetch with full relationships (including overtime_requests) after commit
+        # Re-fetch with full relationships (including overtime_requests)
         att = await self.repo.get_by_id(att.id)
         return _attendance_response(att, site_tz), True
 
@@ -634,11 +633,11 @@ class AttendanceService:
         for att in records:
             # overtime_minutes is already written by the approve action;
             # only checkout_time and work_duration_minutes are set here.
-            att.checkout_time = now_utc
-            att.work_duration_minutes = _work_duration(att.checkin_time, now_utc)
-            att.auto_checkout = True
-        if records:
-            await self.db.commit()
+            await self.repo.update(att.id, {
+                "checkout_time": now_utc,
+                "work_duration_minutes": _work_duration(att.checkin_time, now_utc),
+                "auto_checkout": True,
+            })
         return len(records)
 
     # ── Review queue ──────────────────────────────────────────────────────────
@@ -669,12 +668,13 @@ class AttendanceService:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="A note is required when rejecting, so the employee knows why.",
             )
-        att.review_status = decision
-        att.review_note = note
-        att.reviewed_by = current_user.id
-        att.reviewed_at = datetime.now(utc)
-        att.needs_review = False
-        await self.db.commit()
+        await self.repo.update(att.id, {
+            "review_status": decision,
+            "review_note": note,
+            "reviewed_by": current_user.id,
+            "reviewed_at": datetime.now(utc),
+            "needs_review": False,
+        })
         att = await self.repo.get_by_id(att.id)
         return _attendance_response(att)
 
@@ -691,15 +691,16 @@ class AttendanceService:
 
         result = face_service.verify(image_bytes, list(current_user.face_embedding))
         flags = list(att.risk_flags or [])
+        changes: dict = {}
         if result["verified"]:
             flags = [f for f in flags if f != rules.FACE_NOT_VERIFIED]
-            att.face_similarity = result["similarity"]
+            changes["face_similarity"] = result["similarity"]
         elif "FACE_MISMATCH" not in flags:
             flags.append("FACE_MISMATCH")
-        att.risk_flags = flags
+        changes["risk_flags"] = flags
         if att.review_status is None:
-            att.needs_review = rules.review_needed(flags, att.status) or "FACE_MISMATCH" in flags
-        await self.db.commit()
+            changes["needs_review"] = rules.review_needed(flags, att.status) or "FACE_MISMATCH" in flags
+        await self.repo.update(att.id, changes)
         att = await self.repo.get_by_id(att.id)
         return _attendance_response(att)
 

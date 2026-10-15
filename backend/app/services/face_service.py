@@ -76,7 +76,7 @@ class FaceService:
     def extract_embedding(self, image_bytes: bytes) -> list:
         """
         Extract a 512-d face embedding from image_bytes.
-        Returns a plain Python list suitable for pgvector storage.
+        Returns a plain Python list of floats (stored as an array on the user).
         """
         return self._extract_embedding(image_bytes).tolist()
 

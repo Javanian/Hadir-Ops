@@ -23,7 +23,7 @@ from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.database import get_db
 from app.core.uploads import read_image_upload
@@ -59,7 +59,7 @@ router = APIRouter(prefix="/attendance", tags=["Attendance"])
 async def checkin(
     data: CheckinRequest,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     record, created = await AttendanceService(db).checkin(current_user, data)
@@ -80,7 +80,7 @@ async def checkin(
 async def checkout(
     data: CheckoutRequest,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     record, created = await AttendanceService(db).checkout(current_user, data)
@@ -98,7 +98,7 @@ async def checkout(
 )
 async def report_attempts(
     data: AttemptBatch,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     accepted, duplicates = await AttendanceService(db).record_attempts(current_user, data.attempts)
@@ -115,7 +115,7 @@ async def list_attempts(
     to_date: Optional[date] = Query(None),
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await AttendanceService(db).list_attempts(
@@ -134,7 +134,7 @@ async def review_queue(
     state: str = Query("pending", pattern="^(pending|all)$"),
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await AttendanceService(db).list_review_queue(
@@ -150,7 +150,7 @@ async def review_queue(
 async def review_record(
     attendance_id: int,
     data: ReviewDecision,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await AttendanceService(db).review(attendance_id, current_user, data.decision, data.note)
@@ -165,7 +165,7 @@ async def attach_face(
     attendance_id: int,
     request: Request,
     file: UploadFile = File(..., description="JPEG or PNG — must contain exactly one face"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     from app.routers.face import _get_face_service
@@ -190,7 +190,7 @@ async def my_attendance(
     timezone: str = Query("UTC", description="Site timezone for date boundary conversion, e.g. Asia/Jakarta"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await AttendanceService(db).list_my_attendance(
@@ -215,7 +215,7 @@ async def list_attendance(
     att_status: Optional[str] = Query(None, alias="status", description="ONTIME | LATE | OUT_OF_RADIUS"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await AttendanceService(db).list_attendance(
@@ -239,7 +239,7 @@ async def team_attendance(
     to_date: Optional[date] = Query(None, description="End date filter (YYYY-MM-DD)"),
     limit: int = Query(500, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     site_timezone = current_user.site.timezone if current_user.site else "UTC"
@@ -260,7 +260,7 @@ async def team_attendance(
 )
 async def get_attendance(
     attendance_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await AttendanceService(db).get_attendance_by_id(attendance_id, current_user)
@@ -274,7 +274,7 @@ async def get_attendance(
     summary="Manually trigger auto-checkout for all overdue records (ADMIN only)",
 )
 async def trigger_auto_checkout(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ):
     count = await AttendanceService(db).run_auto_checkout()

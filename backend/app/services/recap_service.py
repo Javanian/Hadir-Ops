@@ -22,19 +22,13 @@ from typing import Dict, Iterable, List, Optional, Set
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.models.models import (
-    Attendance,
-    Holiday,
-    LeaveRequest,
-    Role,
-    Shift,
-    TemporaryAssignment,
-    User,
-)
+from app.db.documents import User
+from app.db.relations import attach_user_sites
+from app.repositories.assignment_repository import AssignmentRepository
+from app.repositories.leave_repository import LeaveRepository
+from app.repositories.shift_repository import ShiftRepository
 from app.schemas.recap import RecapRow
 
 MAX_RANGE_DAYS = 62
@@ -103,20 +97,16 @@ def _date_range(start: date, end: date) -> List[date]:
 
 
 class RecapService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
 
     async def _users_in_scope(self, current_user) -> List[User]:
-        stmt = (
-            select(User)
-            .join(Role, User.role_id == Role.id)
-            .options(selectinload(User.site), selectinload(User.role))
-            .where(User.is_active.is_(True), Role.name != "ADMIN")
-            .order_by(User.name)
-        )
+        query: dict = {"is_active": True, "role": {"$ne": "ADMIN"}}
         if current_user.role.name == "SUPERVISOR":
-            stmt = stmt.where(User.supervisor_id == current_user.id)
-        return list((await self.db.execute(stmt)).scalars().all())
+            query["supervisor_id"] = current_user.id
+        users = [User.from_doc(d) async for d in self.db.users.find(query).sort("name", 1)]
+        await attach_user_sites(self.db, users)
+        return users
 
     async def recap(self, current_user, from_date: date, to_date: date) -> List[RecapRow]:
         if to_date < from_date:
@@ -134,59 +124,36 @@ class RecapService:
         days = _date_range(from_date, to_date)
 
         # Scheduled days of week per shift, and the shifts of each site
-        shifts = (await self.db.execute(
-            select(Shift).options(selectinload(Shift.work_schedules))
-        )).scalars().all()
+        shift_repo = ShiftRepository(self.db)
+        shifts = await shift_repo.get_all()
         shift_dows = {s.id: {ws.day_of_week for ws in s.work_schedules} for s in shifts}
         site_dows: Dict[int, Set[int]] = {}
         for s in shifts:
             site_dows.setdefault(s.site_id, set()).update(shift_dows[s.id])
 
-        holidays = set((await self.db.execute(
-            select(Holiday.holiday_date).where(Holiday.holiday_date.between(from_date, to_date))
-        )).scalars().all())
+        holidays = await shift_repo.holiday_dates_between(from_date, to_date)
+        assignments = await AssignmentRepository(self.db).active_between(user_ids, from_date, to_date)
+        leaves = await LeaveRepository(self.db).approved_between(user_ids, from_date, to_date)
 
-        assignments = (await self.db.execute(
-            select(TemporaryAssignment).where(
-                TemporaryAssignment.user_id.in_(user_ids),
-                TemporaryAssignment.start_date <= to_date,
-                TemporaryAssignment.end_date >= from_date,
-            )
-        )).scalars().all()
-
-        att_rows = (await self.db.execute(
-            select(
-                Attendance.user_id,
-                Attendance.work_date,
-                Attendance.status,
-                Attendance.work_duration_minutes,
-                Attendance.overtime_minutes,
-                Attendance.needs_review,
-            ).where(
-                Attendance.user_id.in_(user_ids),
-                Attendance.work_date.between(from_date, to_date),
-            )
-        )).all()
-
-        leaves = (await self.db.execute(
-            select(LeaveRequest).where(
-                and_(
-                    LeaveRequest.user_id.in_(user_ids),
-                    LeaveRequest.status == "APPROVED",
-                    LeaveRequest.start_date <= to_date,
-                    LeaveRequest.end_date >= from_date,
-                )
-            )
-        )).scalars().all()
+        # Only the fields the recap needs; work_date is the site-local day.
+        att_rows = self.db.attendance.find(
+            {
+                "user_id": {"$in": user_ids},
+                # $type lets the planner use the partial (user_id, work_date) index
+                "work_date": {"$type": "string", "$gte": from_date.isoformat(), "$lte": to_date.isoformat()},
+            },
+            {"user_id": 1, "work_date": 1, "status": 1, "work_duration_minutes": 1,
+             "overtime_minutes": 1, "needs_review": 1},
+        )
 
         attended: Dict[int, Dict[date, Optional[str]]] = {uid: {} for uid in user_ids}
         minutes: Dict[int, List[int]] = {uid: [0, 0, 0] for uid in user_ids}  # work, overtime, review
-        for r in att_rows:
-            attended[r.user_id][r.work_date] = r.status
-            m = minutes[r.user_id]
-            m[0] += r.work_duration_minutes or 0
-            m[1] += r.overtime_minutes or 0
-            m[2] += 1 if r.needs_review else 0
+        async for r in att_rows:
+            attended[r["user_id"]][date.fromisoformat(r["work_date"])] = r.get("status")
+            m = minutes[r["user_id"]]
+            m[0] += r.get("work_duration_minutes") or 0
+            m[1] += r.get("overtime_minutes") or 0
+            m[2] += 1 if r.get("needs_review") else 0
 
         leave_days: Dict[int, Dict[date, str]] = {uid: {} for uid in user_ids}
         for lv in leaves:

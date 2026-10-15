@@ -12,10 +12,10 @@ or unexpected role gets the narrowest access by default.
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 
-async def visible_user_ids(db: AsyncSession, current_user) -> Optional[List[int]]:
+async def visible_user_ids(db: AsyncDatabase, current_user) -> Optional[List[int]]:
     """User ids whose records `current_user` may see; None means no restriction."""
     role = current_user.role.name
     if role == "ADMIN":
@@ -27,13 +27,13 @@ async def visible_user_ids(db: AsyncSession, current_user) -> Optional[List[int]
     return [current_user.id]
 
 
-async def can_access_user(db: AsyncSession, current_user, owner_id: Optional[int]) -> bool:
+async def can_access_user(db: AsyncDatabase, current_user, owner_id: Optional[int]) -> bool:
     if owner_id is None:
         return current_user.role.name == "ADMIN"
     allowed = await visible_user_ids(db, current_user)
     return allowed is None or owner_id in allowed
 
 
-async def require_user_access(db: AsyncSession, current_user, owner_id: Optional[int]) -> None:
+async def require_user_access(db: AsyncDatabase, current_user, owner_id: Optional[int]) -> None:
     if not await can_access_user(db, current_user, owner_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")

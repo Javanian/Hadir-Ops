@@ -1,76 +1,77 @@
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import func, or_, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from pymongo import ReturnDocument
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.models.models import AuditLog, Role, User
+from app.db import in_transaction
+from app.db.documents import ROLES, Role, User
+from app.db.ids import next_id
+from app.db.relations import attach_user_sites
 
 
 class UserRepository:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    # ── Existing (auth / face) ────────────────────────────────────────────────
+    async def _one(self, query: dict) -> Optional[User]:
+        doc = await self.db.users.find_one(query)
+        if doc is None:
+            return None
+        user = User.from_doc(doc)
+        await attach_user_sites(self.db, [user])
+        return user
+
+    # ── Lookups ───────────────────────────────────────────────────────────────
 
     async def get_by_email(self, email: str) -> Optional[User]:
-        result = await self.db.execute(
-            select(User)
-            .options(selectinload(User.role))
-            .where(User.email == email)
-        )
-        return result.scalar_one_or_none()
+        return await self._one({"email": email})
 
     async def get_by_employee_id(self, employee_id: str) -> Optional[User]:
-        result = await self.db.execute(
-            select(User)
-            .options(selectinload(User.role))
-            .where(User.employee_id == employee_id)
-        )
-        return result.scalar_one_or_none()
+        return await self._one({"employee_id": employee_id})
 
     async def get_by_id(self, user_id: int) -> Optional[User]:
-        result = await self.db.execute(
-            select(User)
-            .options(selectinload(User.role), selectinload(User.site))
-            .where(User.id == user_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def increment_failed_attempts(
-        self, user: User, lock_until: Optional[datetime] = None
-    ) -> None:
-        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-        if lock_until is not None:
-            user.locked_until = lock_until
-        await self.db.commit()
-        await self.db.refresh(user)
-
-    async def reset_failed_attempts(self, user: User) -> None:
-        user.failed_login_attempts = 0
-        user.locked_until = None
-        await self.db.commit()
+        return await self._one({"_id": user_id})
 
     async def get_subordinate_ids(self, supervisor_id: int) -> list[int]:
         """Return IDs of all users directly supervised by supervisor_id."""
-        result = await self.db.execute(
-            select(User.id).where(User.supervisor_id == supervisor_id)
+        return [d["_id"] async for d in self.db.users.find({"supervisor_id": supervisor_id}, {"_id": 1})]
+
+    async def get_role_by_name(self, name: str) -> Optional[Role]:
+        return Role(name) if name in ROLES else None
+
+    # ── Login state ───────────────────────────────────────────────────────────
+
+    async def increment_failed_attempts(self, user: User, lock_until: Optional[datetime] = None) -> None:
+        update: dict = {"$inc": {"failed_login_attempts": 1}}
+        if lock_until is not None:
+            update["$set"] = {"locked_until": lock_until}
+        doc = await self.db.users.find_one_and_update(
+            {"_id": user.id}, update, return_document=ReturnDocument.AFTER
         )
-        return list(result.scalars().all())
+        user.failed_login_attempts = doc.get("failed_login_attempts", 0)
+        user.locked_until = doc.get("locked_until")
+
+    async def reset_failed_attempts(self, user: User) -> None:
+        await self.db.users.update_one(
+            {"_id": user.id}, {"$set": {"failed_login_attempts": 0, "locked_until": None}}
+        )
+        user.failed_login_attempts = 0
+        user.locked_until = None
 
     async def update_password(self, user: User, new_hash: str, changed_at: datetime) -> None:
-        """Update password hash and record the change timestamp. Service owns commit."""
+        await self.db.users.update_one(
+            {"_id": user.id},
+            {"$set": {"password_hash": new_hash, "password_changed_at": changed_at}},
+        )
         user.password_hash = new_hash
         user.password_changed_at = changed_at
 
     async def update_face_embedding(self, user_id: int, embedding) -> None:
-        """Set or clear the face_embedding for a user (Phase 3)."""
-        result = await self.db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
-        if user is not None:
-            user.face_embedding = embedding
-            await self.db.commit()
+        """Set or clear the stored face embedding (a plain list of floats)."""
+        value = None if embedding is None else [float(x) for x in embedding]
+        await self.db.users.update_one({"_id": user_id}, {"$set": {"face_embedding": value}})
 
     async def log_audit(
         self,
@@ -80,21 +81,17 @@ class UserRepository:
         user_agent: str,
         status: str,
     ) -> None:
-        log = AuditLog(
-            user_id=user_id,
-            action=action,
-            ip_address=ip_address[:50] if ip_address else None,
-            user_agent=user_agent,
-            status=status,
-        )
-        self.db.add(log)
-        await self.db.commit()
+        await self.db.audit_logs.insert_one({
+            "_id": await next_id(self.db, "audit_logs"),
+            "user_id": user_id,
+            "action": action,
+            "ip_address": ip_address[:50] if ip_address else None,
+            "user_agent": user_agent,
+            "status": status,
+            "created_at": datetime.now(timezone.utc),
+        })
 
-    # ── User management (W2 backend) ─────────────────────────────────────────
-
-    async def get_role_by_name(self, name: str) -> Optional[Role]:
-        result = await self.db.execute(select(Role).where(Role.name == name))
-        return result.scalar_one_or_none()
+    # ── User management ───────────────────────────────────────────────────────
 
     async def list_with_filters(
         self,
@@ -105,35 +102,20 @@ class UserRepository:
         limit: int,
     ) -> tuple[list[User], int]:
         """Return (page_of_users, total_count) matching the given filters."""
-        base = (
-            select(User)
-            .join(User.role)
-            .options(selectinload(User.role), selectinload(User.site))
-        )
-
+        query: dict = {}
         if search:
-            pat = f"%{search}%"
-            base = base.where(
-                or_(
-                    User.name.ilike(pat),
-                    User.employee_id.ilike(pat),
-                    User.email.ilike(pat),
-                )
-            )
+            pattern = {"$regex": re.escape(search), "$options": "i"}
+            query["$or"] = [{"name": pattern}, {"employee_id": pattern}, {"email": pattern}]
         if role:
-            base = base.where(Role.name == role)
+            query["role"] = role
         if site_id is not None:
-            base = base.where(User.site_id == site_id)
+            query["site_id"] = site_id
 
-        # Total count via subquery
-        count_q = select(func.count()).select_from(base.subquery())
-        total: int = (await self.db.execute(count_q)).scalar_one()
-
-        # Paginated rows
-        rows = await self.db.execute(
-            base.order_by(User.id).offset(skip).limit(limit)
-        )
-        return list(rows.scalars().all()), total
+        total = await self.db.users.count_documents(query)
+        cursor = self.db.users.find(query).sort("_id", 1).skip(skip).limit(limit)
+        users = [User.from_doc(d) async for d in cursor]
+        await attach_user_sites(self.db, users)
+        return users, total
 
     async def create_user(
         self,
@@ -141,38 +123,63 @@ class UserRepository:
         name: str,
         email: str,
         password_hash: str,
-        role_id: int,
+        role: str,
         site_id: Optional[int],
         supervisor_id: Optional[int],
     ) -> User:
-        user = User(
-            employee_id=employee_id,
-            name=name,
-            email=email,
-            password_hash=password_hash,
-            role_id=role_id,
-            site_id=site_id,
-            supervisor_id=supervisor_id,
-        )
-        self.db.add(user)
-        await self.db.commit()
-        # Reload with eager relationships for the response
-        loaded = await self.get_by_id(user.id)
-        assert loaded is not None
-        return loaded
+        user_id = await next_id(self.db, "users")
+        await self.db.users.insert_one({
+            "_id": user_id,
+            "employee_id": employee_id,
+            "name": name,
+            "email": email,
+            "password_hash": password_hash,
+            "role": role,
+            "site_id": site_id,
+            "supervisor_id": supervisor_id,
+            "face_embedding": None,
+            "is_active": True,
+            "failed_login_attempts": 0,
+            "locked_until": None,
+            "password_changed_at": None,
+            "created_at": datetime.now(timezone.utc),
+        })
+        return await self.get_by_id(user_id)
 
-    async def nullify_subordinates(self, supervisor_id: int) -> None:
-        """Clear supervisor_id for all direct subordinates before deleting the supervisor."""
-        await self.db.execute(
-            update(User)
-            .where(User.supervisor_id == supervisor_id)
-            .values(supervisor_id=None)
-        )
+    async def update(self, user_id: int, fields: dict) -> None:
+        if fields:
+            await self.db.users.update_one({"_id": user_id}, {"$set": fields})
 
-    async def nullify_audit_logs(self, user_id: int) -> None:
-        """Set audit_logs.user_id = NULL so FK constraint doesn't block deletion."""
-        await self.db.execute(
-            update(AuditLog)
-            .where(AuditLog.user_id == user_id)
-            .values(user_id=None)
-        )
+    async def delete_cascade(self, user_id: int) -> None:
+        """Delete a user and what belongs to them, in one transaction.
+
+        Mirrors the old foreign keys: the user's attendance (and its overtime),
+        leave, assignments and failed attempts go with them; references from
+        other people's records (supervisor, reviewer, approver, creator) are
+        cleared instead.
+        """
+        db = self.db
+
+        async def run(session):
+            att_ids = [
+                d["_id"] async for d in db.attendance.find({"user_id": user_id}, {"_id": 1}, session=session)
+            ]
+            await db.overtime_requests.delete_many(
+                {"$or": [{"user_id": user_id}, {"attendance_id": {"$in": att_ids}}]}, session=session
+            )
+            for name in ("attendance", "leave_requests", "temporary_assignments", "checkin_attempts"):
+                await db[name].delete_many({"user_id": user_id}, session=session)
+            await db.users.update_many(
+                {"supervisor_id": user_id}, {"$set": {"supervisor_id": None}}, session=session
+            )
+            for name, ref in (
+                ("audit_logs", "user_id"),
+                ("attendance", "reviewed_by"),
+                ("leave_requests", "reviewed_by"),
+                ("overtime_requests", "approved_by"),
+                ("temporary_assignments", "created_by"),
+            ):
+                await db[name].update_many({ref: user_id}, {"$set": {ref: None}}, session=session)
+            await db.users.delete_one({"_id": user_id}, session=session)
+
+        await in_transaction(run)

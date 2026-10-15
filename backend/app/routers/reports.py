@@ -10,7 +10,7 @@ from datetime import date
 from typing import List
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.database import get_db
 from app.core.dependencies import require_role
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 async def attendance_recap(
     from_date: date = Query(...),
     to_date: date = Query(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await RecapService(db).recap(current_user, from_date, to_date)

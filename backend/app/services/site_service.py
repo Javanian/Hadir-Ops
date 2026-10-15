@@ -1,14 +1,14 @@
 from typing import List
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.repositories.site_repository import SiteRepository
 from app.schemas.site import SiteCreate, SiteResponse, SiteUpdate
 
 
 class SiteService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.repo = SiteRepository(db)
 
     async def list_sites(self) -> List[SiteResponse]:
@@ -33,6 +33,7 @@ class SiteService:
             latitude=data.latitude,
             longitude=data.longitude,
             radius_meter=data.radius_meter,
+            timezone_name=data.timezone,
         )
         return SiteResponse.model_validate(site)
 
@@ -61,4 +62,9 @@ class SiteService:
         site = await self.repo.get_by_id(site_id)
         if not site:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found")
+        if await self.repo.users_assigned(site_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Site still has users assigned. Move them to another site first.",
+            )
         await self.repo.delete(site)

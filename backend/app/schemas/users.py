@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
 
-_VALID_ROLES = {"ADMIN", "SUPERVISOR", "EMPLOYEE"}
+_VALID_ROLES = {"ADMIN", "SUPERVISOR", "EMPLOYEE", "SALES"}
 
 
 # ── Response ──────────────────────────────────────────────────────────────────

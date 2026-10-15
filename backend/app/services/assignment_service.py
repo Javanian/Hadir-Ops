@@ -3,7 +3,7 @@ from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.repositories.assignment_repository import AssignmentRepository
 from app.repositories.site_repository import SiteRepository
@@ -13,7 +13,7 @@ from app.schemas.assignment import AssignmentCreate, AssignmentResponse
 
 
 class AssignmentService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.repo = AssignmentRepository(db)
         self.site_repo = SiteRepository(db)
@@ -76,7 +76,6 @@ class AssignmentService:
             )
 
         assignment = await self.repo.create(data=data, created_by=current_user.id)
-        await self.db.commit()
         return AssignmentResponse.model_validate(assignment)
 
     async def delete_assignment(self, assignment_id: int, current_user) -> None:

@@ -623,16 +623,16 @@ svg[data-preset="editorial"][data-animation="trace"] [data-animate="node"] { ani
           <text x="753.75" y="122" class="t-muted" font-size="7" text-anchor="middle">buffalo_s, in-process</text>
         </g>
 
-        <g id="node-db" data-node-id="db" data-node-label="PostgreSQL" tabindex="0" role="button" aria-label="Focus PostgreSQL, pgvector, Sequence participant" aria-pressed="false" data-node-kind="database" data-node-sublabel="pgvector" data-node-context="Sequence participant">
-          <title>PostgreSQL · pgvector · Sequence participant</title>
+        <g id="node-db" data-node-id="db" data-node-label="MongoDB" tabindex="0" role="button" aria-label="Focus MongoDB, replica set, Sequence participant" aria-pressed="false" data-node-kind="database" data-node-sublabel="replica set" data-node-context="Sequence participant">
+          <title>MongoDB · replica set · Sequence participant</title>
           <rect x="873" y="72" width="167" height="60" rx="6" class="c-mask"/>
           <rect x="873" y="72" width="167" height="60" rx="6" class="c-database" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(879 78) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" x="956.5" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">PostgreSQL</text>
-          <text x="956.5" y="122" class="t-muted" font-size="7" text-anchor="middle">pgvector</text>
+          <text data-node-label="" x="956.5" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">MongoDB</text>
+          <text x="956.5" y="122" class="t-muted" font-size="7" text-anchor="middle">replica set</text>
         </g>
 
         <!-- Legend -->

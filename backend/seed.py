@@ -1,31 +1,31 @@
 """
-seed.py — Run this after the database is initialized to create initial data.
+seed.py — sample data for local development and demos (MongoDB).
 
-Creates:
-  • Roles (ADMIN / SUPERVISOR / EMPLOYEE)
-  • Original test site "Kantor Pusat" + 3 timezone-representative sites
-  • Shifts + work schedules for each new site
-  • Original test users (admin / supervisor / employee)
-  • 5 supervisors + 5 employees with @example.com emails
-  • 10 attendance records per employee (Jan 1–10, 2026)
+Creates (idempotent: existing records are kept):
+  • 4 sites: Kantor Pusat + one per Indonesian time zone (WIB / WITA / WIT)
+  • A regular shift per site with all seven days scheduled
+  • Test accounts (admin / supervisor / employee) and @example.com users:
+    5 supervisors, 40 employees, 6 SALES
+  • Attendance for May 15–18, 2026 with overtime requests
   • A few leave requests around today (sick, permit, annual)
 
 Usage:
     python seed.py
 
-Requires: DATABASE_URL in .env pointing to a running PostgreSQL instance
-with the schema from database.sql already applied.
+Requires MONGODB_URL (and MONGODB_DB) in .env; indexes are created here too.
 """
 
 import asyncio
-import random
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, text
-
-from app.core.database import AsyncSessionLocal
+from app.core.database import client, get_database
 from app.core.security import get_password_hash
-from app.models.models import Attendance, LeaveRequest, OvertimeRequest, Role, Shift, Site, User, WorkSchedule
+from app.db.documents import encode
+from app.db.ids import next_id
+from app.db.schema import ensure_schema
+
+UTC = timezone.utc
 
 
 # ---------------------------------------------------------------------------
@@ -92,540 +92,297 @@ def _gen_pattern(emp_num: int, day_idx: int, is_sales: bool):
 
 
 # ---------------------------------------------------------------------------
+# Upserts by natural key
+# ---------------------------------------------------------------------------
+
+async def _site(db, name, lat, lon, radius, tz) -> dict:
+    doc = await db.sites.find_one({"name": name})
+    if doc:
+        print(f"    [=] Site exists: {name} (id={doc['_id']})")
+        return doc
+    doc = {"_id": await next_id(db, "sites"), "name": name, "latitude": lat, "longitude": lon,
+           "radius_meter": radius, "timezone": tz, "created_at": datetime.now(UTC)}
+    await db.sites.insert_one(doc)
+    print(f"    [+] Site created: {name} (id={doc['_id']})")
+    return doc
+
+
+async def _shift(db, site_id, name) -> dict:
+    doc = await db.shifts.find_one({"site_id": site_id, "name": name})
+    if doc:
+        print(f"    [=] Shift exists:  {name} (id={doc['_id']})")
+        return doc
+    doc = encode({
+        "_id": await next_id(db, "shifts"), "site_id": site_id, "name": name,
+        "start_time": time(7, 0), "end_time": time(17, 0), "is_cross_midnight": False,
+        "work_hours_standard": 8, "created_at": datetime.now(UTC),
+        # All 7 days with a 15-minute late tolerance
+        "work_schedules": [
+            {"id": await next_id(db, "work_schedules"), "day_of_week": dow, "toleransi_telat_menit": 15}
+            for dow in range(7)
+        ],
+    })
+    await db.shifts.insert_one(doc)
+    print(f"    [+] Shift created: {name} (id={doc['_id']})")
+    return doc
+
+
+async def _user(db, employee_id, name, email, password, role, site_id, supervisor_id=None) -> dict:
+    doc = await db.users.find_one({"employee_id": employee_id})
+    if doc:
+        if supervisor_id is not None and doc.get("supervisor_id") != supervisor_id:
+            await db.users.update_one({"_id": doc["_id"]}, {"$set": {"supervisor_id": supervisor_id}})
+            doc["supervisor_id"] = supervisor_id
+        print(f"    [=] {role} exists: {email}")
+        return doc
+    doc = {
+        "_id": await next_id(db, "users"), "employee_id": employee_id, "name": name, "email": email,
+        "password_hash": get_password_hash(password), "role": role, "site_id": site_id,
+        "supervisor_id": supervisor_id, "face_embedding": None, "is_active": True,
+        "failed_login_attempts": 0, "locked_until": None, "password_changed_at": None,
+        "created_at": datetime.now(UTC),
+    }
+    await db.users.insert_one(doc)
+    print(f"    [+] {role} created: {email}")
+    return doc
+
+
+# ---------------------------------------------------------------------------
 # Main seed
 # ---------------------------------------------------------------------------
 
 async def seed():
-    async with AsyncSessionLocal() as db:
+    db = get_database()
+    print("\n[0] Ensuring indexes and validators...")
+    await ensure_schema(db)
 
-        # ── 0. Inline timezone migration ──────────────────────────────────────
-        print("\n[0] Ensuring sites.timezone column exists...")
-        await db.execute(text(
-            "ALTER TABLE sites "
-            "ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) NOT NULL DEFAULT 'Asia/Jakarta'"
-        ))
-        await db.commit()
-        print("    timezone column: OK")
+    # ── 1. Sites ──────────────────────────────────────────────────────────────
+    print("\n[1] Seeding sites...")
+    orig_site = await _site(db, "Kantor Pusat", -6.200000, 106.816666, 100, "Asia/Jakarta")
+    tz_sites_data = [
+        {
+            "name": "Site Jakarta",
+            "lat": -6.200000,
+            "lon": 106.816666,
+            "radius": 100,
+            "tz": "Asia/Jakarta",
+            "label": "WIB (UTC+7)",
+        },
+        {
+            "name": "Site Makassar",
+            "lat": -5.147350,
+            "lon": 119.432181,
+            "radius": 100,
+            "tz": "Asia/Makassar",
+            "label": "WITA (UTC+8)",
+        },
+        {
+            "name": "Site Jayapura",
+            "lat": -2.533333,
+            "lon": 140.717361,
+            "radius": 100,
+            "tz": "Asia/Jayapura",
+            "label": "WIT (UTC+9)",
+        },
+    ]
+    tz_sites = {}
+    for sd in tz_sites_data:
+        tz_sites[sd["name"]] = await _site(db, sd["name"], sd["lat"], sd["lon"], sd["radius"], sd["tz"])
+    jkt, mks, jpr = (tz_sites[n] for n in ("Site Jakarta", "Site Makassar", "Site Jayapura"))
 
-        # ── 1. Roles ──────────────────────────────────────────────────────────
-        print("\n[1] Seeding roles...")
-        role_names = ["ADMIN", "SUPERVISOR", "EMPLOYEE", "SALES"]
-        roles: dict[str, Role] = {}
+    # ── 2. Shifts ─────────────────────────────────────────────────────────────
+    print("\n[2] Seeding shifts and work schedules...")
+    site_shifts = {}
+    for site_name, shift_name in (
+        ("Site Jakarta", "Shift Reguler WIB"),
+        ("Site Makassar", "Shift Reguler WITA"),
+        ("Site Jayapura", "Shift Reguler WIT"),
+    ):
+        site_shifts[tz_sites[site_name]["_id"]] = await _shift(db, tz_sites[site_name]["_id"], shift_name)
 
-        for rname in role_names:
-            result = await db.execute(select(Role).where(Role.name == rname))
-            role = result.scalar_one_or_none()
-            if not role:
-                role = Role(name=rname)
-                db.add(role)
-                await db.flush()
-                print(f"    [+] Role created: {rname}")
-            else:
-                print(f"    [=] Role exists: {rname}")
-            roles[rname] = role
+    # ── 3. Users ──────────────────────────────────────────────────────────────
+    print("\n[3] Seeding test users...")
+    await _user(db, "ADM001", "Administrator", "admin@hadirops.local", "Admin@123", "ADMIN", None)
+    spv001 = await _user(db, "SPV001", "Supervisor Satu", "supervisor@hadirops.local", "Supervisor@123",
+                         "SUPERVISOR", orig_site["_id"])
+    await _user(db, "EMP001", "Karyawan Satu", "karyawan@hadirops.local", "Karyawan@123",
+                "EMPLOYEE", orig_site["_id"], supervisor_id=spv001["_id"])
 
-        await db.commit()
+    print("\n[4] Seeding @example.com supervisors...")
+    jkt_id, mks_id, jpr_id = jkt["_id"], mks["_id"], jpr["_id"]
+    supervisors_data = [
+        {"employee_id": "SPV101", "name": "Budi Santoso",   "email": "spv101@example.com", "site_id": jkt_id},
+        {"employee_id": "SPV102", "name": "Dewi Rahayu",    "email": "spv102@example.com", "site_id": jkt_id},
+        {"employee_id": "SPV103", "name": "Andi Wijaya",    "email": "spv103@example.com", "site_id": mks_id},
+        {"employee_id": "SPV104", "name": "Rini Susanti",   "email": "spv104@example.com", "site_id": jpr_id},
+        {"employee_id": "SPV105", "name": "Hendra Kusuma",  "email": "spv105@example.com", "site_id": jpr_id},
+    ]
+    spv_objects = {}
+    for u in supervisors_data:
+        spv_objects[u["employee_id"]] = await _user(
+            db, u["employee_id"], u["name"], u["email"], "12345", "SUPERVISOR", u["site_id"])
 
-        # Re-fetch after commit
-        for rname in role_names:
-            result = await db.execute(select(Role).where(Role.name == rname))
-            roles[rname] = result.scalar_one()
+    print("\n[5] Seeding @example.com employees...")
+    employees_data = [
+        # ── Original 5 (1 per supervisor) ──────────────────────────────
+        {"employee_id": "EMP101", "name": "Siti Aminah",          "email": "emp101@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        {"employee_id": "EMP102", "name": "Ahmad Fauzi",          "email": "emp102@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        {"employee_id": "EMP103", "name": "Lestari Putri",        "email": "emp103@example.com", "site_id": mks_id, "spv": "SPV103"},
+        {"employee_id": "EMP104", "name": "Joko Susilo",          "email": "emp104@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        {"employee_id": "EMP105", "name": "Maya Indah",           "email": "emp105@example.com", "site_id": jpr_id, "spv": "SPV105"},
+        # ── SPV101 additional 7 (Site Jakarta) ──────────────────────────
+        {"employee_id": "EMP106", "name": "Rudi Hartono",         "email": "emp106@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        {"employee_id": "EMP107", "name": "Fitri Wahyuni",        "email": "emp107@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        {"employee_id": "EMP108", "name": "Agus Purnomo",         "email": "emp108@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        {"employee_id": "EMP109", "name": "Dini Anggraini",       "email": "emp109@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        {"employee_id": "EMP110", "name": "Wahyu Setiawan",       "email": "emp110@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        {"employee_id": "EMP111", "name": "Nurul Hidayah",        "email": "emp111@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        {"employee_id": "EMP112", "name": "Bagas Prasetyo",       "email": "emp112@example.com", "site_id": jkt_id, "spv": "SPV101"},
+        # ── SPV102 additional 7 (Site Jakarta) ──────────────────────────
+        {"employee_id": "EMP113", "name": "Ika Ramadhani",        "email": "emp113@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        {"employee_id": "EMP114", "name": "Dimas Kurniawan",      "email": "emp114@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        {"employee_id": "EMP115", "name": "Sari Novitasari",      "email": "emp115@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        {"employee_id": "EMP116", "name": "Farid Maulana",        "email": "emp116@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        {"employee_id": "EMP117", "name": "Yuni Astuti",          "email": "emp117@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        {"employee_id": "EMP118", "name": "Rizky Firmansyah",     "email": "emp118@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        {"employee_id": "EMP119", "name": "Ayu Lestari",          "email": "emp119@example.com", "site_id": jkt_id, "spv": "SPV102"},
+        # ── SPV103 additional 7 (Site Makassar) ─────────────────────────
+        {"employee_id": "EMP120", "name": "Bambang Suryadi",      "email": "emp120@example.com", "site_id": mks_id, "spv": "SPV103"},
+        {"employee_id": "EMP121", "name": "Nisa Rahmawati",       "email": "emp121@example.com", "site_id": mks_id, "spv": "SPV103"},
+        {"employee_id": "EMP122", "name": "Dedi Kurniawan",       "email": "emp122@example.com", "site_id": mks_id, "spv": "SPV103"},
+        {"employee_id": "EMP123", "name": "Susi Wulandari",       "email": "emp123@example.com", "site_id": mks_id, "spv": "SPV103"},
+        {"employee_id": "EMP124", "name": "Heri Prasetyo",        "email": "emp124@example.com", "site_id": mks_id, "spv": "SPV103"},
+        {"employee_id": "EMP125", "name": "Mira Oktaviani",       "email": "emp125@example.com", "site_id": mks_id, "spv": "SPV103"},
+        {"employee_id": "EMP126", "name": "Toni Wijaya",          "email": "emp126@example.com", "site_id": mks_id, "spv": "SPV103"},
+        # ── SPV104 additional 7 (Site Jayapura) ─────────────────────────
+        {"employee_id": "EMP127", "name": "Laras Pertiwi",        "email": "emp127@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        {"employee_id": "EMP128", "name": "Eko Saputro",          "email": "emp128@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        {"employee_id": "EMP129", "name": "Dewi Kurniasih",       "email": "emp129@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        {"employee_id": "EMP130", "name": "Surya Dinata",         "email": "emp130@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        {"employee_id": "EMP131", "name": "Putri Rahayu",         "email": "emp131@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        {"employee_id": "EMP132", "name": "Fandi Ahmad",          "email": "emp132@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        {"employee_id": "EMP133", "name": "Rina Susilawati",      "email": "emp133@example.com", "site_id": jpr_id, "spv": "SPV104"},
+        # ── SPV105 additional 7 (Site Jayapura) ─────────────────────────
+        {"employee_id": "EMP134", "name": "Andika Pratama",       "email": "emp134@example.com", "site_id": jpr_id, "spv": "SPV105"},
+        {"employee_id": "EMP135", "name": "Wulan Permatasari",    "email": "emp135@example.com", "site_id": jpr_id, "spv": "SPV105"},
+        {"employee_id": "EMP136", "name": "Gilang Saputra",       "email": "emp136@example.com", "site_id": jpr_id, "spv": "SPV105"},
+        {"employee_id": "EMP137", "name": "Lidya Kusumaningrum",  "email": "emp137@example.com", "site_id": jpr_id, "spv": "SPV105"},
+        {"employee_id": "EMP138", "name": "Imam Santosa",         "email": "emp138@example.com", "site_id": jpr_id, "spv": "SPV105"},
+        {"employee_id": "EMP139", "name": "Anggi Pratiwi",        "email": "emp139@example.com", "site_id": jpr_id, "spv": "SPV105"},
+        {"employee_id": "EMP140", "name": "Dony Firmansyah",      "email": "emp140@example.com", "site_id": jpr_id, "spv": "SPV105"},
+    ]
+    people = []  # (user doc, is_sales)
+    for u in employees_data:
+        emp = await _user(db, u["employee_id"], u["name"], u["email"], "12345", "EMPLOYEE", u["site_id"],
+                          supervisor_id=spv_objects[u["spv"]]["_id"])
+        people.append((emp, False))
 
-        # ── 2. Original site (Kantor Pusat) ───────────────────────────────────
-        print("\n[2] Seeding original site (Kantor Pusat)...")
-        result = await db.execute(select(Site).where(Site.name == "Kantor Pusat"))
-        orig_site = result.scalar_one_or_none()
-        if not orig_site:
-            await db.execute(text(
-                "INSERT INTO sites (name, latitude, longitude, radius_meter, timezone) "
-                "VALUES (:name, :lat, :lon, :radius, :tz)"
-            ), {"name": "Kantor Pusat", "lat": -6.200000, "lon": 106.816666,
-                "radius": 100, "tz": "Asia/Jakarta"})
-            await db.commit()
-            result = await db.execute(select(Site).where(Site.name == "Kantor Pusat"))
-            orig_site = result.scalar_one()
-            print(f"    [+] Site created: Kantor Pusat (id={orig_site.id})")
-        else:
-            print(f"    [=] Site exists: Kantor Pusat (id={orig_site.id})")
+    print("\n[6] Seeding @example.com SALES employees...")
+    sales_data = [
+        {"employee_id": "SAL001", "name": "Dian Permata",   "email": "sal001@example.com", "site_id": jkt_id},
+        {"employee_id": "SAL002", "name": "Rizky Aditya",   "email": "sal002@example.com", "site_id": jkt_id},
+        {"employee_id": "SAL003", "name": "Putri Melati",   "email": "sal003@example.com", "site_id": mks_id},
+        {"employee_id": "SAL004", "name": "Bayu Anggara",   "email": "sal004@example.com", "site_id": mks_id},
+        {"employee_id": "SAL005", "name": "Indah Kusuma",   "email": "sal005@example.com", "site_id": jpr_id},
+        {"employee_id": "SAL006", "name": "Adit Pratama",   "email": "sal006@example.com", "site_id": jpr_id},
+    ]
+    for u in sales_data:
+        people.append((await _user(db, u["employee_id"], u["name"], u["email"], "12345", "SALES", u["site_id"]), True))
 
-        # ── 3. Three timezone sites ───────────────────────────────────────────
-        print("\n[3] Seeding timezone sites (WIB / WITA / WIT)...")
-        tz_sites_data = [
-            {
-                "name": "Site Jakarta",
-                "lat": -6.200000,
-                "lon": 106.816666,
-                "radius": 100,
-                "tz": "Asia/Jakarta",
-                "label": "WIB (UTC+7)",
-            },
-            {
-                "name": "Site Makassar",
-                "lat": -5.147350,
-                "lon": 119.432181,
-                "radius": 100,
-                "tz": "Asia/Makassar",
-                "label": "WITA (UTC+8)",
-            },
-            {
-                "name": "Site Jayapura",
-                "lat": -2.533333,
-                "lon": 140.717361,
-                "radius": 100,
-                "tz": "Asia/Jayapura",
-                "label": "WIT (UTC+9)",
-            },
-        ]
+    # ── 7. Attendance + overtime ──────────────────────────────────────────────
+    print(f"\n[7] Seeding attendance ({BASE_DATE} – {BASE_DATE + timedelta(days=DAYS_TO_SEED - 1)})...")
+    sites_by_id = {s["_id"]: s for s in tz_sites.values()}
+    supervisor_for_site = {}
+    for spv in spv_objects.values():
+        supervisor_for_site.setdefault(spv["site_id"], spv["_id"])
 
-        tz_sites: dict[str, Site] = {}
-        for sd in tz_sites_data:
-            result = await db.execute(select(Site).where(Site.name == sd["name"]))
-            site = result.scalar_one_or_none()
-            if not site:
-                await db.execute(text(
-                    "INSERT INTO sites (name, latitude, longitude, radius_meter, timezone) "
-                    "VALUES (:name, :lat, :lon, :radius, :tz)"
-                ), {"name": sd["name"], "lat": sd["lat"], "lon": sd["lon"],
-                    "radius": sd["radius"], "tz": sd["tz"]})
-                await db.commit()
-                result = await db.execute(select(Site).where(Site.name == sd["name"]))
-                site = result.scalar_one()
-                print(f"    [+] Site created: {sd['name']} [{sd['label']}] (id={site.id})")
-            else:
-                print(f"    [=] Site exists:  {sd['name']} [{sd['label']}] (id={site.id})")
-            tz_sites[sd["name"]] = site
+    total_inserted = total_skipped = total_ot = 0
+    ot_statuses = ["PENDING", "APPROVED", "REJECTED"]
+    for user, is_sales in people:
+        site = sites_by_id.get(user["site_id"])
+        shift = site_shifts.get(user["site_id"])
+        if not site or not shift:
+            print(f"    [!] Skipping {user['employee_id']} — no matching site/shift")
+            continue
+        tz = ZoneInfo(site["timezone"])
 
-        # ── 4. Shifts + work schedules ────────────────────────────────────────
-        print("\n[4] Seeding shifts and work schedules...")
-        shift_defs = [
-            ("Site Jakarta",  "Shift Reguler WIB"),
-            ("Site Makassar", "Shift Reguler WITA"),
-            ("Site Jayapura", "Shift Reguler WIT"),
-        ]
+        emp_num = int(user["employee_id"][3:])  # "EMP101"→101, "SAL001"→1
+        if user["employee_id"].startswith("SAL"):
+            emp_num += 1000  # keep SALES patterns apart from employees
 
-        site_shifts: dict[str, Shift] = {}
-        for site_name, shift_name in shift_defs:
-            site = tz_sites[site_name]
-            result = await db.execute(
-                select(Shift).where(Shift.site_id == site.id, Shift.name == shift_name)
-            )
-            shift = result.scalar_one_or_none()
-            if not shift:
-                shift = Shift(
-                    site_id=site.id,
-                    name=shift_name,
-                    start_time=time(7, 0),
-                    end_time=time(17, 0),
-                    is_cross_midnight=False,
-                    work_hours_standard=8,
-                )
-                db.add(shift)
-                await db.flush()
-                # Add all 7 days with 15-min late tolerance
-                for dow in range(7):
-                    db.add(WorkSchedule(
-                        shift_id=shift.id,
-                        day_of_week=dow,
-                        toleransi_telat_menit=15,
-                    ))
-                await db.commit()
-                result = await db.execute(
-                    select(Shift).where(Shift.site_id == site.id, Shift.name == shift_name)
-                )
-                shift = result.scalar_one()
-                print(f"    [+] Shift created: {shift_name} (id={shift.id})")
-            else:
-                print(f"    [=] Shift exists:  {shift_name} (id={shift.id})")
-            site_shifts[site_name] = shift
-
-        # ── 5. Original test users ────────────────────────────────────────────
-        print("\n[5] Seeding original test users...")
-        original_users = [
-            {
-                "employee_id": "ADM001",
-                "name": "Administrator",
-                "email": "admin@hadirops.local",
-                "password": "Admin@123",
-                "role": "ADMIN",
-                "site_id": None,
-            },
-            {
-                "employee_id": "SPV001",
-                "name": "Supervisor Satu",
-                "email": "supervisor@hadirops.local",
-                "password": "Supervisor@123",
-                "role": "SUPERVISOR",
-                "site_id": orig_site.id,
-            },
-            {
-                "employee_id": "EMP001",
-                "name": "Karyawan Satu",
-                "email": "karyawan@hadirops.local",
-                "password": "Karyawan@123",
-                "role": "EMPLOYEE",
-                "site_id": orig_site.id,
-            },
-        ]
-        for u in original_users:
-            result = await db.execute(select(User).where(User.email == u["email"]))
-            if result.scalar_one_or_none():
-                print(f"    [=] User exists: {u['email']}")
+        for day_idx in range(DAYS_TO_SEED):
+            att_date = BASE_DATE + timedelta(days=day_idx)
+            if await db.attendance.find_one({"user_id": user["_id"], "work_date": att_date.isoformat()}):
+                total_skipped += 1
                 continue
-            db.add(User(
-                employee_id=u["employee_id"],
-                name=u["name"],
-                email=u["email"],
-                password_hash=get_password_hash(u["password"]),
-                role_id=roles[u["role"]].id,
-                site_id=u["site_id"],
-                is_active=True,
-            ))
-            print(f"    [+] User created: {u['email']} / {u['password']}")
-        await db.commit()
+            ci_h, ci_m, co_h, co_m, status, in_radius, ot_min = _gen_pattern(emp_num, day_idx, is_sales)
+            # Clock times are site-local
+            checkin = datetime(att_date.year, att_date.month, att_date.day, ci_h, ci_m, tzinfo=tz)
+            checkout = datetime(att_date.year, att_date.month, att_date.day, co_h, co_m, tzinfo=tz)
+            offset = 0.0 if in_radius else 2.0
 
-        # Assign original supervisor hierarchy
-        r = await db.execute(select(User).where(User.employee_id == "SPV001"))
-        spv001 = r.scalar_one_or_none()
-        r = await db.execute(select(User).where(User.employee_id == "EMP001"))
-        emp001 = r.scalar_one_or_none()
-        if spv001 and emp001 and emp001.supervisor_id != spv001.id:
-            emp001.supervisor_id = spv001.id
-            await db.commit()
-            print("    [+] EMP001 → SPV001 hierarchy set")
+            att_id = await next_id(db, "attendance")
+            await db.attendance.insert_one({
+                "_id": att_id, "user_id": user["_id"], "site_id": site["_id"], "shift_id": shift["_id"],
+                "checkin_time": checkin, "checkout_time": checkout, "auto_checkout": False,
+                "latitude": site["latitude"] + offset, "longitude": site["longitude"] + offset,
+                "work_duration_minutes": _work_minutes(checkin, checkout), "overtime_minutes": ot_min,
+                "is_weekend": _is_weekend_db_dow(att_date), "is_holiday": False, "status": status,
+                "work_date": att_date.isoformat(), "created_at": datetime.now(UTC),
+                "risk_flags": [], "needs_review": False, "is_offline": False, "review_status": None,
+            })
+            total_inserted += 1
 
-        # ── 6. example.com supervisors ────────────────────────────────────────
-        print("\n[6] Seeding @example.com supervisors...")
-        jkt  = tz_sites["Site Jakarta"]
-        mks  = tz_sites["Site Makassar"]
-        jpr  = tz_sites["Site Jayapura"]
-
-        supervisors_data = [
-            {"employee_id": "SPV101", "name": "Budi Santoso",   "email": "spv101@example.com", "site_id": jkt.id},
-            {"employee_id": "SPV102", "name": "Dewi Rahayu",    "email": "spv102@example.com", "site_id": jkt.id},
-            {"employee_id": "SPV103", "name": "Andi Wijaya",    "email": "spv103@example.com", "site_id": mks.id},
-            {"employee_id": "SPV104", "name": "Rini Susanti",   "email": "spv104@example.com", "site_id": jpr.id},
-            {"employee_id": "SPV105", "name": "Hendra Kusuma",  "email": "spv105@example.com", "site_id": jpr.id},
-        ]
-        spv_objects: dict[str, User] = {}
-        for u in supervisors_data:
-            result = await db.execute(select(User).where(User.employee_id == u["employee_id"]))
-            spv = result.scalar_one_or_none()
-            if not spv:
-                spv = User(
-                    employee_id=u["employee_id"],
-                    name=u["name"],
-                    email=u["email"],
-                    password_hash=get_password_hash("12345"),
-                    role_id=roles["SUPERVISOR"].id,
-                    site_id=u["site_id"],
-                    is_active=True,
-                )
-                db.add(spv)
-                await db.flush()
-                print(f"    [+] Supervisor created: {u['email']}")
-            else:
-                print(f"    [=] Supervisor exists:  {u['email']}")
-            spv_objects[u["employee_id"]] = spv
-        await db.commit()
-
-        # Re-fetch supervisors after commit
-        for eid in list(spv_objects.keys()):
-            r = await db.execute(select(User).where(User.employee_id == eid))
-            spv_objects[eid] = r.scalar_one()
-
-        # ── 7. example.com employees ──────────────────────────────────────────
-        print("\n[7] Seeding @example.com employees...")
-        employees_data = [
-            # ── Original 5 (1 per supervisor) ──────────────────────────────
-            {"employee_id": "EMP101", "name": "Siti Aminah",          "email": "emp101@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            {"employee_id": "EMP102", "name": "Ahmad Fauzi",          "email": "emp102@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            {"employee_id": "EMP103", "name": "Lestari Putri",        "email": "emp103@example.com", "site_id": mks.id, "spv": "SPV103"},
-            {"employee_id": "EMP104", "name": "Joko Susilo",          "email": "emp104@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            {"employee_id": "EMP105", "name": "Maya Indah",           "email": "emp105@example.com", "site_id": jpr.id, "spv": "SPV105"},
-            # ── SPV101 additional 7 (Site Jakarta) ──────────────────────────
-            {"employee_id": "EMP106", "name": "Rudi Hartono",         "email": "emp106@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            {"employee_id": "EMP107", "name": "Fitri Wahyuni",        "email": "emp107@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            {"employee_id": "EMP108", "name": "Agus Purnomo",         "email": "emp108@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            {"employee_id": "EMP109", "name": "Dini Anggraini",       "email": "emp109@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            {"employee_id": "EMP110", "name": "Wahyu Setiawan",       "email": "emp110@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            {"employee_id": "EMP111", "name": "Nurul Hidayah",        "email": "emp111@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            {"employee_id": "EMP112", "name": "Bagas Prasetyo",       "email": "emp112@example.com", "site_id": jkt.id, "spv": "SPV101"},
-            # ── SPV102 additional 7 (Site Jakarta) ──────────────────────────
-            {"employee_id": "EMP113", "name": "Ika Ramadhani",        "email": "emp113@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            {"employee_id": "EMP114", "name": "Dimas Kurniawan",      "email": "emp114@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            {"employee_id": "EMP115", "name": "Sari Novitasari",      "email": "emp115@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            {"employee_id": "EMP116", "name": "Farid Maulana",        "email": "emp116@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            {"employee_id": "EMP117", "name": "Yuni Astuti",          "email": "emp117@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            {"employee_id": "EMP118", "name": "Rizky Firmansyah",     "email": "emp118@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            {"employee_id": "EMP119", "name": "Ayu Lestari",          "email": "emp119@example.com", "site_id": jkt.id, "spv": "SPV102"},
-            # ── SPV103 additional 7 (Site Makassar) ─────────────────────────
-            {"employee_id": "EMP120", "name": "Bambang Suryadi",      "email": "emp120@example.com", "site_id": mks.id, "spv": "SPV103"},
-            {"employee_id": "EMP121", "name": "Nisa Rahmawati",       "email": "emp121@example.com", "site_id": mks.id, "spv": "SPV103"},
-            {"employee_id": "EMP122", "name": "Dedi Kurniawan",       "email": "emp122@example.com", "site_id": mks.id, "spv": "SPV103"},
-            {"employee_id": "EMP123", "name": "Susi Wulandari",       "email": "emp123@example.com", "site_id": mks.id, "spv": "SPV103"},
-            {"employee_id": "EMP124", "name": "Heri Prasetyo",        "email": "emp124@example.com", "site_id": mks.id, "spv": "SPV103"},
-            {"employee_id": "EMP125", "name": "Mira Oktaviani",       "email": "emp125@example.com", "site_id": mks.id, "spv": "SPV103"},
-            {"employee_id": "EMP126", "name": "Toni Wijaya",          "email": "emp126@example.com", "site_id": mks.id, "spv": "SPV103"},
-            # ── SPV104 additional 7 (Site Jayapura) ─────────────────────────
-            {"employee_id": "EMP127", "name": "Laras Pertiwi",        "email": "emp127@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            {"employee_id": "EMP128", "name": "Eko Saputro",          "email": "emp128@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            {"employee_id": "EMP129", "name": "Dewi Kurniasih",       "email": "emp129@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            {"employee_id": "EMP130", "name": "Surya Dinata",         "email": "emp130@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            {"employee_id": "EMP131", "name": "Putri Rahayu",         "email": "emp131@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            {"employee_id": "EMP132", "name": "Fandi Ahmad",          "email": "emp132@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            {"employee_id": "EMP133", "name": "Rina Susilawati",      "email": "emp133@example.com", "site_id": jpr.id, "spv": "SPV104"},
-            # ── SPV105 additional 7 (Site Jayapura) ─────────────────────────
-            {"employee_id": "EMP134", "name": "Andika Pratama",       "email": "emp134@example.com", "site_id": jpr.id, "spv": "SPV105"},
-            {"employee_id": "EMP135", "name": "Wulan Permatasari",    "email": "emp135@example.com", "site_id": jpr.id, "spv": "SPV105"},
-            {"employee_id": "EMP136", "name": "Gilang Saputra",       "email": "emp136@example.com", "site_id": jpr.id, "spv": "SPV105"},
-            {"employee_id": "EMP137", "name": "Lidya Kusumaningrum",  "email": "emp137@example.com", "site_id": jpr.id, "spv": "SPV105"},
-            {"employee_id": "EMP138", "name": "Imam Santosa",         "email": "emp138@example.com", "site_id": jpr.id, "spv": "SPV105"},
-            {"employee_id": "EMP139", "name": "Anggi Pratiwi",        "email": "emp139@example.com", "site_id": jpr.id, "spv": "SPV105"},
-            {"employee_id": "EMP140", "name": "Dony Firmansyah",      "email": "emp140@example.com", "site_id": jpr.id, "spv": "SPV105"},
-        ]
-        emp_objects: dict[str, User] = {}
-        for u in employees_data:
-            result = await db.execute(select(User).where(User.employee_id == u["employee_id"]))
-            emp = result.scalar_one_or_none()
-            if not emp:
-                emp = User(
-                    employee_id=u["employee_id"],
-                    name=u["name"],
-                    email=u["email"],
-                    password_hash=get_password_hash("12345"),
-                    role_id=roles["EMPLOYEE"].id,
-                    site_id=u["site_id"],
-                    is_active=True,
-                )
-                db.add(emp)
-                await db.flush()
-                print(f"    [+] Employee created: {u['email']}")
-            else:
-                print(f"    [=] Employee exists:  {u['email']}")
-            emp_objects[u["employee_id"]] = emp
-        await db.commit()
-
-        # ── 7b. SALES employees (no supervisor, no location restriction) ────────
-        print("\n[7b] Seeding @example.com SALES employees...")
-        sales_data = [
-            {"employee_id": "SAL001", "name": "Dian Permata",   "email": "sal001@example.com", "site_id": jkt.id},
-            {"employee_id": "SAL002", "name": "Rizky Aditya",   "email": "sal002@example.com", "site_id": jkt.id},
-            {"employee_id": "SAL003", "name": "Putri Melati",   "email": "sal003@example.com", "site_id": mks.id},
-            {"employee_id": "SAL004", "name": "Bayu Anggara",   "email": "sal004@example.com", "site_id": mks.id},
-            {"employee_id": "SAL005", "name": "Indah Kusuma",   "email": "sal005@example.com", "site_id": jpr.id},
-            {"employee_id": "SAL006", "name": "Adit Pratama",   "email": "sal006@example.com", "site_id": jpr.id},
-        ]
-        sales_objects: dict[str, User] = {}
-        for u in sales_data:
-            result = await db.execute(select(User).where(User.employee_id == u["employee_id"]))
-            user = result.scalar_one_or_none()
-            if not user:
-                user = User(
-                    employee_id=u["employee_id"],
-                    name=u["name"],
-                    email=u["email"],
-                    password_hash=get_password_hash("12345"),
-                    role_id=roles["SALES"].id,
-                    site_id=u["site_id"],
-                    is_active=True,
-                )
-                db.add(user)
-                await db.flush()
-                print(f"    [+] SALES created: {u['email']}")
-            else:
-                print(f"    [=] SALES exists:  {u['email']}")
-            sales_objects[u["employee_id"]] = user
-        await db.commit()
-
-        for eid in list(sales_objects.keys()):
-            r = await db.execute(select(User).where(User.employee_id == eid))
-            sales_objects[eid] = r.scalar_one()
-
-        # Re-fetch employees and assign supervisor_id
-        print("\n[8] Assigning supervisor hierarchy...")
-        for u in employees_data:
-            r = await db.execute(select(User).where(User.employee_id == u["employee_id"]))
-            emp = r.scalar_one()
-            spv = spv_objects[u["spv"]]
-            if emp.supervisor_id != spv.id:
-                emp.supervisor_id = spv.id
-                print(f"    [+] {u['employee_id']} → {u['spv']}")
-            else:
-                print(f"    [=] {u['employee_id']} already supervised by {u['spv']}")
-        await db.commit()
-
-        # Re-fetch employees and sales for attendance seeding
-        for eid in list(emp_objects.keys()):
-            r = await db.execute(select(User).where(User.employee_id == eid))
-            emp_objects[eid] = r.scalar_one()
-        for eid in list(sales_objects.keys()):
-            r = await db.execute(select(User).where(User.employee_id == eid))
-            sales_objects[eid] = r.scalar_one()
-
-        # Combine all non-ADMIN users for attendance
-        all_attendance_users: list[tuple[User, bool]] = []
-        for emp in emp_objects.values():
-            all_attendance_users.append((emp, False))  # is_sales=False
-        for emp in sales_objects.values():
-            all_attendance_users.append((emp, True))   # is_sales=True
-
-        # ── 9. Attendance + Overtime records ───────────────────────────────────
-        print(f"\n[9] Seeding attendance records ({BASE_DATE} – {BASE_DATE + timedelta(days=DAYS_TO_SEED - 1)})...")
-
-        site_map: dict[int, Site] = {
-            jkt.id: jkt, mks.id: mks, jpr.id: jpr,
-        }
-        shift_map: dict[int, Shift] = {
-            jkt.id: site_shifts["Site Jakarta"],
-            mks.id: site_shifts["Site Makassar"],
-            jpr.id: site_shifts["Site Jayapura"],
-        }
-
-        total_inserted = 0
-        total_skipped = 0
-        total_ot = 0
-        # Collect created attendances with user for overtime linking
-        created_attendances: list[tuple[Attendance, User, int]] = []  # (att, user, emp_num)
-
-        for user, is_sales in all_attendance_users:
-            site = site_map.get(user.site_id)
-            shift = shift_map.get(user.site_id)
-            if not site or not shift:
-                print(f"    [!] Skipping {user.employee_id} — no matching site/shift")
-                continue
-
-            emp_num = int(user.employee_id[3:])  # "EMP101"→101, "SAL001"→1
-            # Make SALES numbers unique from EMP: SAL001→1001, SAL002→1002, ...
-            if user.employee_id.startswith("SAL"):
-                emp_num += 1000
-
-            for day_idx in range(DAYS_TO_SEED):
-                att_date = BASE_DATE + timedelta(days=day_idx)
-                ci_h, ci_m, co_h, co_m, status, in_radius, ot_min = _gen_pattern(
-                    emp_num, day_idx, is_sales
-                )
-
-                checkin_dt = datetime(att_date.year, att_date.month, att_date.day, ci_h, ci_m)
-                checkout_dt = datetime(att_date.year, att_date.month, att_date.day, co_h, co_m)
-
-                # Skip if already exists
-                exists_result = await db.execute(
-                    select(Attendance).where(
-                        Attendance.user_id == user.id,
-                        func.date(Attendance.checkin_time) == att_date,
-                    )
-                )
-                if exists_result.scalar_one_or_none():
-                    total_skipped += 1
-                    continue
-
-                is_wknd = _is_weekend_db_dow(att_date)
-                work_min = _work_minutes(checkin_dt, checkout_dt)
-
-                lat = site.latitude
-                lon = site.longitude
-                if not in_radius:
-                    lat += 2.0
-                    lon += 2.0
-
-                att = Attendance(
-                    user_id=user.id,
-                    site_id=site.id,
-                    shift_id=shift.id,
-                    checkin_time=checkin_dt,
-                    checkout_time=checkout_dt,
-                    auto_checkout=False,
-                    latitude=lat,
-                    longitude=lon,
-                    work_duration_minutes=work_min,
-                    overtime_minutes=ot_min,
-                    is_weekend=is_wknd,
-                    is_holiday=False,
-                    status=status,
-                    work_date=att_date,
-                )
-                db.add(att)
-                await db.flush()
-                created_attendances.append((att, user, emp_num))
-                total_inserted += 1
-
-        await db.commit()
-        print(f"    Attendance inserted: {total_inserted}  |  Skipped: {total_skipped}")
-
-        # ── 10. Overtime requests (varied per user) ─────────────────────────────
-        print("\n[10] Seeding overtime requests...")
-        ot_statuses = ["PENDING", "APPROVED", "REJECTED"]
-        for att, user, emp_num in created_attendances:
-            ot_min = att.overtime_minutes
             if ot_min <= 0:
                 continue
-
-            # Determine overtime request status based on employee number and day
-            ot_roll = (_seeded(emp_num, att.checkin_time.day) + 7) % 7
+            ot_roll = (_seeded(emp_num, att_date.day) + 7) % 7
             ot_status = ot_statuses[ot_roll % 3]
-
-            # Reject only some PENDING, approve others
             if ot_status == "REJECTED" and ot_roll < 5:
                 ot_status = "APPROVED" if ot_roll < 3 else "PENDING"
-
-            # Find an approver: use a supervisor from the same site
-            spv_for_site = next(
-                (s for s in spv_objects.values() if s.site_id == user.site_id), None
-            )
-
-            ot_req = OvertimeRequest(
-                user_id=user.id,
-                attendance_id=att.id,
-                requested_start=att.checkout_time - timedelta(minutes=ot_min),
-                requested_end=att.checkout_time,
-                approved_by=spv_for_site.id if spv_for_site else None,
-                status=ot_status,
-                notes=f"Lembur {att.checkin_time.strftime('%d/%m')} — {ot_min} menit" if ot_status == "PENDING" else None,
-                supervisor_notes="Disetujui" if ot_status == "APPROVED" else ("Ditolak" if ot_status == "REJECTED" else None),
-            )
-            db.add(ot_req)
+            await db.overtime_requests.insert_one({
+                "_id": await next_id(db, "overtime_requests"),
+                "user_id": user["_id"], "attendance_id": att_id,
+                "requested_start": checkout - timedelta(minutes=ot_min), "requested_end": checkout,
+                "approved_by": supervisor_for_site.get(user["site_id"]) if ot_status != "PENDING" else None,
+                "status": ot_status,
+                "notes": f"Lembur {checkin.strftime('%d/%m')} — {ot_min} menit" if ot_status == "PENDING" else None,
+                "supervisor_notes": {"APPROVED": "Disetujui", "REJECTED": "Ditolak"}.get(ot_status),
+                "created_at": datetime.now(UTC),
+            })
             total_ot += 1
+    print(f"    Attendance inserted: {total_inserted}  |  Skipped: {total_skipped}")
+    print(f"    Overtime requests created: {total_ot}")
 
-        await db.commit()
-        print(f"    Overtime requests created: {total_ot}")
-
-    # ── Leave requests (relative to today, so the demo always has some) ─────────
-    async with AsyncSessionLocal() as db:
-        existing_leave = (await db.execute(select(func.count()).select_from(LeaveRequest))).scalar_one()
-        if existing_leave:
-            print(f"    Leave requests already present: {existing_leave}")
-        else:
-            today = date.today()
-            emps = (await db.execute(
-                select(User).where(User.email.like("emp1%@example.com")).order_by(User.employee_id).limit(8)
-            )).scalars().all()
-            # (offset from today, days, type, status, reason)
-            plan = [
-                (0, 2, "SICK", "APPROVED", "Demam, ada surat dokter dari klinik"),
-                (-3, 1, "PERMIT", "APPROVED", "Mengurus perpanjangan SIM"),
-                (2, 1, "PERMIT", "PENDING", "Menghadiri wisuda anak"),
-                (7, 4, "ANNUAL", "PENDING", "Pulang kampung untuk acara keluarga"),
-                (0, 3, "ANNUAL", "APPROVED", "Liburan keluarga"),
-                (5, 2, "ANNUAL", "REJECTED", "Liburan"),
-                (1, 1, "SICK", "PENDING", "Kontrol ke dokter gigi"),
-                (-6, 1, "PERMIT", "CANCELLED", "Urusan bank"),
-            ]
-            for emp, (offset, days, kind, status_, reason) in zip(emps, plan):
-                start = today + timedelta(days=offset)
-                decided = status_ in ("APPROVED", "REJECTED")
-                db.add(LeaveRequest(
-                    user_id=emp.id,
-                    leave_type=kind,
-                    start_date=start,
-                    end_date=start + timedelta(days=days - 1),
-                    reason=reason,
-                    status=status_,
-                    reviewed_by=emp.supervisor_id if decided else None,
-                    reviewed_at=datetime.now().astimezone() if decided else None,
-                    review_note="Bentrok dengan jadwal audit, ajukan minggu depan" if status_ == "REJECTED" else None,
-                ))
-            await db.commit()
-            print(f"    Leave requests created: {min(len(emps), len(plan))}")
+    # ── 8. Leave requests (relative to today, so the demo always has some) ────
+    print("\n[8] Seeding leave requests...")
+    if await db.leave_requests.count_documents({}):
+        print("    Leave requests already present")
+    else:
+        today = date.today()
+        emps = [u for u, is_sales in people if not is_sales][:8]
+        # (offset from today, days, type, status, reason)
+        plan = [
+            (0, 2, "SICK", "APPROVED", "Demam, ada surat dokter dari klinik"),
+            (-3, 1, "PERMIT", "APPROVED", "Mengurus perpanjangan SIM"),
+            (2, 1, "PERMIT", "PENDING", "Menghadiri wisuda anak"),
+            (7, 4, "ANNUAL", "PENDING", "Pulang kampung untuk acara keluarga"),
+            (0, 3, "ANNUAL", "APPROVED", "Liburan keluarga"),
+            (5, 2, "ANNUAL", "REJECTED", "Liburan"),
+            (1, 1, "SICK", "PENDING", "Kontrol ke dokter gigi"),
+            (-6, 1, "PERMIT", "CANCELLED", "Urusan bank"),
+        ]
+        for emp, (offset, days, kind, status_, reason) in zip(emps, plan):
+            start = today + timedelta(days=offset)
+            decided = status_ in ("APPROVED", "REJECTED")
+            await db.leave_requests.insert_one(encode({
+                "_id": await next_id(db, "leave_requests"), "user_id": emp["_id"], "leave_type": kind,
+                "start_date": start, "end_date": start + timedelta(days=days - 1), "reason": reason,
+                "status": status_, "reviewed_by": emp.get("supervisor_id") if decided else None,
+                "reviewed_at": datetime.now(UTC) if decided else None,
+                "review_note": "Bentrok dengan jadwal audit, ajukan minggu depan" if status_ == "REJECTED" else None,
+                "created_at": datetime.now(UTC),
+            }))
+        print(f"    Leave requests created: {min(len(emps), len(plan))}")
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print("\n" + "=" * 60)
@@ -644,10 +401,14 @@ async def seed():
     print("  Site Jakarta   — WIB (Asia/Jakarta)")
     print("  Site Makassar  — WITA (Asia/Makassar)")
     print("  Site Jayapura  — WIT  (Asia/Jayapura)")
-    print(f"\nAttendance records: {total_inserted} (May 15–18, 2026)")
-    print(f"Overtime records  : {total_ot}")
-    print("   Pattern: setiap user UNIK — tidak ada yang sama")
+
+
+async def main():
+    try:
+        await seed()
+    finally:
+        await client.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    asyncio.run(main())

@@ -13,7 +13,7 @@ logic or any Phase 1/2 module.
 """
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.access import require_user_access
 from app.core.config import settings
@@ -60,7 +60,7 @@ async def register_face(
     user_id: int,
     request: Request,
     file: UploadFile = File(..., description="JPEG or PNG — must contain exactly one face"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     # Own face; a supervisor for direct reports; ADMIN for anyone
@@ -98,7 +98,7 @@ async def verify_face(
     user_id: int,
     request: Request,
     file: UploadFile = File(..., description="JPEG or PNG — must contain exactly one face"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     # Comparing photos against someone else's enrolled face is limited to the
@@ -117,7 +117,7 @@ async def verify_face(
     image_bytes = await read_image_upload(file)
     face_svc = _get_face_service(request)
 
-    # pgvector returns the embedding as a numpy array or list — normalise to list
+    # Stored as a list of floats; copy it so the face service gets its own list
     stored = list(user.face_embedding)
     result = face_svc.verify(image_bytes, stored)
     # A verified user checking their own face gets a short-lived token that
@@ -133,7 +133,7 @@ async def verify_face(
 )
 async def face_status(
     user_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     await require_user_access(db, current_user, user_id)
@@ -151,7 +151,7 @@ async def face_status(
 )
 async def delete_face(
     user_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ):
     repo = UserRepository(db)

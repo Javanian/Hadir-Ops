@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from sqlalchemy import text
 
 from app.services.recap_service import DayInputs, count_days
 
@@ -54,32 +53,33 @@ def test_missing_past_workday_is_absent_without_notice():
     assert c.workdays == 3
 
 
-# ── Endpoint against PostgreSQL ──────────────────────────────────────────────
+# ── Endpoint against MongoDB ─────────────────────────────────────────────────
 
 async def _add_attendance(db, user_id, site_id, day, status, minutes=480, overtime=0):
+    from app.db.ids import next_id
+
     checkin = datetime.combine(day, time(8, 0), tzinfo=JKT)
-    await db.execute(text(
-        "INSERT INTO attendance (user_id, site_id, checkin_time, checkout_time, status, work_date, "
-        "work_duration_minutes, overtime_minutes) VALUES (:u, :s, :ci, :co, :st, :d, :m, :ot)"
-    ), {"u": user_id, "s": site_id, "ci": checkin, "co": checkin + timedelta(minutes=minutes),
-        "st": status, "d": day, "m": minutes, "ot": overtime})
+    await db.attendance.insert_one({
+        "_id": await next_id(db, "attendance"), "user_id": user_id, "site_id": site_id,
+        "checkin_time": checkin, "checkout_time": checkin + timedelta(minutes=minutes),
+        "status": status, "work_date": day.isoformat(), "work_duration_minutes": minutes,
+        "overtime_minutes": overtime, "risk_flags": [], "needs_review": False,
+    })
 
 
 @asyncio_test
-async def test_recap_counts_presence_leave_holidays_and_absence(client, seed):
-    from app.core.database import AsyncSessionLocal
-
+async def test_recap_counts_presence_leave_holidays_and_absence(client, seed, mongo):
     today = _today()
     d = {i: today - timedelta(days=i) for i in range(7)}
-    async with AsyncSessionLocal() as db:
-        await _add_attendance(db, seed["emp_id"], seed["site_id"], d[6], "ONTIME", overtime=30)
-        await _add_attendance(db, seed["emp_id"], seed["site_id"], d[5], "LATE")
-        await db.execute(text(
-            "INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, reason, status) "
-            "VALUES (:u, 'SICK', :a, :b, 'flu', 'APPROVED'), (:u, 'ANNUAL', :c, :c, 'x', 'REJECTED')"
-        ), {"u": seed["emp_id"], "a": d[4], "b": d[3], "c": d[1]})
-        await db.execute(text("INSERT INTO holidays (holiday_date, description) VALUES (:h, 'Libur')"), {"h": d[2]})
-        await db.commit()
+    await _add_attendance(mongo, seed["emp_id"], seed["site_id"], d[6], "ONTIME", overtime=30)
+    await _add_attendance(mongo, seed["emp_id"], seed["site_id"], d[5], "LATE")
+    await mongo.leave_requests.insert_many([
+        {"_id": 901, "user_id": seed["emp_id"], "leave_type": "SICK", "start_date": d[4].isoformat(),
+         "end_date": d[3].isoformat(), "reason": "flu", "status": "APPROVED"},
+        {"_id": 902, "user_id": seed["emp_id"], "leave_type": "ANNUAL", "start_date": d[1].isoformat(),
+         "end_date": d[1].isoformat(), "reason": "x", "status": "REJECTED"},
+    ])
+    await mongo.holidays.insert_one({"_id": 901, "holiday_date": d[2].isoformat(), "description": "Libur"})
 
     r = await client.get(
         "/reports/recap",

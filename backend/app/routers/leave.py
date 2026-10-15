@@ -13,7 +13,7 @@ from datetime import date
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
@@ -34,7 +34,7 @@ StatusFilter = Optional[Literal["PENDING", "APPROVED", "REJECTED", "CANCELLED"]]
 )
 async def create_leave(
     data: LeaveRequestCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await LeaveService(db).create(current_user, data)
@@ -45,7 +45,7 @@ async def list_my_leave(
     leave_status: StatusFilter = Query(None, alias="status"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await LeaveService(db).list_mine(current_user, leave_status, limit, offset)
@@ -58,7 +58,7 @@ async def list_my_leave(
 )
 async def cancel_leave(
     leave_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await LeaveService(db).cancel(leave_id, current_user)
@@ -75,7 +75,7 @@ async def list_team_leave(
     to_date: Optional[date] = Query(None, description="Requests that start on or before this date"),
     limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await LeaveService(db).list_team(current_user, leave_status, from_date, to_date, limit, offset)
@@ -89,7 +89,7 @@ async def list_team_leave(
 async def decide_leave(
     leave_id: int,
     data: LeaveDecision,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await LeaveService(db).decide(leave_id, current_user, data)

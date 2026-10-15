@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -27,7 +27,7 @@ limiter = Limiter(key_func=get_remote_address)
 async def login(
     request: Request,
     data: LoginRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
 ):
     service = AuthService(db)
     return await service.login(request, data)
@@ -40,7 +40,7 @@ async def login(
 )
 async def refresh_token(
     data: RefreshRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
 ):
     service = AuthService(db)
     return await service.refresh(data.refresh_token)
@@ -75,7 +75,7 @@ async def change_password(
     request: Request,
     data: ChangePasswordRequest,
     current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
 ):
     service = AuthService(db)
     await service.change_password(current_user, data)

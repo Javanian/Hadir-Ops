@@ -1,111 +1,69 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from pymongo import DESCENDING
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.models.models import OvertimeRequest
+from app.db.documents import OvertimeRequest
+from app.db.ids import next_id
+from app.db.relations import attach_overtime
+
+ACTIVE = ["PENDING", "APPROVED"]
 
 
 class OvertimeRepository:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    def _base_stmt(self):
-        return select(OvertimeRequest).options(
-            selectinload(OvertimeRequest.attendance),
-            selectinload(OvertimeRequest.submitter),
-            selectinload(OvertimeRequest.approver),
-        )
+    async def _many(self, query: dict, sort: str = "created_at", limit: int = 0, offset: int = 0) -> List[OvertimeRequest]:
+        cursor = self.db.overtime_requests.find(query).sort([(sort, DESCENDING), ("_id", DESCENDING)]).skip(offset)
+        if limit:
+            cursor = cursor.limit(limit)
+        items = [OvertimeRequest.from_doc(d) async for d in cursor]
+        return await attach_overtime(self.db, items)
+
+    async def _first(self, query: dict, sort: str = "created_at") -> Optional[OvertimeRequest]:
+        found = await self._many(query, sort=sort, limit=1)
+        return found[0] if found else None
 
     # ── Queries ───────────────────────────────────────────────────────────────
 
     async def get_by_id(self, request_id: int) -> Optional[OvertimeRequest]:
-        result = await self.db.execute(
-            self._base_stmt().where(OvertimeRequest.id == request_id)
-        )
-        return result.scalar_one_or_none()
+        return await self._first({"_id": request_id})
 
     async def get_by_attendance(self, attendance_id: int) -> List[OvertimeRequest]:
-        result = await self.db.execute(
-            self._base_stmt()
-            .where(OvertimeRequest.attendance_id == attendance_id)
-            .order_by(OvertimeRequest.created_at.desc())
-        )
-        return list(result.scalars().all())
+        return await self._many({"attendance_id": attendance_id})
 
     async def get_active_for_attendance(self, attendance_id: int) -> Optional[OvertimeRequest]:
         """Return the latest PENDING or APPROVED request for an attendance (prevents duplicates)."""
-        result = await self.db.execute(
-            self._base_stmt()
-            .where(
-                OvertimeRequest.attendance_id == attendance_id,
-                OvertimeRequest.status.in_(["PENDING", "APPROVED"]),
-            )
-            .order_by(OvertimeRequest.created_at.desc())
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
+        return await self._first({"attendance_id": attendance_id, "status": {"$in": ACTIVE}})
 
     async def get_active_for_user_window(
         self, user_id: int, window_start: datetime, window_end: datetime
     ) -> Optional[OvertimeRequest]:
         """Return an active request that overlaps the given window for a user (standalone OT)."""
-        result = await self.db.execute(
-            self._base_stmt()
-            .where(
-                OvertimeRequest.user_id == user_id,
-                OvertimeRequest.attendance_id.is_(None),
-                OvertimeRequest.status.in_(["PENDING", "APPROVED"]),
-                OvertimeRequest.requested_start < window_end,
-                OvertimeRequest.requested_end > window_start,
-            )
-            .order_by(OvertimeRequest.created_at.desc())
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
+        return await self._first({
+            "user_id": user_id,
+            "attendance_id": None,
+            "status": {"$in": ACTIVE},
+            "requested_start": {"$lt": window_end},
+            "requested_end": {"$gt": window_start},
+        })
 
-    async def get_approved_standalone_covering(
-        self, user_id: int, moment: datetime
-    ) -> Optional[OvertimeRequest]:
-        """Return the APPROVED standalone OT request (no attendance_id) whose
-        window contains *moment* (UTC-aware datetime).  Used by check-in to
-        allow employees to clock in during an approved overtime window that has
-        no corresponding regular shift."""
-        result = await self.db.execute(
-            self._base_stmt()
-            .where(
-                OvertimeRequest.user_id == user_id,
-                OvertimeRequest.attendance_id.is_(None),
-                OvertimeRequest.status == "APPROVED",
-                OvertimeRequest.requested_start <= moment,
-                OvertimeRequest.requested_end > moment,
-            )
-            .order_by(OvertimeRequest.requested_start.desc())
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
+    async def get_approved_standalone_covering(self, user_id: int, moment: datetime) -> Optional[OvertimeRequest]:
+        """The APPROVED standalone request (no attendance) whose window contains
+        *moment*. Lets an employee clock in for approved overtime outside any shift."""
+        return await self._first({
+            "user_id": user_id,
+            "attendance_id": None,
+            "status": "APPROVED",
+            "requested_start": {"$lte": moment},
+            "requested_end": {"$gt": moment},
+        }, sort="requested_start")
 
-    async def get_approved_standalone_for_checkin(
-        self, user_id: int, checkin_utc: datetime
-    ) -> Optional[OvertimeRequest]:
-        """Return the APPROVED standalone OT request whose window contains
-        checkin_utc.  Used by auto-checkout to find the OT end time when
-        shift_id is NULL on an attendance record."""
-        result = await self.db.execute(
-            self._base_stmt()
-            .where(
-                OvertimeRequest.user_id == user_id,
-                OvertimeRequest.attendance_id.is_(None),
-                OvertimeRequest.status == "APPROVED",
-                OvertimeRequest.requested_start <= checkin_utc,
-                OvertimeRequest.requested_end > checkin_utc,
-            )
-            .order_by(OvertimeRequest.requested_start.desc())
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
+    async def get_approved_standalone_for_checkin(self, user_id: int, checkin_utc: datetime) -> Optional[OvertimeRequest]:
+        """Used by auto-checkout to find the overtime end for a shift-less record."""
+        return await self.get_approved_standalone_covering(user_id, checkin_utc)
 
     async def get_all(
         self,
@@ -115,19 +73,14 @@ class OvertimeRepository:
         limit: int = 100,
         offset: int = 0,
     ) -> List[OvertimeRequest]:
-        stmt = (
-            self._base_stmt()
-            .order_by(OvertimeRequest.created_at.desc())
-        )
+        query: dict = {}
         if user_id is not None:
-            stmt = stmt.where(OvertimeRequest.user_id == user_id)
+            query["user_id"] = user_id
         if subordinate_ids is not None:
-            stmt = stmt.where(OvertimeRequest.user_id.in_(subordinate_ids))
+            query.setdefault("$and", []).append({"user_id": {"$in": list(subordinate_ids)}})
         if ot_status is not None:
-            stmt = stmt.where(OvertimeRequest.status == ot_status)
-        stmt = stmt.limit(limit).offset(offset)
-        result = await self.db.execute(stmt)
-        return list(result.scalars().all())
+            query["status"] = ot_status
+        return await self._many(query, limit=limit, offset=offset)
 
     # ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -139,28 +92,34 @@ class OvertimeRepository:
         attendance_id: Optional[int] = None,
         notes: Optional[str] = None,
     ) -> OvertimeRequest:
-        req = OvertimeRequest(
-            user_id=user_id,
-            attendance_id=attendance_id,
-            requested_start=requested_start,
-            requested_end=requested_end,
-            notes=notes,
-            status="PENDING",
-        )
-        self.db.add(req)
-        await self.db.commit()
-        await self.db.refresh(req)
-        # Re-fetch with relationships loaded
-        return await self.get_by_id(req.id)
+        request_id = await next_id(self.db, "overtime_requests")
+        await self.db.overtime_requests.insert_one({
+            "_id": request_id,
+            "user_id": user_id,
+            "attendance_id": attendance_id,
+            "requested_start": requested_start,
+            "requested_end": requested_end,
+            "approved_by": None,
+            "status": "PENDING",
+            "notes": notes,
+            "supervisor_notes": None,
+            "created_at": datetime.now(timezone.utc),
+        })
+        return await self.get_by_id(request_id)
 
     async def update_status(
         self,
         req: OvertimeRequest,
         new_status: str,
         approved_by: int,
-    ) -> OvertimeRequest:
-        req.status = new_status
-        req.approved_by = approved_by
-        await self.db.commit()
-        await self.db.refresh(req)
-        return req
+        **fields,
+    ) -> Optional[OvertimeRequest]:
+        """Decide a PENDING request. `fields` carries an adjusted window or the
+        supervisor's note. Returns None if it was no longer PENDING."""
+        result = await self.db.overtime_requests.update_one(
+            {"_id": req.id, "status": "PENDING"},
+            {"$set": {"status": new_status, "approved_by": approved_by, **fields}},
+        )
+        if result.modified_count != 1:
+            return None
+        return await self.get_by_id(req.id)

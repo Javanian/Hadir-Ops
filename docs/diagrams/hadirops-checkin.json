@@ -86,14 +86,14 @@
     {
       "id": "db",
       "type": "database",
-      "label": "PostgreSQL",
-      "sublabel": "pgvector",
+      "label": "MongoDB",
+      "sublabel": "replica set",
       "sources": [
         {
-          "path": "backend/app/models/models.py",
-          "line": 64,
-          "end_line": 65,
-          "label": "Vector(512)"
+          "path": "backend/app/db/documents.py",
+          "line": 91,
+          "end_line": 91,
+          "label": "face_embedding: List[float]"
         }
       ]
     }
@@ -251,7 +251,7 @@
       "title": "Face first",
       "items": [
         "The app calls check-in only after the face matches the stored embedding; a mismatch asks for a new photo",
-        "Embeddings live in PostgreSQL as pgvector columns"
+        "Embeddings live in MongoDB as a 512-number array on the user document; matching is one-to-one, so no vector index is needed"
       ]
     },
     {

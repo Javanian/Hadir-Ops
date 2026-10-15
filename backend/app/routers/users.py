@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.database import get_db
 from app.core.dependencies import require_role
@@ -20,7 +20,7 @@ async def list_users(
     site_id: Optional[int] = Query(None, description="Filter by site ID"),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ) -> UserListResponse:
     return await UserService(db).list_users(
@@ -35,7 +35,7 @@ async def list_users(
 @router.get("/{user_id}", response_model=UserListItem, summary="Get user by ID (ADMIN only)")
 async def get_user(
     user_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ) -> UserListItem:
     return await UserService(db).get_user(user_id)
@@ -44,7 +44,7 @@ async def get_user(
 @router.post("", response_model=UserListItem, status_code=201, summary="Create user (ADMIN only)")
 async def create_user(
     data: UserCreateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ) -> UserListItem:
     return await UserService(db).create_user(data)
@@ -54,7 +54,7 @@ async def create_user(
 async def update_user(
     user_id: int,
     data: UserUpdateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ) -> UserListItem:
     return await UserService(db).update_user(user_id, data)
@@ -63,7 +63,7 @@ async def update_user(
 @router.delete("/{user_id}", status_code=204, summary="Delete user (ADMIN only)")
 async def delete_user(
     user_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ) -> None:
     await UserService(db).delete_user(user_id)

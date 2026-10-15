@@ -1,32 +1,38 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from pymongo import DESCENDING
+from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import BulkWriteError
 
-from app.models.models import CheckinAttempt, User
+from app.db.documents import CheckinAttempt
+from app.db.ids import next_id
+from app.db.relations import attach_attempts
+
+_DUPLICATE_KEY = 11000
 
 
 class AttemptRepository:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
 
     async def insert_many(self, user_id: int, rows: List[dict]) -> int:
-        """Insert attempts, ignoring ids already stored. Returns how many were new."""
+        """Insert attempts, ignoring event ids already stored. Returns how many were new."""
         if not rows:
             return 0
-        stmt = (
-            insert(CheckinAttempt)
-            .values([{**row, "user_id": user_id} for row in rows])
-            .on_conflict_do_nothing(index_elements=["client_event_id"])
-            .returning(CheckinAttempt.id)
-        )
-        result = await self.db.execute(stmt)
-        inserted = len(result.fetchall())
-        await self.db.commit()
-        return inserted
+        now = datetime.now(timezone.utc)
+        docs = [
+            {"_id": await next_id(self.db, "checkin_attempts"), **row, "user_id": user_id, "received_at": now}
+            for row in rows
+        ]
+        try:
+            result = await self.db.checkin_attempts.insert_many(docs, ordered=False)
+            return len(result.inserted_ids)
+        except BulkWriteError as exc:
+            errors = exc.details.get("writeErrors", [])
+            if any(e.get("code") != _DUPLICATE_KEY for e in errors):
+                raise
+            return exc.details.get("nInserted", 0)
 
     async def list(
         self,
@@ -36,18 +42,17 @@ class AttemptRepository:
         limit: int = 200,
         offset: int = 0,
     ) -> List[CheckinAttempt]:
-        stmt = (
-            select(CheckinAttempt)
-            .options(selectinload(CheckinAttempt.user).selectinload(User.site))
-            .order_by(CheckinAttempt.captured_at.desc())
-        )
+        query: dict = {}
         if user_ids is not None:
             if not user_ids:
                 return []
-            stmt = stmt.where(CheckinAttempt.user_id.in_(user_ids))
+            query["user_id"] = {"$in": user_ids}
+        rng: dict = {}
         if from_utc is not None:
-            stmt = stmt.where(CheckinAttempt.captured_at >= from_utc)
+            rng["$gte"] = from_utc
         if to_utc is not None:
-            stmt = stmt.where(CheckinAttempt.captured_at < to_utc)
-        result = await self.db.execute(stmt.limit(limit).offset(offset))
-        return list(result.scalars().all())
+            rng["$lt"] = to_utc
+        if rng:
+            query["captured_at"] = rng
+        cursor = self.db.checkin_attempts.find(query).sort("captured_at", DESCENDING).skip(offset).limit(limit)
+        return await attach_attempts(self.db, [CheckinAttempt.from_doc(d) async for d in cursor])

@@ -1,5 +1,5 @@
 """
-End-to-end tests of the check-in contract against PostgreSQL.
+End-to-end tests of the check-in contract against MongoDB.
 
 They cover the failure modes found in low-star reviews of other attendance
 apps: retries that double-record, offline check-ins that never arrive or get
@@ -13,7 +13,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import text
 
 from conftest import SITE_LAT, SITE_LON
 
@@ -45,22 +44,15 @@ async def _face_token(client, seed, face):
 
 
 async def _rows(user_id=None):
-    from app.core.database import AsyncSessionLocal
+    from app.core.database import get_database
 
-    async with AsyncSessionLocal() as db:
-        q = "SELECT count(*) FROM attendance" + (" WHERE user_id = :u" if user_id else "")
-        return (await db.execute(text(q), {"u": user_id})).scalar_one()
+    return await get_database().attendance.count_documents({"user_id": user_id} if user_id else {})
 
 
 async def _set_face(user_id):
-    from app.core.database import AsyncSessionLocal
-    from conftest import HAS_VECTOR
+    from app.core.database import get_database
 
-    value = "(:e)::text::vector" if HAS_VECTOR else ":e"
-    async with AsyncSessionLocal() as db:
-        await db.execute(text(f"UPDATE users SET face_embedding = {value} WHERE id = :u"),
-                         {"e": "[" + ",".join(["0.1"] * 512) + "]", "u": user_id})
-        await db.commit()
+    await get_database().users.update_one({"_id": user_id}, {"$set": {"face_embedding": [0.1] * 512}})
 
 
 # ── Online check-in ────────────────────────────────────────────────────────────
@@ -252,19 +244,16 @@ async def test_checkout_retry_is_idempotent(client, seed):
     assert first.json()["checkout_time"] == second.json()["checkout_time"]
 
 
-async def test_offline_checkout_replaces_auto_checkout(client, seed):
-    from app.core.database import AsyncSessionLocal
+async def test_offline_checkout_replaces_auto_checkout(client, seed, mongo):
 
     # Checked in 5 h ago (queued offline), then the worker closed the record
     age = 5 * 3600 * 1000
     r = await client.post("/attendance/checkin", headers=seed["emp"], json=_body(capture_age_ms=age))
     att_id = r.json()["id"]
     auto_end = datetime.now(UTC) - timedelta(hours=3)
-    async with AsyncSessionLocal() as db:
-        await db.execute(text(
-            "UPDATE attendance SET checkout_time = :t, auto_checkout = TRUE WHERE id = :i"
-        ), {"t": auto_end, "i": att_id})
-        await db.commit()
+    await mongo.attendance.update_one(
+        {"_id": att_id}, {"$set": {"checkout_time": auto_end, "auto_checkout": True}}
+    )
 
     # The real check-out happened 1 h ago and arrives now
     r = await client.post(
@@ -358,12 +347,22 @@ async def test_health_reports_database(client, app):
     assert (await client.get("/health/live")).status_code == 200
 
 
-async def test_auto_checkout_runs_in_one_process_at_a_time(seed):
-    from app.core.database import engine
-    from app.main import _AUTO_CHECKOUT_LOCK_ID, run_auto_checkout_once
+async def test_auto_checkout_runs_in_one_process_at_a_time(seed, mongo):
+    from app.db import locks
+    from app.main import AUTO_CHECKOUT_LOCK, run_auto_checkout_once
 
-    async with engine.connect() as other_worker:
-        await other_worker.execute(text("SELECT pg_advisory_lock(:k)"), {"k": _AUTO_CHECKOUT_LOCK_ID})
-        assert await run_auto_checkout_once() is None
-        await other_worker.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _AUTO_CHECKOUT_LOCK_ID})
+    assert await locks.acquire(mongo, AUTO_CHECKOUT_LOCK, "other-worker", ttl_seconds=60)
+    assert await run_auto_checkout_once() is None
+    await locks.release(mongo, AUTO_CHECKOUT_LOCK, "other-worker")
+    assert await run_auto_checkout_once() == (0, 0)
+
+
+async def test_an_expired_lease_does_not_block_the_worker(seed, mongo):
+    from app.main import AUTO_CHECKOUT_LOCK, run_auto_checkout_once
+
+    # A worker that died mid-pass left its lease behind; it has expired.
+    await mongo.locks.insert_one({
+        "_id": AUTO_CHECKOUT_LOCK, "owner": "crashed-worker",
+        "expires_at": datetime.now(UTC) - timedelta(seconds=1),
+    })
     assert await run_auto_checkout_once() == (0, 0)

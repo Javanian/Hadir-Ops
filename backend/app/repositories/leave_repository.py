@@ -1,55 +1,49 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from pymongo import DESCENDING
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.models.models import LeaveRequest, User
+from app.db.documents import LeaveRequest, encode
+from app.db.ids import next_id
+from app.db.relations import attach_leave
 
-ACTIVE_STATUSES = ("PENDING", "APPROVED")
+ACTIVE_STATUSES = ["PENDING", "APPROVED"]
 
 
 class LeaveRepository:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    def _base_stmt(self):
-        return select(LeaveRequest).options(
-            selectinload(LeaveRequest.user),
-            selectinload(LeaveRequest.reviewer),
-        )
-
     async def get_by_id(self, leave_id: int) -> Optional[LeaveRequest]:
-        # populate_existing: status changes go through UPDATE statements, so a
-        # copy already in the session must be refreshed, relationships included.
-        result = await self.db.execute(
-            self._base_stmt()
-            .where(LeaveRequest.id == leave_id)
-            .execution_options(populate_existing=True)
-        )
-        return result.scalar_one_or_none()
+        doc = await self.db.leave_requests.find_one({"_id": leave_id})
+        if doc is None:
+            return None
+        return (await attach_leave(self.db, [LeaveRequest.from_doc(doc)]))[0]
 
-    async def lock_user(self, user_id: int) -> None:
-        """Serialise leave submissions per user so two concurrent requests
-        cannot both pass the overlap check."""
-        await self.db.execute(select(User.id).where(User.id == user_id).with_for_update())
+    async def lock_user(self, user_id: int, session: AsyncClientSession) -> None:
+        """Write to the user's document inside the transaction. A second
+        transaction doing the same for this user hits a write conflict and is
+        retried after the first commits, so it sees the first one's request."""
+        await self.db.users.update_one(
+            {"_id": user_id}, {"$inc": {"leave_write_seq": 1}}, session=session
+        )
 
     async def find_overlapping_active(
-        self, user_id: int, start: date, end: date
+        self, user_id: int, start: date, end: date, session: Optional[AsyncClientSession] = None
     ) -> Optional[LeaveRequest]:
-        result = await self.db.execute(
-            select(LeaveRequest)
-            .where(
-                LeaveRequest.user_id == user_id,
-                LeaveRequest.status.in_(ACTIVE_STATUSES),
-                LeaveRequest.start_date <= end,
-                LeaveRequest.end_date >= start,
-            )
-            .order_by(LeaveRequest.start_date)
-            .limit(1)
+        doc = await self.db.leave_requests.find_one(
+            {
+                "user_id": user_id,
+                "status": {"$in": ACTIVE_STATUSES},
+                "start_date": {"$lte": end.isoformat()},
+                "end_date": {"$gte": start.isoformat()},
+            },
+            sort=[("start_date", 1)],
+            session=session,
         )
-        return result.scalar_one_or_none()
+        return LeaveRequest.from_doc(doc) if doc else None
 
     async def list(
         self,
@@ -61,21 +55,40 @@ class LeaveRepository:
         offset: int = 0,
     ) -> List[LeaveRequest]:
         """`user_ids=None` means no restriction; an empty list matches nothing."""
-        stmt = self._base_stmt()
+        query: dict = {}
         if user_ids is not None:
-            stmt = stmt.where(LeaveRequest.user_id.in_(user_ids or [-1]))
+            if not user_ids:
+                return []
+            query["user_id"] = {"$in": user_ids}
         if status:
-            stmt = stmt.where(LeaveRequest.status == status)
+            query["status"] = status
         if from_date:
-            stmt = stmt.where(LeaveRequest.end_date >= from_date)
+            query["end_date"] = {"$gte": from_date.isoformat()}
         if to_date:
-            stmt = stmt.where(LeaveRequest.start_date <= to_date)
-        stmt = stmt.order_by(LeaveRequest.start_date.desc(), LeaveRequest.id.desc())
-        result = await self.db.execute(stmt.limit(limit).offset(offset))
-        return list(result.scalars().all())
+            query["start_date"] = {"$lte": to_date.isoformat()}
+        cursor = (
+            self.db.leave_requests.find(query)
+            .sort([("start_date", DESCENDING), ("_id", DESCENDING)])
+            .skip(offset)
+            .limit(limit)
+        )
+        return await attach_leave(self.db, [LeaveRequest.from_doc(d) async for d in cursor])
 
-    def add(self, leave: LeaveRequest) -> None:
-        self.db.add(leave)
+    async def approved_between(self, user_ids: List[int], start: date, end: date) -> List[LeaveRequest]:
+        cursor = self.db.leave_requests.find({
+            "user_id": {"$in": user_ids},
+            "status": "APPROVED",
+            "start_date": {"$lte": end.isoformat()},
+            "end_date": {"$gte": start.isoformat()},
+        })
+        return [LeaveRequest.from_doc(d) async for d in cursor]
+
+    async def insert(self, fields: dict, session: Optional[AsyncClientSession] = None) -> int:
+        leave_id = await next_id(self.db, "leave_requests", session=session)
+        await self.db.leave_requests.insert_one(
+            encode({"_id": leave_id, "created_at": datetime.now(timezone.utc), **fields}), session=session
+        )
+        return leave_id
 
     async def transition_from_pending(
         self,
@@ -90,9 +103,7 @@ class LeaveRepository:
         values = {"status": new_status}
         if reviewed_by is not None:
             values.update(reviewed_by=reviewed_by, reviewed_at=reviewed_at, review_note=review_note)
-        result = await self.db.execute(
-            update(LeaveRequest)
-            .where(LeaveRequest.id == leave_id, LeaveRequest.status == "PENDING")
-            .values(**values)
+        result = await self.db.leave_requests.update_one(
+            {"_id": leave_id, "status": "PENDING"}, {"$set": values}
         )
-        return result.rowcount == 1
+        return result.modified_count == 1

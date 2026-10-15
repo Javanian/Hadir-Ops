@@ -7,7 +7,9 @@ Rules:
   2. The start date may be up to 7 days in the past (a sick note handed in
      after recovery) and up to 90 days ahead, counted in the site-local date.
   3. A request may not overlap another PENDING or APPROVED request of the same
-     person. Submissions are serialised per user with a row lock.
+     person. Submissions run in a transaction that also writes the user's
+     document, so two at once conflict and the second retries after the first
+     has committed (and then sees the overlap).
   4. The owner can cancel while the request is PENDING.
   5. SUPERVISOR decides for direct subordinates, ADMIN for everyone; nobody
      decides on their own request. Rejection needs a note. A decision only
@@ -19,9 +21,9 @@ from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.models.models import LeaveRequest
+from app.db import in_transaction
 from app.repositories.leave_repository import LeaveRepository
 from app.schemas.leave import LeaveDecision, LeaveRequestCreate, LeaveRequestResponse
 
@@ -35,7 +37,7 @@ def _site_today(user) -> date:
 
 
 class LeaveService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.repo = LeaveRepository(db)
 
@@ -66,31 +68,42 @@ class LeaveService:
                 detail=f"Leave can be requested at most {MAX_ADVANCE_DAYS} days ahead.",
             )
 
-        await self.repo.lock_user(current_user.id)
-        clash = await self.repo.find_overlapping_active(current_user.id, data.start_date, data.end_date)
-        if clash:
-            detail = {
-                "code": "LEAVE_OVERLAP",
-                "message": (
-                    f"Overlaps request #{clash.id} ({clash.start_date} to {clash.end_date}, "
-                    f"status={clash.status})."
-                ),
-                "leave_id": clash.id,
-            }
-            await self.db.rollback()  # releases the row lock
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+        repo = self.repo
 
-        leave = LeaveRequest(
-            user_id=current_user.id,
-            leave_type=data.leave_type,
-            start_date=data.start_date,
-            end_date=data.end_date,
-            reason=data.reason,
-            status="PENDING",
-        )
-        self.repo.add(leave)
-        await self.db.commit()
-        return await self._response(leave.id)
+        async def submit(session) -> int:
+            await repo.lock_user(current_user.id, session)
+            clash = await repo.find_overlapping_active(
+                current_user.id, data.start_date, data.end_date, session=session
+            )
+            if clash:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "LEAVE_OVERLAP",
+                        "message": (
+                            f"Overlaps request #{clash.id} ({clash.start_date} to {clash.end_date}, "
+                            f"status={clash.status})."
+                        ),
+                        "leave_id": clash.id,
+                    },
+                )
+            return await repo.insert(
+                {
+                    "user_id": current_user.id,
+                    "leave_type": data.leave_type,
+                    "start_date": data.start_date,
+                    "end_date": data.end_date,
+                    "reason": data.reason,
+                    "status": "PENDING",
+                    "reviewed_by": None,
+                    "reviewed_at": None,
+                    "review_note": None,
+                },
+                session=session,
+            )
+
+        leave_id = await in_transaction(submit)
+        return await self._response(leave_id)
 
     async def list_mine(
         self, current_user, leave_status: Optional[str], limit: int, offset: int
@@ -109,7 +122,6 @@ class LeaveService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Only a pending request can be cancelled.",
             )
-        await self.db.commit()
         return await self._response(leave_id)
 
     # ── Supervisor / admin side ───────────────────────────────────────────────
@@ -162,11 +174,9 @@ class LeaveService:
             review_note=note,
         )
         if not decided:
-            await self.db.rollback()
             current = await self.repo.get_by_id(leave_id)
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"This request is already {current.status if current else 'gone'}.",
             )
-        await self.db.commit()
         return await self._response(leave_id)

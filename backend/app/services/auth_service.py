@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.config import settings
 from app.core.security import (
@@ -17,7 +17,7 @@ from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenResponse
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.repo = UserRepository(db)
 
@@ -145,8 +145,7 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"code": "WRONG_CURRENT_PASSWORD"},
             )
-        # 3. Hash and persist — service owns the commit
+        # 3. Hash and persist
         new_hash = get_password_hash(data.new_password)
         changed_at = datetime.now(timezone.utc)
         await self.repo.update_password(user, new_hash, changed_at)
-        await self.db.commit()

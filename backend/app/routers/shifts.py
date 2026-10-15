@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
@@ -25,7 +25,7 @@ router = APIRouter(tags=["Shifts & Schedules"])
 @router.get("/shifts", response_model=List[ShiftResponse], summary="List shifts")
 async def list_shifts(
     site_id: Optional[int] = Query(None, description="Filter by site"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(get_current_user),
 ):
     return await ShiftService(db).list_shifts(site_id=site_id)
@@ -34,7 +34,7 @@ async def list_shifts(
 @router.get("/shifts/{shift_id}", response_model=ShiftResponse, summary="Get shift by ID")
 async def get_shift(
     shift_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(get_current_user),
 ):
     return await ShiftService(db).get_shift(shift_id)
@@ -48,7 +48,7 @@ async def get_shift(
 )
 async def create_shift(
     data: ShiftCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await ShiftService(db).create_shift(data, current_user)
@@ -62,7 +62,7 @@ async def create_shift(
 async def update_shift(
     shift_id: int,
     data: ShiftUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await ShiftService(db).update_shift(shift_id, data, current_user)
@@ -75,7 +75,7 @@ async def update_shift(
 )
 async def delete_shift(
     shift_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ):
     await ShiftService(db).delete_shift(shift_id)
@@ -92,7 +92,7 @@ async def delete_shift(
 async def add_schedule(
     shift_id: int,
     data: WorkScheduleCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await ShiftService(db).add_schedule(shift_id, data, current_user)
@@ -105,7 +105,7 @@ async def add_schedule(
 )
 async def delete_schedule(
     schedule_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     await ShiftService(db).delete_schedule(schedule_id, current_user)
@@ -115,7 +115,7 @@ async def delete_schedule(
 
 @router.get("/holidays", response_model=List[HolidayResponse], summary="List holidays")
 async def list_holidays(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(get_current_user),
 ):
     return await ShiftService(db).list_holidays()
@@ -129,7 +129,7 @@ async def list_holidays(
 )
 async def create_holiday(
     data: HolidayCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ):
     return await ShiftService(db).create_holiday(data)
@@ -143,7 +143,7 @@ async def create_holiday(
 async def update_holiday(
     holiday_id: int,
     data: HolidayUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ):
     return await ShiftService(db).update_holiday(holiday_id, data)
@@ -156,7 +156,7 @@ async def update_holiday(
 )
 async def delete_holiday(
     holiday_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ):
     await ShiftService(db).delete_holiday(holiday_id)

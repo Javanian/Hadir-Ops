@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     python3-dev \
-    libpq-dev \
     libglib2.0-0 \
     libgomp1 \
     libsm6 \

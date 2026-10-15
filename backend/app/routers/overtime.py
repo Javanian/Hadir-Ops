@@ -14,7 +14,7 @@ Endpoints:
 from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
@@ -35,7 +35,7 @@ async def list_my_overtime(
     ot_status: Optional[str] = Query(None, alias="status", description="PENDING | APPROVED | REJECTED"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await OvertimeService(db).list_my_requests(
@@ -53,7 +53,7 @@ async def list_my_overtime(
 )
 async def list_by_attendance(
     attendance_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await OvertimeService(db).list_by_attendance(attendance_id, current_user)
@@ -73,7 +73,7 @@ async def list_by_attendance(
 )
 async def create_overtime_request(
     data: OvertimeRequestCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await OvertimeService(db).create_request(current_user, data)
@@ -88,7 +88,7 @@ async def list_overtime(
     ot_status: Optional[str] = Query(None, alias="status", description="PENDING | APPROVED | REJECTED"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await OvertimeService(db).list_requests(
@@ -106,7 +106,7 @@ async def list_overtime(
 )
 async def get_overtime(
     request_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     return await OvertimeService(db).get_by_id(request_id, current_user)
@@ -120,7 +120,7 @@ async def get_overtime(
 async def approve_overtime(
     request_id: int,
     body: ApproveBody = Body(default_factory=ApproveBody),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await OvertimeService(db).approve(request_id, current_user, body)
@@ -134,7 +134,7 @@ async def approve_overtime(
 async def reject_overtime(
     request_id: int,
     body: RejectBody = Body(default_factory=RejectBody),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncDatabase = Depends(get_db),
     current_user=Depends(require_role("ADMIN", "SUPERVISOR")),
 ):
     return await OvertimeService(db).reject(request_id, current_user, body)

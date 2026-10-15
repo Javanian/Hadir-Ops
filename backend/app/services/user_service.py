@@ -2,10 +2,10 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.security import get_password_hash
-from app.models.models import User
+from app.db.documents import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.users import (
     UserCreateRequest,
@@ -16,7 +16,7 @@ from app.schemas.users import (
 
 
 def _to_item(user: User) -> UserListItem:
-    """Convert a User ORM object (with eagerly loaded role + site) to UserListItem."""
+    """Convert a User document (with its site attached) to UserListItem."""
     now = datetime.now(timezone.utc)
     return UserListItem(
         id=user.id,
@@ -37,7 +37,7 @@ def _to_item(user: User) -> UserListItem:
 
 
 class UserService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.repo = UserRepository(db)
 
@@ -97,7 +97,7 @@ class UserService:
             name=data.name,
             email=data.email,  # already lowercased by validator
             password_hash=get_password_hash(data.password),
-            role_id=role.id,
+            role=role.name,
             site_id=data.site_id,
             supervisor_id=data.supervisor_id,
         )
@@ -112,6 +112,7 @@ class UserService:
             )
 
         changed = data.model_fields_set  # set of field names explicitly provided
+        fields: dict = {}
 
         if "email" in changed and data.email is not None:
             new_email = data.email.strip().lower()
@@ -122,10 +123,10 @@ class UserService:
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Email already in use by another user",
                     )
-            user.email = new_email
+            fields["email"] = new_email
 
         if "name" in changed and data.name is not None:
-            user.name = data.name.strip()
+            fields["name"] = data.name.strip()
 
         if "role" in changed and data.role is not None:
             role = await self.repo.get_role_by_name(data.role)
@@ -134,23 +135,23 @@ class UserService:
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"Role '{data.role}' not found",
                 )
-            user.role_id = role.id
+            fields["role"] = role.name
 
         if "site_id" in changed:
-            user.site_id = data.site_id  # may be None (remove from site)
+            fields["site_id"] = data.site_id  # may be None (remove from site)
 
         if "supervisor_id" in changed:
-            user.supervisor_id = data.supervisor_id  # may be None
+            fields["supervisor_id"] = data.supervisor_id  # may be None
 
         if "is_active" in changed and data.is_active is not None:
-            user.is_active = data.is_active
+            fields["is_active"] = data.is_active
 
         if "password" in changed and data.password is not None:
-            user.password_hash = get_password_hash(data.password)
+            fields["password_hash"] = get_password_hash(data.password)
             # Tokens issued before the reset stop working (see get_current_user)
-            user.password_changed_at = datetime.now(timezone.utc)
+            fields["password_changed_at"] = datetime.now(timezone.utc)
 
-        await self.db.commit()
+        await self.repo.update(user_id, fields)
 
         # Re-fetch with relationships to build the response
         refreshed = await self.repo.get_by_id(user_id)
@@ -165,9 +166,4 @@ class UserService:
                 detail="User not found",
             )
 
-        # Clear FK references that would block deletion
-        await self.repo.nullify_subordinates(user_id)
-        await self.repo.nullify_audit_logs(user_id)
-
-        await self.db.delete(user)
-        await self.db.commit()
+        await self.repo.delete_cascade(user_id)

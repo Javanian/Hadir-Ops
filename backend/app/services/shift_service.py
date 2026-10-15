@@ -2,7 +2,7 @@ from datetime import date
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.repositories.shift_repository import ShiftRepository
 from app.repositories.site_repository import SiteRepository
@@ -40,7 +40,7 @@ def _shift_to_response(shift) -> ShiftResponse:
 
 
 class ShiftService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.repo = ShiftRepository(db)
         self.site_repo = SiteRepository(db)
@@ -97,6 +97,14 @@ class ShiftService:
         self._assert_can_manage_site(current_user, data.site_id)
         self._validate_time_logic(data.start_time, data.end_time, data.is_cross_midnight)
 
+        days = [s.day_of_week for s in (data.schedules or [])]
+        duplicate = next((d for d in days if days.count(d) > 1), None)
+        if duplicate is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Duplicate day_of_week={duplicate} in schedules",
+            )
+
         shift = await self.repo.create(
             site_id=data.site_id,
             name=data.name,
@@ -104,23 +112,8 @@ class ShiftService:
             end_time=data.end_time,
             is_cross_midnight=data.is_cross_midnight,
             work_hours_standard=data.work_hours_standard,
+            schedules=data.schedules,
         )
-
-        # Add work schedules if provided
-        if data.schedules:
-            days_seen = set()
-            for s in data.schedules:
-                if s.day_of_week in days_seen:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail=f"Duplicate day_of_week={s.day_of_week} in schedules",
-                    )
-                days_seen.add(s.day_of_week)
-                await self.repo.add_schedule(shift.id, s.day_of_week, s.toleransi_telat_menit)
-
-        await self.db.commit()
-        # Reload with schedules
-        shift = await self.repo.get_by_id(shift.id)
         return _shift_to_response(shift)
 
     async def update_shift(self, shift_id: int, data: ShiftUpdate, current_user=None) -> ShiftResponse:
@@ -146,6 +139,11 @@ class ShiftService:
         shift = await self.repo.get_by_id(shift_id)
         if not shift:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
+        if await self.repo.in_use(shift_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Shift has attendance records. Remove its schedules instead of deleting it.",
+            )
         await self.repo.delete(shift)
 
     # ── Work Schedules ────────────────────────────────────────────────────────
@@ -167,7 +165,6 @@ class ShiftService:
             )
 
         ws = await self.repo.add_schedule(shift_id, data.day_of_week, data.toleransi_telat_menit)
-        await self.db.commit()
         return WorkScheduleResponse(
             id=ws.id,
             day_of_week=ws.day_of_week,

@@ -20,7 +20,7 @@ IDOR:
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.access import require_user_access
 from app.repositories.attendance_repository import AttendanceRepository
@@ -29,7 +29,7 @@ from app.schemas.overtime import ApproveBody, OvertimeRequestCreate, OvertimeReq
 
 
 class OvertimeService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.repo = OvertimeRepository(db)
         self.att_repo = AttendanceRepository(db)
@@ -149,6 +149,7 @@ class OvertimeService:
         # Optional time-window override
         eff_start = body.approved_start or req.requested_start
         eff_end = body.approved_end or req.requested_end
+        changes: dict = {}
 
         # Validate override window against attendance (only when attendance exists)
         att = req.attendance
@@ -164,19 +165,25 @@ class OvertimeService:
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="approved_end cannot be after check-out time.",
                     )
-            req.requested_start = eff_start
-            req.requested_end = eff_end
+            changes["requested_start"] = eff_start
+            changes["requested_end"] = eff_end
 
         if body.supervisor_notes is not None:
-            req.supervisor_notes = body.supervisor_notes
+            changes["supervisor_notes"] = body.supervisor_notes
+
+        decided = await self.repo.update_status(req, "APPROVED", approver.id, **changes)
+        if decided is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This request was already decided.",
+            )
 
         # Write overtime_minutes to the attendance record if linked
         if att is not None:
             ot_minutes = max(0, int((eff_end - eff_start).total_seconds() / 60))
             await self.att_repo.set_overtime_minutes(req.attendance_id, ot_minutes)
 
-        req = await self.repo.update_status(req, "APPROVED", approver.id)
-        return self._to_response(req)
+        return self._to_response(decided)
 
     # ── Reject ────────────────────────────────────────────────────────────────
 
@@ -198,11 +205,17 @@ class OvertimeService:
             )
         await self._assert_can_access(req, approver)
 
+        changes = {}
         if body.supervisor_notes is not None:
-            req.supervisor_notes = body.supervisor_notes
+            changes["supervisor_notes"] = body.supervisor_notes
 
-        req = await self.repo.update_status(req, "REJECTED", approver.id)
-        return self._to_response(req)
+        decided = await self.repo.update_status(req, "REJECTED", approver.id, **changes)
+        if decided is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This request was already decided.",
+            )
+        return self._to_response(decided)
 
     # ── Queries ───────────────────────────────────────────────────────────────
 

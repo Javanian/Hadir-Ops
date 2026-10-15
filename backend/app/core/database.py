@@ -1,49 +1,26 @@
-from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+"""
+MongoDB connection.
+
+One client per process (it pools connections). Datetimes come back as aware
+UTC values (`tz_aware=True`), matching what the services compare against.
+"""
+
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.config import settings
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    connect_args={
-        "server_settings": {
-            "search_path": f"{settings.DB_SCHEMA},public",
-        }
-    },
-)
-
-# Register pgvector type for asyncpg connections
-@event.listens_for(engine.sync_engine, "connect")
-def connect(dbapi_connection, connection_record):
-    try:
-        from pgvector.asyncpg import register_vector
-        dbapi_connection.run_sync(register_vector)
-    except Exception:
-        pass  # pgvector not available yet (migration phase)
-
-
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
+client: AsyncMongoClient = AsyncMongoClient(
+    settings.MONGODB_URL,
+    tz_aware=True,
+    serverSelectionTimeoutMS=5000,
 )
 
 
-class Base(DeclarativeBase):
-    pass
+def get_database() -> AsyncDatabase:
+    return client[settings.MONGODB_DB]
 
 
 async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    """FastAPI dependency: the application database."""
+    yield get_database()

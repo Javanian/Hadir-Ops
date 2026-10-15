@@ -23,10 +23,8 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from datetime import timezone as dt_tz
 
-from sqlalchemy import select, text, func
-
-from app.core.database import AsyncSessionLocal
-from app.models.models import Attendance, Shift, Site, User
+from app.core.database import client, get_database
+from app.db.ids import next_id
 
 # ---------------------------------------------------------------------------
 # Config
@@ -185,108 +183,81 @@ def _build_scenario(emp_id: str, d: date, site_tz: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 async def seed_recent():
-    async with AsyncSessionLocal() as db:
+    db = get_database()
+    sites = {
+        d["_id"]: d
+        async for d in db.sites.find({"name": {"$in": ["Site Jakarta", "Site Makassar", "Site Jayapura"]}})
+    }
+    shifts = {d["site_id"]: d async for d in db.shifts.find({"site_id": {"$in": list(sites)}})}
+    if not sites or not shifts:
+        print("ERROR: Sites or shifts not found. Run seed.py first.")
+        return
 
-        # Fetch site data
-        result = await db.execute(select(Site).where(
-            Site.name.in_(["Site Jakarta", "Site Makassar", "Site Jayapura"])
-        ))
-        sites: dict[int, Site] = {s.id: s for s in result.scalars().all()}
+    users = [u async for u in db.users.find({"site_id": {"$in": list(sites)}, "is_active": True})]
+    print(f"Found {len(users)} active users across 3 sites.")
 
-        # Fetch shift for each site
-        result = await db.execute(select(Shift).where(Shift.site_id.in_(list(sites.keys()))))
-        shifts: dict[int, Shift] = {sh.site_id: sh for sh in result.scalars().all()}
+    date_range: list[date] = [TODAY - timedelta(days=i) for i in range(DAYS_BACK - 1, -1, -1)]
+    print(f"Date range: {date_range[0].isoformat()} → {date_range[-1].isoformat()}")
 
-        if not sites or not shifts:
-            print("ERROR: Sites or shifts not found. Run seed.py first.")
-            return
+    inserted = skipped_exists = skipped_absent = 0
+    for user in users:
+        site = sites.get(user["site_id"])
+        shift = shifts.get(user["site_id"])
+        if not site or not shift:
+            continue
 
-        # Fetch all employees + supervisors from these sites
-        result = await db.execute(
-            select(User).where(User.site_id.in_(list(sites.keys())), User.is_active == True)
-        )
-        users = result.scalars().all()
-        print(f"Found {len(users)} active users across 3 sites.")
-
-        # Date range
-        date_range: list[date] = [
-            TODAY - timedelta(days=i) for i in range(DAYS_BACK - 1, -1, -1)
-        ]
-        print(f"Date range: {date_range[0].isoformat()} → {date_range[-1].isoformat()}")
-
-        inserted = 0
-        skipped_exists = 0
-        skipped_absent = 0
-        errors = 0
-
-        for user in users:
-            site = sites.get(user.site_id)
-            shift = shifts.get(user.site_id)
-            if not site or not shift:
+        for d in date_range:
+            # One record per user per site-local day (work_date)
+            if await db.attendance.find_one({"user_id": user["_id"], "work_date": d.isoformat()}):
+                skipped_exists += 1
                 continue
 
-            for d in date_range:
-                # Check for existing record (search by UTC range for this site's calendar day)
-                tz = ZoneInfo(site.timezone)
-                day_start_local = datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=tz)
-                day_end_local   = datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=tz)
-                day_start_utc = day_start_local.astimezone(UTC)
-                day_end_utc   = day_end_local.astimezone(UTC)
+            scenario = _build_scenario(user["employee_id"], d, site["timezone"])
+            if scenario is None:
+                skipped_absent += 1
+                continue
 
-                existing = await db.execute(
-                    select(Attendance).where(
-                        Attendance.user_id == user.id,
-                        Attendance.checkin_time >= day_start_utc,
-                        Attendance.checkin_time <= day_end_utc,
-                    )
-                )
-                if existing.scalar_one_or_none():
-                    skipped_exists += 1
-                    continue
+            # GPS offset for out-of-radius records
+            offset = 0.0 if scenario["in_radius"] else 0.005
+            await db.attendance.insert_one({
+                "_id": await next_id(db, "attendance"),
+                "user_id": user["_id"],
+                "site_id": site["_id"],
+                "shift_id": shift["_id"],
+                "checkin_time": scenario["checkin_utc"],
+                "checkout_time": scenario["checkout_utc"],
+                "auto_checkout": False,
+                "latitude": site["latitude"] + offset,
+                "longitude": site["longitude"] + offset,
+                "work_duration_minutes": scenario["work_duration_minutes"],
+                "overtime_minutes": scenario["overtime_minutes"],
+                "is_weekend": scenario["is_weekend"],
+                "is_holiday": False,
+                "status": scenario["status"],
+                "work_date": d.isoformat(),
+                "created_at": datetime.now(UTC),
+                "risk_flags": [],
+                "needs_review": False,
+                "is_offline": False,
+                "review_status": None,
+            })
+            inserted += 1
 
-                scenario = _build_scenario(user.employee_id, d, site.timezone)
-                if scenario is None:
-                    skipped_absent += 1
-                    continue
+    print()
+    print("=" * 56)
+    print("✅ seed_recent complete!")
+    print(f"   Inserted : {inserted}")
+    print(f"   Absent   : {skipped_absent}")
+    print(f"   Existed  : {skipped_exists}")
+    print("=" * 56)
 
-                # GPS offset for out-of-radius records
-                lat = site.latitude + (0.005 if not scenario["in_radius"] else 0.0)
-                lon = site.longitude + (0.005 if not scenario["in_radius"] else 0.0)
 
-                try:
-                    db.add(Attendance(
-                        user_id=user.id,
-                        site_id=site.id,
-                        shift_id=shift.id,
-                        checkin_time=scenario["checkin_utc"],
-                        checkout_time=scenario["checkout_utc"],
-                        auto_checkout=False,
-                        latitude=lat,
-                        longitude=lon,
-                        work_duration_minutes=scenario["work_duration_minutes"],
-                        overtime_minutes=scenario["overtime_minutes"],
-                        is_weekend=scenario["is_weekend"],
-                        is_holiday=False,
-                        status=scenario["status"],
-                        work_date=d,
-                    ))
-                    inserted += 1
-                except Exception as e:
-                    print(f"    ERROR {user.employee_id} {d}: {e}")
-                    errors += 1
-
-            await db.commit()
-
-        print()
-        print("=" * 56)
-        print("✅ seed_recent complete!")
-        print(f"   Inserted : {inserted}")
-        print(f"   Absent   : {skipped_absent}")
-        print(f"   Existed  : {skipped_exists}")
-        if errors:
-            print(f"   Errors   : {errors}")
-        print("=" * 56)
+async def main():
+    try:
+        await seed_recent()
+    finally:
+        await client.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_recent())
+    asyncio.run(main())

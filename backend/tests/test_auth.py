@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 import jwt
 import pytest
 import pytest_asyncio
-from sqlalchemy import text
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -67,24 +66,17 @@ async def test_lockout_answers_403_on_every_attempt(client, seed):
     assert 1 <= detail["retry_in_minutes"] <= 31
 
 
-async def test_expired_lock_is_cleared_on_login(client, seed):
-    from app.core.database import AsyncSessionLocal
-
-    async with AsyncSessionLocal() as db:
-        await db.execute(
-            text("UPDATE users SET failed_login_attempts = 5, locked_until = now() - interval '1 minute' WHERE id = :u"),
-            {"u": seed["emp_id"]},
-        )
-        await db.commit()
+async def test_expired_lock_is_cleared_on_login(client, seed, mongo):
+    await mongo.users.update_one(
+        {"_id": seed["emp_id"]},
+        {"$set": {"failed_login_attempts": 5, "locked_until": datetime.now(UTC) - timedelta(minutes=1)}},
+    )
 
     r = await _login(client)
     assert r.status_code == 200, r.text
 
-    async with AsyncSessionLocal() as db:
-        row = (await db.execute(
-            text("SELECT failed_login_attempts, locked_until FROM users WHERE id = :u"), {"u": seed["emp_id"]}
-        )).one()
-    assert row == (0, None)
+    doc = await mongo.users.find_one({"_id": seed["emp_id"]})
+    assert (doc["failed_login_attempts"], doc["locked_until"]) == (0, None)
 
 
 async def test_password_change_invalidates_older_tokens(client, seed):
