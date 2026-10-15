@@ -360,7 +360,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Check Out</Text>
             {canClose && (
-              <Pressable onPress={onClose} hitSlop={12}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} hitSlop={12}>
                 <Ionicons name="close" size={24} color={colors.textMuted} />
               </Pressable>
             )}

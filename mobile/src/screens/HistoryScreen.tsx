@@ -131,7 +131,7 @@ function AttendanceCard({
       {/* Row 3: overtime badge (conditional) */}
       {record.overtime_minutes > 0 && (
         <View style={styles.overtimeBadge}>
-          <Ionicons name="time-outline" size={12} color={colors.warning} />
+          <Ionicons name="time-outline" size={12} color={colors.overtime} />
           <Text style={styles.overtimeBadgeText}>
             Lembur {formatDuration(record.overtime_minutes)}
           </Text>
@@ -396,17 +396,17 @@ const styles = StyleSheet.create({
   cardBody: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timesRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   timeItem: { alignItems: 'center', gap: 2, minWidth: 50 },
-  timeLabel: { fontSize: 10, color: colors.textSubtle },
+  timeLabel: { fontSize: 12, color: colors.textMuted },
   timeValue: { fontSize: 15, fontWeight: '600', color: colors.ink, fontVariant: ['tabular-nums'] },
   durationBlock: { alignItems: 'flex-end', gap: 2, paddingLeft: 10, minWidth: 56 },
-  durationLabel: { fontSize: 10, color: colors.textSubtle },
+  durationLabel: { fontSize: 12, color: colors.textMuted },
   durationValue: { fontSize: 14, fontWeight: '600', color: colors.text },
   overtimeBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    alignSelf: 'flex-start', backgroundColor: colors.warningTintStrong,
+    alignSelf: 'flex-start', backgroundColor: colors.overtimeTint,
     borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
   },
-  overtimeBadgeText: { fontSize: 11, fontWeight: '600', color: colors.warning },
+  overtimeBadgeText: { fontSize: 12, fontWeight: '600', color: colors.overtime },
   ajukanOtBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: colors.action, borderRadius: 8,

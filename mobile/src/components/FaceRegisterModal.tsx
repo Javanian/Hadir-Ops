@@ -146,7 +146,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
           {/* Floating controls */}
           <View style={styles.cameraControls}>
             <Text style={styles.cameraHint}>Posisikan wajah di dalam lingkaran</Text>
-            <Pressable style={styles.shutterBtn} onPress={handleCapture}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Ambil foto" style={styles.shutterBtn} onPress={handleCapture}>
               <View style={styles.shutterInner} />
             </Pressable>
           </View>
@@ -248,7 +248,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Daftarkan Wajah</Text>
             {canClose && (
-              <Pressable onPress={onClose} hitSlop={12}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} hitSlop={12}>
                 <Ionicons name="close" size={24} color={isFullscreen ? colors.textMuted : colors.textMuted} />
               </Pressable>
             )}

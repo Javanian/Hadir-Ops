@@ -86,11 +86,11 @@ export function Calendar({
     <View>
       {/* Month nav */}
       <View style={cal.nav}>
-        <TouchableOpacity style={cal.navBtn} onPress={() => goMonth(-1)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Bulan sebelumnya" style={cal.navBtn} onPress={() => goMonth(-1)}>
           <Ionicons name="chevron-back" size={20} color={colors.action} />
         </TouchableOpacity>
         <Text style={cal.navTitle}>{MONTHS_ID[month]} {year}</Text>
-        <TouchableOpacity style={cal.navBtn} onPress={() => goMonth(1)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Bulan berikutnya" style={cal.navBtn} onPress={() => goMonth(1)}>
           <Ionicons name="chevron-forward" size={20} color={colors.action} />
         </TouchableOpacity>
       </View>
@@ -184,7 +184,7 @@ export function DatePickerModal({
       <SafeAreaView style={dpm.safe} edges={['top', 'bottom']}>
         <View style={dpm.header}>
           <Text style={dpm.title}>{title}</Text>
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -194,7 +194,7 @@ export function DatePickerModal({
             <View style={dpm.selectedBadge}>
               <Ionicons name="calendar" size={15} color={colors.action} />
               <Text style={dpm.selectedText}>{fmtDateShort(selected)}</Text>
-              <TouchableOpacity onPress={() => onSelect('__clear__')} style={dpm.clearIcon}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Hapus tanggal terpilih" hitSlop={10} onPress={() => onSelect('__clear__')} style={dpm.clearIcon}>
                 <Ionicons name="close-circle" size={16} color={colors.textSubtle} />
               </TouchableOpacity>
             </View>
@@ -292,7 +292,7 @@ export function DateRangeBar({
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Hapus filter tanggal"
         onPress={() => { onFromDate(null); onToDate(null); }}
         style={[drb.clearBtn, !hasFilter && drb.clearBtnHidden]}
         disabled={!hasFilter}

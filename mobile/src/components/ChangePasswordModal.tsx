@@ -79,9 +79,10 @@ function PasswordField({
         <Pressable
           style={fieldStyles.eyeBtn}
           onPress={() => setSecure((v) => !v)}
+          accessibilityRole="button"
           accessibilityLabel={secure ? 'Tampilkan password' : 'Sembunyikan password'}
         >
-          <Text style={fieldStyles.eyeText}>{secure ? '👁' : '🙈'}</Text>
+          <Ionicons name={secure ? 'eye-outline' : 'eye-off-outline'} size={20} color={colors.textMuted} />
         </Pressable>
       </View>
     </View>
@@ -119,7 +120,6 @@ const fieldStyles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.white,
   },
-  eyeText: { fontSize: 18 },
 });
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -196,7 +196,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
               <Ionicons name="lock-closed-outline" size={20} color={colors.action} />
               <Text style={styles.headerTitle}>Ubah Password</Text>
             </View>
-            <Pressable onPress={handleClose} disabled={isPending} style={styles.closeBtn}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={handleClose} disabled={isPending} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </Pressable>
           </View>

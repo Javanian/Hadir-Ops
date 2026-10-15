@@ -121,13 +121,13 @@ function TimeStepper({
   return (
     <View style={styles.timeStepper}>
       <View style={styles.stepperUnit}>
-        <TouchableOpacity style={styles.stepperBtn} onPress={() => onHour((hour + 1) % 24)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tambah jam" style={styles.stepperBtn} onPress={() => onHour((hour + 1) % 24)}>
           <Ionicons name="chevron-up" size={22} color={colors.action} />
         </TouchableOpacity>
         <View style={styles.stepperValueBox}>
           <Text style={styles.stepperValue}>{String(hour).padStart(2, '0')}</Text>
         </View>
-        <TouchableOpacity style={styles.stepperBtn} onPress={() => onHour((hour - 1 + 24) % 24)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Kurangi jam" style={styles.stepperBtn} onPress={() => onHour((hour - 1 + 24) % 24)}>
           <Ionicons name="chevron-down" size={22} color={colors.action} />
         </TouchableOpacity>
         <Text style={styles.stepperUnitLabel}>Jam</Text>
@@ -136,13 +136,13 @@ function TimeStepper({
       <Text style={styles.stepperColon}>:</Text>
 
       <View style={styles.stepperUnit}>
-        <TouchableOpacity style={styles.stepperBtn} onPress={() => onMin((minute + 5) % 60)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tambah menit" style={styles.stepperBtn} onPress={() => onMin((minute + 5) % 60)}>
           <Ionicons name="chevron-up" size={22} color={colors.action} />
         </TouchableOpacity>
         <View style={styles.stepperValueBox}>
           <Text style={styles.stepperValue}>{String(minute).padStart(2, '0')}</Text>
         </View>
-        <TouchableOpacity style={styles.stepperBtn} onPress={() => onMin(minute < 5 ? 55 : minute - 5)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Kurangi menit" style={styles.stepperBtn} onPress={() => onMin(minute < 5 ? 55 : minute - 5)}>
           <Ionicons name="chevron-down" size={22} color={colors.action} />
         </TouchableOpacity>
         <Text style={styles.stepperUnitLabel}>Menit</Text>
@@ -218,7 +218,7 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
       <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Ajukan Lembur</Text>
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -369,7 +369,7 @@ function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz:
       <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Setujui Lembur</Text>
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -482,7 +482,7 @@ function RejectModal({ item, onClose }: { item: OvertimeRequest | null; onClose:
       <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Tolak Lembur</Text>
-          <TouchableOpacity onPress={handleClose}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={handleClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -732,7 +732,7 @@ function FilterBar({
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Hapus filter tanggal"
           onPress={() => { onFromDate(null); onToDate(null); }}
           style={[fb.clearBtn, !hasDateFilter && fb.clearBtnHidden]}
           disabled={!hasDateFilter}
@@ -1184,7 +1184,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
       )}
 
       {/* ── FAB ── */}
-      <TouchableOpacity style={styles.fab} onPress={() => setShowSubmit(true)}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ajukan lembur" style={styles.fab} onPress={() => setShowSubmit(true)}>
         <Ionicons name="add" size={28} color={colors.white} />
       </TouchableOpacity>
 
