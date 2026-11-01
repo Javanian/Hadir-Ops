@@ -90,6 +90,38 @@ def test_altered_model_file_is_refused(tmp_path):
         ensure_model_files(tmp_path, download=False)
 
 
+def _serve(monkeypatch, body: bytes):
+    import io
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout: io.BytesIO(body))
+
+
+def test_downloaded_model_file_is_readable_by_other_users(tmp_path, monkeypatch):
+    import hashlib
+    import stat
+    import sys
+
+    from app.services.face_models import ModelFile, _download
+
+    body = b"model bytes"
+    _serve(monkeypatch, body)
+    model = ModelFile("m.onnx", "https://example.test/m.onnx", hashlib.sha256(body).hexdigest(), "MIT")
+    _download(model, tmp_path / model.name)
+    assert (tmp_path / model.name).read_bytes() == body
+    if sys.platform != "win32":  # the Docker build downloads as root, the API runs as `app`
+        assert (tmp_path / model.name).stat().st_mode & stat.S_IROTH
+
+
+def test_download_with_the_wrong_hash_leaves_no_file(tmp_path, monkeypatch):
+    from app.services.face_models import _download
+
+    _serve(monkeypatch, b"something else")
+    with pytest.raises(RuntimeError, match="SHA-256"):
+        _download(DETECTOR, tmp_path / DETECTOR.name)
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_missing_model_file_is_not_fetched_when_downloads_are_off(tmp_path):
     with pytest.raises(FileNotFoundError):
         ensure_model_files(tmp_path, download=False)

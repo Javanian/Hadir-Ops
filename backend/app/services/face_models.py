@@ -75,6 +75,9 @@ def _download(model: ModelFile, path: Path) -> None:
                 out.write(chunk)
         if digest.hexdigest() != model.sha256:
             raise RuntimeError(f"Download of {model.name} has SHA-256 {digest.hexdigest()}, expected {model.sha256}")
+        # mkstemp creates the file readable by its owner only; the Docker build
+        # downloads as root and the API runs as another user.
+        os.chmod(tmp, 0o644)
         os.replace(tmp, path)
     finally:
         if os.path.exists(tmp):
