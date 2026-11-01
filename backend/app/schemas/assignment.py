@@ -41,7 +41,7 @@ class AssignmentCreate(BaseModel):
     @model_validator(mode="after")
     def validate_dates(self) -> "AssignmentCreate":
         if self.end_date < self.start_date:
-            raise ValueError("end_date harus >= start_date")
+            raise ValueError("end_date must be on or after start_date")
         return self
 
 

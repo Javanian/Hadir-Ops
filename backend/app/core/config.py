@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     AUTO_CHECKOUT_ENABLED: bool = True
     AUTO_CHECKOUT_INTERVAL_SECONDS: int = 60
 
+    # Public demo (see app/services/demo_service.py): one-click sign-in and the
+    # whole database replaced with sample data every day at 00:00 UTC.
+    # Never enable it on a server that holds real data.
+    DEMO_MODE: bool = False
+    RATE_LIMIT_DEMO_LOGIN: str = "20/hour"
+
+    # Error reporting: set to a Sentry DSN to send unhandled errors (without
+    # request bodies or personal data) to Sentry. Empty disables it.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
     @property
     def cors_origins_list(self) -> list[str]:
         try:

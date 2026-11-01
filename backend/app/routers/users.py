@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import require_role
 from app.schemas.users import UserCreateRequest, UserListItem, UserListResponse, UserUpdateRequest
+from app.services import demo_service
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -55,6 +57,8 @@ async def update_user(
     db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ) -> UserListItem:
+    if settings.DEMO_MODE:
+        await demo_service.protect_shared_account(db, user_id)
     return await UserService(db).update_user(user_id, data)
 
 
@@ -64,4 +68,6 @@ async def delete_user(
     db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
 ) -> None:
+    if settings.DEMO_MODE:
+        await demo_service.protect_shared_account(db, user_id)
     await UserService(db).delete_user(user_id)

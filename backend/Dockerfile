@@ -31,7 +31,7 @@ COPY --from=build /opt/venv /opt/venv
 COPY --from=build /opt/face-models /opt/face-models
 WORKDIR /app
 COPY --chown=app app ./app
-COPY --chown=app seed.py seed_recent.py ./
+COPY --chown=app seed.py ./
 COPY --chown=app scripts ./scripts
 USER app
 EXPOSE 8000

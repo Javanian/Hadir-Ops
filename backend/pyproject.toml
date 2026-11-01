@@ -1,7 +1,7 @@
 [project]
 name = "rollproof-backend"
-version = "1.1.0"
-description = "Rollproof attendance API: FastAPI, MongoDB, OpenCV face recognition."
+version = "2.0.0"
+description = "Rollproof attendance API: FastAPI, MongoDB, OpenCV face recognition, offline-first check-ins."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.161,<1",
@@ -21,6 +21,7 @@ dependencies = [
     # Decodes photos and runs face detection (YuNet) and recognition (SFace)
     # through its DNN module; the model files are pinned in app/services/face_models.py.
     "opencv-python-headless>=5.0,<6",
+    "sentry-sdk>=2,<3",
 ]
 
 [dependency-groups]

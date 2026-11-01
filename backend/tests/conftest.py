@@ -43,7 +43,7 @@ SITE_LAT, SITE_LON, SITE_RADIUS = -6.200000, 106.816666, 100
 COLLECTIONS = (
     "users", "sites", "shifts", "holidays", "attendance", "checkin_attempts",
     "overtime_requests", "leave_requests", "temporary_assignments", "audit_logs",
-    "counters", "locks",
+    "counters", "locks", "demo_state",
 )
 
 

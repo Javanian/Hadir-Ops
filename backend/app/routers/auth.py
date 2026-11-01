@@ -76,5 +76,10 @@ async def change_password(
     current_user=Depends(get_current_user),
     db: AsyncDatabase = Depends(get_db),
 ):
+    if settings.DEMO_MODE:
+        # Demo accounts are shared or throwaway; a changed password helps nobody
+        from app.services.demo_service import refuse
+
+        raise refuse()
     service = AuthService(db)
     await service.change_password(current_user, data)

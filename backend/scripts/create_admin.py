@@ -5,7 +5,7 @@ demos. A real deployment starts empty and needs one admin to log in to the web
 dashboard; everything else is created from there.
 
     docker compose -f docker-compose.prod.yml exec backend \
-        python scripts/create_admin.py --email it@company.co.id --name "IT Admin"
+        python scripts/create_admin.py --email it@example.com --name "IT Admin"
 
 The password is read from ADMIN_PASSWORD or asked for interactively, never
 taken from the command line (it would end up in the shell history).

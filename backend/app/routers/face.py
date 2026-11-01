@@ -23,6 +23,7 @@ from app.core.dependencies import get_current_user, require_role
 from app.core.security import create_face_token
 from app.core.uploads import read_image_upload
 from app.repositories.user_repository import UserRepository
+from app.services.demo_service import PROTECTED_EMAILS, refuse
 from app.services.face_models import EMBEDDING_MODEL
 from app.services.face_service import FaceService, enrolled_embedding, require_enrolled_embedding
 
@@ -67,6 +68,9 @@ async def register_face(
 ):
     # Own face; a supervisor for direct reports; ADMIN for anyone
     await require_user_access(db, current_user, user_id)
+    if settings.DEMO_MODE and (user_id != current_user.id or current_user.email in PROTECTED_EMAILS):
+        # A visitor's face goes only on the employee account made for them
+        raise refuse()
 
     repo = UserRepository(db)
     user = await repo.get_by_id(user_id)

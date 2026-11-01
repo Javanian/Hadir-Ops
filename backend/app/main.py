@@ -10,8 +10,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app import __version__
 from app.core.config import settings
-from app.routers import assignments, attendance, auth, face, leave, overtime, reports, shifts, sites, users
+from app.routers import assignments, attendance, auth, demo, face, leave, overtime, reports, shifts, sites, users
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +72,19 @@ async def _auto_checkout_worker():
         await asyncio.sleep(settings.AUTO_CHECKOUT_INTERVAL_SECONDS)
 
 
+async def _demo_reset_worker():
+    """Seeds the demo on first start, then replaces the data every day at 00:00 UTC."""
+    from app.core.database import get_database
+    from app.services import demo_service
+
+    while True:
+        try:
+            await demo_service.reset_if_due(get_database(), _WORKER_ID)
+        except Exception:
+            log.exception("demo reset failed")
+        await asyncio.sleep(60)
+
+
 def _load_face_engine():
     from app.services.face_engine import FaceEngine
 
@@ -94,18 +108,21 @@ async def lifespan(app: FastAPI):
     # loudly rather than running with check-ins that can never be verified.
     app.state.face_engine = _load_face_engine() if settings.FACE_ENABLED else None
 
-    # 2. Start auto-checkout background task
-    checkout_task = (
-        asyncio.create_task(_auto_checkout_worker()) if settings.AUTO_CHECKOUT_ENABLED else None
-    )
+    # 2. Background tasks: auto check-out, and the daily demo reset
+    tasks = []
+    if settings.AUTO_CHECKOUT_ENABLED:
+        tasks.append(asyncio.create_task(_auto_checkout_worker()))
+    if settings.DEMO_MODE:
+        log.warning("DEMO_MODE is on: all data is replaced with sample data every day at 00:00 UTC")
+        tasks.append(asyncio.create_task(_demo_reset_worker()))
 
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
-    if checkout_task is not None:
-        checkout_task.cancel()
+    for task in tasks:
+        task.cancel()
         try:
-            await checkout_task
+            await task
         except asyncio.CancelledError:
             pass
 
@@ -113,12 +130,33 @@ async def lifespan(app: FastAPI):
     await client.close()
 
 
+# ── Error reporting ───────────────────────────────────────────────────────────
+
+if settings.SENTRY_DSN:
+    import sentry_sdk
+
+    # FastAPI and Starlette are instrumented automatically. No request bodies,
+    # cookies, IP addresses or user details leave the server: a face photo or a
+    # GPS position never ends up in an error report.
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment="demo" if settings.DEMO_MODE else settings.ENVIRONMENT,
+        release=f"rollproof-backend@{__version__}",
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        send_default_pii=False,
+        max_request_body_size="never",
+    )
+
+
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Rollproof API",
-    description="API manajemen presensi, shift, penugasan, dan lembur.",
-    version="1.1.0",
+    description=(
+        "Attendance with proof: face-verified, location-checked check-ins that keep working offline, "
+        "plus shifts, assignments, leave, overtime approvals and a supervisor review queue."
+    ),
+    version=__version__,
     # The interactive docs list every endpoint; production does not publish them.
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
@@ -160,6 +198,7 @@ app.include_router(overtime.router)
 app.include_router(assignments.router)
 app.include_router(leave.router)
 app.include_router(reports.router)
+app.include_router(demo.router)
 
 
 # ── Health checks ─────────────────────────────────────────────────────────────
@@ -202,5 +241,8 @@ async def readiness(request: Request):
         "last_error": _worker_state["last_error"],
     }
 
-    body = {"status": "ok" if healthy else "degraded", "service": "Rollproof", "checks": checks}
+    body = {
+        "status": "ok" if healthy else "degraded", "service": "Rollproof", "version": __version__,
+        "demo": settings.DEMO_MODE, "checks": checks,
+    }
     return JSONResponse(body, status_code=200 if healthy else 503)

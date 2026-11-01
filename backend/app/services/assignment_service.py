@@ -41,7 +41,7 @@ class AssignmentService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User tidak ditemukan.",
+                detail="User not found.",
             )
 
         # Validate site exists
@@ -49,7 +49,7 @@ class AssignmentService:
         if not site:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Lokasi tidak ditemukan.",
+                detail="Site not found.",
             )
 
         # Validate shift belongs to the chosen site
@@ -58,7 +58,7 @@ class AssignmentService:
         if data.shift_id not in shift_ids:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Shift tidak ditemukan pada lokasi yang dipilih.",
+                detail="Shift not found at the selected site.",
             )
 
         # Check for overlapping assignment for the same user
@@ -70,7 +70,7 @@ class AssignmentService:
         if overlaps:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="User sudah memiliki penugasan pada rentang tanggal tersebut.",
+                detail="User already has an assignment in this date range.",
             )
 
         assignment = await self.repo.create(data=data, created_by=current_user.id)
@@ -81,7 +81,7 @@ class AssignmentService:
         if not assignment:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Penugasan tidak ditemukan.",
+                detail="Assignment not found.",
             )
         await self.repo.delete(assignment)
 
