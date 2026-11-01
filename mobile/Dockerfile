@@ -1,19 +1,16 @@
-FROM node:20-alpine
-
-# Required for Expo / React Native native deps
-RUN apk add --no-cache bash
+# Development only: runs the Metro bundler for Expo Go / dev builds on the LAN.
+# Release apps are built with EAS (eas.json), not from this image.
+FROM node:26.13.0-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94
 
 WORKDIR /app
 
-# Install dependencies first (cached layer)
+# Dependencies first (cached layer), exactly as locked
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy project files
 COPY . .
 
+# Metro
 EXPOSE 8081
-EXPOSE 19000
-EXPOSE 19001
 
 CMD ["npx", "expo", "start", "--lan"]

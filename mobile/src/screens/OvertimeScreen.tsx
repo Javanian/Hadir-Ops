@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -164,7 +164,11 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  // Start from an empty form every time the sheet opens (adjusted while
+  // rendering, so the previous request never flashes on screen).
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
     if (visible) {
       setSelectedDate(null);
       setStartH(17);
@@ -174,7 +178,7 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
       setNotes('');
       setError('');
     }
-  }, [visible]);
+  }
 
   const todayStr = getTodayStr(tz);
 
@@ -299,36 +303,28 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
 
 // ── ApproveModal ──────────────────────────────────────────────────────────────
 
+function hourInTz(iso: string, tz: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).formatToParts(new Date(iso));
+  const h = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
+  return h === 24 ? 0 : h;
+}
+
+/** Minute of the hour in `tz`, rounded to the 5-minute steps of the picker. */
+function roundedMinuteInTz(iso: string, tz: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, minute: '2-digit' }).formatToParts(new Date(iso));
+  return (Math.round(parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10) / 5) * 5) % 60;
+}
+
 function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz: string; onClose: () => void }) {
   const approve = useApproveOvertime();
+  // The parent keys this component by request id, so every request starts here.
   const [supervisorNotes, setSupervisorNotes] = useState('');
   const [overrideEnabled, setOverrideEnabled] = useState(false);
-  const [oStartH, setOStartH] = useState(0);
-  const [oStartM, setOStartM] = useState(0);
-  const [oEndH, setOEndH] = useState(0);
-  const [oEndM, setOEndM] = useState(0);
+  const [oStartH, setOStartH] = useState(() => (item ? hourInTz(item.requested_start, tz) : 0));
+  const [oStartM, setOStartM] = useState(() => (item ? roundedMinuteInTz(item.requested_start, tz) : 0));
+  const [oEndH, setOEndH] = useState(() => (item ? hourInTz(item.requested_end, tz) : 0));
+  const [oEndM, setOEndM] = useState(() => (item ? roundedMinuteInTz(item.requested_end, tz) : 0));
   const [error, setError] = useState('');
-
-  function getHourInTz(iso: string): number {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).formatToParts(new Date(iso));
-    const h = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
-    return h === 24 ? 0 : h;
-  }
-  function getMinInTz(iso: string): number {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, minute: '2-digit' }).formatToParts(new Date(iso));
-    return parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10);
-  }
-
-  useEffect(() => {
-    setSupervisorNotes('');
-    setOverrideEnabled(false);
-    setError('');
-    if (!item) return;
-    setOStartH(getHourInTz(item.requested_start));
-    setOStartM(Math.round(getMinInTz(item.requested_start) / 5) * 5 % 60);
-    setOEndH(getHourInTz(item.requested_end));
-    setOEndM(Math.round(getMinInTz(item.requested_end) / 5) * 5 % 60);
-  }, [item?.id]);
 
   async function handleApprove() {
     if (!item) return;
@@ -970,27 +966,25 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
   const activeQuery = activeTab === 'my' ? myQuery : teamQuery;
 
   // When navigated from HistoryScreen, switch to 'my' tab and show PENDING requests
-  useEffect(() => {
+  const navKey = `${route?.params?.from ?? ''}:${route?.params?.attendance_id ?? ''}`;
+  const [seenNavKey, setSeenNavKey] = useState('');
+  if (navKey !== seenNavKey) {
+    setSeenNavKey(navKey);
     if (route?.params?.from === 'history') {
       setActiveTab('my');
       setMyStatus('PENDING');
     }
-  }, [route?.params?.from, route?.params?.attendance_id]);
+  }
 
-  // Reset expanded groups when team data refreshes
-  const prevTeamData = useRef<OvertimeRequest[] | undefined>(undefined);
-  useEffect(() => {
-    if (teamQuery.data !== prevTeamData.current) {
-      prevTeamData.current = teamQuery.data;
-      // Auto-expand first user group with pending requests
-      if (teamQuery.data) {
-        const pendingUserId = teamQuery.data.find((r) => r.status === 'PENDING')?.user_id;
-        if (pendingUserId != null) {
-          setExpandedUsers(new Set([pendingUserId]));
-        }
-      }
+  // When team data refreshes, expand the first employee with a pending request
+  const [seenTeamData, setSeenTeamData] = useState<OvertimeRequest[] | undefined>(undefined);
+  if (teamQuery.data !== seenTeamData) {
+    setSeenTeamData(teamQuery.data);
+    const pendingUserId = teamQuery.data?.find((r) => r.status === 'PENDING')?.user_id;
+    if (pendingUserId != null) {
+      setExpandedUsers(new Set([pendingUserId]));
     }
-  }, [teamQuery.data]);
+  }
 
   function toggleUser(uid: number) {
     setExpandedUsers((prev) => {
@@ -1132,7 +1126,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
           refreshControl={
             <RefreshControl
               refreshing={myQuery.isFetching && !myQuery.isLoading}
-              onRefresh={() => myQuery.refetch()}
+              onRefresh={() => void myQuery.refetch()}
               colors={[colors.action]}
             />
           }
@@ -1156,7 +1150,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
           refreshControl={
             <RefreshControl
               refreshing={teamQuery.isFetching && !teamQuery.isLoading}
-              onRefresh={() => teamQuery.refetch()}
+              onRefresh={() => void teamQuery.refetch()}
               colors={[colors.action]}
             />
           }
@@ -1196,7 +1190,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
       </TouchableOpacity>
 
       <SubmitModal visible={showSubmit} onClose={() => setShowSubmit(false)} tz={tz} />
-      <ApproveModal item={approveTarget} tz={tz} onClose={() => setApproveTarget(null)} />
+      <ApproveModal key={approveTarget?.id ?? 'none'} item={approveTarget} tz={tz} onClose={() => setApproveTarget(null)} />
       <RejectModal item={rejectTarget} onClose={() => setRejectTarget(null)} />
     </SafeAreaView>
   );

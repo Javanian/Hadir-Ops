@@ -2,16 +2,10 @@
   "expo": {
     "name": "HadirOps",
     "slug": "hadirops-mobile",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#2563EB"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.hadirops.mobile"
@@ -22,7 +16,6 @@
         "backgroundColor": "#2563EB"
       },
       "package": "com.hadirops.mobile",
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -30,12 +23,36 @@
     },
     "plugins": [
       "expo-secure-store",
-      ["expo-location", {
-        "locationAlwaysAndWhenInUsePermission": "Izin lokasi diperlukan untuk absensi."
-      }],
-      ["expo-camera", {
-        "cameraPermission": "Izin kamera diperlukan untuk mendaftarkan wajah."
-      }]
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Lokasi dipakai untuk memastikan Anda berada di area kerja saat absen.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kamera dipakai untuk verifikasi wajah saat absen dan untuk mendaftarkan wajah.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-sharing",
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#2563EB"
+        }
+      ]
     ]
   }
 }

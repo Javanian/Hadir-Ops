@@ -1,4 +1,4 @@
-import { TOKEN_KEYS, persistTokens, getStoredTokens } from '../store/authStore';
+import { persistTokens, getStoredTokens } from '../store/authStore';
 import { FaceStatus, FaceRegisterResponse, FaceVerifyResponse } from '../types/face';
 import { AttendanceRecord } from '../types/attendance';
 import { Platform } from 'react-native';

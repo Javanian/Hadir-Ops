@@ -10,6 +10,7 @@
  *  - Any other 4xx is final: the item is marked failed, shown to the user,
  *    and reported to the server as a failed attempt for the supervisor.
  */
+import NetInfo from '@react-native-community/netinfo';
 import { AppState } from 'react-native';
 import Constants from 'expo-constants';
 import { isAxiosError } from 'axios';
@@ -248,8 +249,6 @@ export function startOutboxSync(onSynced: () => void): () => void {
 
   let unsubNet: (() => void) | undefined;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const NetInfo = require('@react-native-community/netinfo');
     let wasConnected = true;
     unsubNet = NetInfo.addEventListener((state: { isConnected: boolean | null }) => {
       const connected = state.isConnected !== false;

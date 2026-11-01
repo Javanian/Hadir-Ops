@@ -37,9 +37,11 @@ let loading: Promise<void> | null = null;
 let writeChain: Promise<void> = Promise.resolve();
 const listeners = new Set<() => void>();
 
-async function fileUri(): Promise<string> {
-  const FileSystem = await import('expo-file-system/legacy');
-  return `${FileSystem.documentDirectory}${FILE_NAME}`;
+// The same location the legacy file API used (document directory), so a queue
+// written by an older version of the app is picked up after an update.
+async function storeFiles() {
+  const { File, Paths } = await import('expo-file-system');
+  return { store: new File(Paths.document, FILE_NAME), temp: new File(Paths.document, `${FILE_NAME}.tmp`) };
 }
 
 async function readStore(): Promise<OutboxItem[]> {
@@ -48,11 +50,9 @@ async function readStore(): Promise<OutboxItem[]> {
       const raw = localStorage.getItem(WEB_KEY);
       return raw ? (JSON.parse(raw) as OutboxItem[]) : [];
     }
-    const FileSystem = await import('expo-file-system/legacy');
-    const uri = await fileUri();
-    const info = await FileSystem.getInfoAsync(uri);
-    if (!info.exists) return [];
-    return JSON.parse(await FileSystem.readAsStringAsync(uri)) as OutboxItem[];
+    const { store } = await storeFiles();
+    if (!store.exists) return [];
+    return JSON.parse(await store.text()) as OutboxItem[];
   } catch (e) {
     console.warn('[outbox] could not read store, starting empty', e);
     return [];
@@ -65,12 +65,11 @@ async function writeStore(snapshot: OutboxItem[]): Promise<void> {
     localStorage.setItem(WEB_KEY, json);
     return;
   }
-  const FileSystem = await import('expo-file-system/legacy');
-  const uri = await fileUri();
+  const { store, temp } = await storeFiles();
   // Write to a temp file first so a crash mid-write cannot corrupt the queue.
-  const tmp = `${uri}.tmp`;
-  await FileSystem.writeAsStringAsync(tmp, json);
-  await FileSystem.moveAsync({ from: tmp, to: uri });
+  temp.create({ overwrite: true });
+  await temp.write(json);
+  await temp.move(store, { overwrite: true });
 }
 
 function emit() {
@@ -118,8 +117,13 @@ export async function removeItem(id: string): Promise<void> {
   emit();
   await persist();
   if (item?.photoPath && Platform.OS !== 'web') {
-    const FileSystem = await import('expo-file-system/legacy');
-    await FileSystem.deleteAsync(item.photoPath, { idempotent: true }).catch(() => undefined);
+    try {
+      const { File } = await import('expo-file-system');
+      const photo = new File(item.photoPath);
+      if (photo.exists) photo.delete();
+    } catch {
+      // A leftover photo is harmless; the queue item is already gone.
+    }
   }
 }
 

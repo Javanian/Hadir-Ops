@@ -241,7 +241,7 @@ export default function HistoryScreen() {
     if (records.length > 0) {
       return <Text style={styles.endText}>Semua data ditampilkan</Text>;
     }
-    return null;
+    return undefined;
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -316,7 +316,7 @@ export default function HistoryScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.action} />
+            <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.action} />
           }
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();

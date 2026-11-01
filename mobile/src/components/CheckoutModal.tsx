@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -82,11 +82,6 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
     setStep('ready');
   }, []);
 
-  useEffect(() => {
-    if (visible) {
-      requestAndLocate();
-    }
-  }, [visible, requestAndLocate]);
 
   async function openFaceVerify() {
     if (!permission?.granted) {
@@ -212,9 +207,9 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
     if (step === 'face_verify') {
       return (
         <View style={styles.cameraWrapper}>
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="front" />
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
           {/* Oval face guide */}
-          <View style={[StyleSheet.absoluteFillObject, styles.ovalContainer]}>
+          <View style={[StyleSheet.absoluteFill, styles.ovalContainer]}>
             <View style={styles.faceGuide} />
           </View>
           {/* Floating controls */}
@@ -349,6 +344,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
       visible={visible}
       transparent
       animationType="slide"
+      onShow={() => void requestAndLocate()}
       onRequestClose={canClose ? onClose : undefined}
     >
       <View style={styles.overlay}>

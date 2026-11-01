@@ -27,7 +27,7 @@ const MAX_DAYS = 30;
 const MAX_BACKDATE_DAYS = 7;
 const MAX_ADVANCE_DAYS = 90;
 
-const TYPES: Array<{ value: LeaveType; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = [
+const TYPES: { value: LeaveType; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { value: 'SICK', label: 'Sakit', icon: 'medkit-outline' },
   { value: 'PERMIT', label: 'Izin', icon: 'document-text-outline' },
   { value: 'ANNUAL', label: 'Cuti', icon: 'sunny-outline' },
@@ -156,7 +156,7 @@ export default function LeaveScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.action} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.action} />}
       >
         {/* ── Form ── */}
         <View style={styles.card}>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useEffectEvent } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -98,11 +98,6 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
     }
   }, [userId]);
 
-  useEffect(() => {
-    if (visible) {
-      requestAndLocate();
-    }
-  }, [visible, requestAndLocate]);
 
   async function openFaceVerify() {
     if (!permission?.granted) {
@@ -163,6 +158,10 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
   }
 
   // Runs after React commits the 'verifying' render (CameraView fully unmounted).
+  // Reads the latest props and state without making them effect dependencies,
+  // so a re-render never repeats the verification.
+  const sendFromEffect = useEffectEvent((item: Parameters<typeof send>[0]) => send(item));
+
   useEffect(() => {
     const item = pendingRef.current;
     if (step !== 'verifying' || !capturedUri || !userId || !item) return;
@@ -185,7 +184,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           // No signal or server trouble: record the check-in now and attach
           // the photo when it syncs. It is marked for supervisor review.
           item.photoPath = await keepPhoto(uri, item.id);
-          await send(item);
+          await sendFromEffect(item);
           return;
         }
         const msg = errorMessage(e);
@@ -204,7 +203,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
         return;
       }
       item.body.face_token = res.face_token;
-      await send(item);
+      await sendFromEffect(item);
     };
     run().catch((e) => {
       setRetryToFace(false);
@@ -249,9 +248,9 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
     if (step === 'face_verify') {
       return (
         <View style={styles.cameraWrapper}>
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="front" />
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
           {/* Oval face guide */}
-          <View style={[StyleSheet.absoluteFillObject, styles.ovalContainer]}>
+          <View style={[StyleSheet.absoluteFill, styles.ovalContainer]}>
             <View style={styles.faceGuide} />
           </View>
           {/* Floating controls */}
@@ -375,6 +374,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       visible={visible}
       transparent
       animationType="slide"
+      onShow={() => void requestAndLocate()}
       onRequestClose={canClose ? onClose : undefined}
     >
       <View style={styles.overlay}>

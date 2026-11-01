@@ -299,7 +299,7 @@ export default function SubordinateAttendanceScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isFetching && !isLoading}
-              onRefresh={() => refetch()}
+              onRefresh={() => void refetch()}
               tintColor={colors.action}
             />
           }

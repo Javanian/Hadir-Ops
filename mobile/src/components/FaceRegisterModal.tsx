@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -71,11 +71,6 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
     setStep('preview');
   }, [permission?.granted, requestPermission]);
 
-  useEffect(() => {
-    if (visible) {
-      init();
-    }
-  }, [visible, init]);
 
   async function handleCapture() {
     if (!cameraRef.current) return;
@@ -136,11 +131,11 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
         <View style={styles.cameraWrapper}>
           <CameraView
             ref={cameraRef}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             facing={facing}
           />
           {/* Oval face guide */}
-          <View style={[StyleSheet.absoluteFillObject, styles.ovalContainer]}>
+          <View style={[StyleSheet.absoluteFill, styles.ovalContainer]}>
             <View style={styles.faceGuide} />
           </View>
           {/* Floating controls */}
@@ -159,7 +154,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
         <View style={styles.cameraWrapper}>
           <Image
             source={{ uri: photoUri }}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
           {/* Floating review controls */}
@@ -237,6 +232,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
       visible={visible}
       transparent
       animationType="slide"
+      onShow={() => void init()}
       onRequestClose={canClose ? onClose : undefined}
     >
       <View style={styles.overlay}>

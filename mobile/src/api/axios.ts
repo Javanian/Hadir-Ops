@@ -5,7 +5,7 @@ import axios, {
 } from 'axios';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { TOKEN_KEYS, clearTokens, persistTokens, getStoredTokens } from '../store/authStore';
+import { clearTokens, persistTokens, getStoredTokens } from '../store/authStore';
 import { TokenResponse } from '../types/auth';
 import { showError } from '../utils/toast';
 
@@ -40,8 +40,19 @@ function getExpoHost(): string | null {
 function resolveBaseUrl(): string {
   if (API_BASE_OVERRIDE && API_BASE_OVERRIDE.toLowerCase() !== 'auto') {
     const raw = API_BASE_OVERRIDE.replace(/\/+$/, '');
-    if (/^https?:\/\//i.test(raw)) return raw;
-    return `http://${raw}:${API_PORT}`;
+    const url = /^https?:\/\//i.test(raw) ? raw : `http://${raw}:${API_PORT}`;
+    // Release builds block plain HTTP on Android and should never send
+    // passwords or face photos unencrypted.
+    if (!__DEV__ && !url.startsWith('https://')) {
+      throw new Error(`EXPO_PUBLIC_API_BASE_URL must be an https:// address in release builds (got ${url}).`);
+    }
+    return url;
+  }
+
+  // Guessing from the Metro host only works in development. A release build
+  // without an explicit address would otherwise talk to an emulator IP.
+  if (!__DEV__) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set for this release build (see eas.json).');
   }
 
   const expoHost = getExpoHost();
@@ -52,8 +63,9 @@ function resolveBaseUrl(): string {
 }
 
 export const BASE_URL = resolveBaseUrl();
-console.log('[axios] AXIOS INTERCEPTOR LOADED — BASE_URL:', BASE_URL);
+if (__DEV__) console.log('[axios] BASE_URL:', BASE_URL);
 
+// eslint-disable-next-line import/no-named-as-default-member -- the documented axios.create()
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: TIMEOUT,

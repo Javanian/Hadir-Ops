@@ -2,10 +2,10 @@
  * exportCsv — write a 2-D array as a UTF-8 CSV file and share / save it.
  *
  * Strategy (Android):
- *   1. Write to documentDirectory (FileProvider exposes this on all Android versions)
+ *   1. Write to the document directory (FileProvider exposes it on all Android versions)
  *   2. Share via expo-sharing (ACTION_SEND with content:// URI)
- *   Fallback: if sharing module unavailable, use StorageAccessFramework to
- *   let the user pick a Downloads / storage folder and save directly.
+ *   Fallback: if sharing is unavailable, let the user pick a Downloads /
+ *   storage folder (Storage Access Framework) and save there directly.
  *
  * Strategy (iOS): same share-sheet approach via expo-sharing.
  *
@@ -30,20 +30,17 @@ function buildCsvString(rows: unknown[][]): string {
 }
 
 export async function exportCsv(rows: unknown[][], filename: string): Promise<void> {
-  const [
-    { documentDirectory, writeAsStringAsync, EncodingType, StorageAccessFramework },
-    Sharing,
-  ] = await Promise.all([
-    import('expo-file-system/legacy'),
+  const [{ Directory, File, Paths }, Sharing] = await Promise.all([
+    import('expo-file-system'),
     import('expo-sharing'),
   ]);
 
   const csv = '\uFEFF' + buildCsvString(rows);
 
-  const dir = documentDirectory ?? '';
-  const uri = `${dir}${filename}`;
-
-  await writeAsStringAsync(uri, csv, { encoding: EncodingType.UTF8 });
+  const file = new File(Paths.document, filename);
+  file.create({ overwrite: true });
+  await file.write(csv);
+  const uri = file.uri;
 
   const isAvailable = await Sharing.isAvailableAsync();
 
@@ -57,16 +54,13 @@ export async function exportCsv(rows: unknown[][], filename: string): Promise<vo
   }
 
   if (Platform.OS === 'android') {
-    const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if (!permissions.granted) {
+    let folder;
+    try {
+      folder = await Directory.pickDirectoryAsync();
+    } catch {
       throw new Error('Izin penyimpanan ditolak.');
     }
-    const destUri = await StorageAccessFramework.createFileAsync(
-      permissions.directoryUri,
-      filename,
-      'text/csv',
-    );
-    await writeAsStringAsync(destUri, csv, { encoding: EncodingType.UTF8 });
+    await folder.createFile(filename, 'text/csv').write(csv);
     return;
   }
 
