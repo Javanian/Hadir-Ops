@@ -2,8 +2,8 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "HadirOps: face-verified check-in",
-    "output": "docs/diagrams/hadirops-checkin.html",
+    "title": "Rollproof: face-verified check-in",
+    "output": "docs/diagrams/rollproof-checkin.html",
     "viewBox": [
       1080,
       690

@@ -83,6 +83,10 @@ backend/models/
 !README.md
 !readme.md
 !design-system/**/MASTER.md
+!/CHANGELOG.md
+!/SECURITY.md
+!/PRIVACY.md
+!/docs/*.md
 .obsidian/
 
 # MongoDB replica set keyfile (a secret, generated per deployment)

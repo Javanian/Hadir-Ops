@@ -1,30 +1,43 @@
-# HadirOps
+# Rollproof
 
-Attendance and workforce operations for field and plant employees. Employees check in from a mobile app with face verification and GPS; supervisors and admins manage sites, shifts, assignments and overtime approvals from a web dashboard.
+**Attendance with proof.** Employees check in from their phone with a face match and a GPS fix, even without signal. Every check-in carries its evidence, nothing is silently refused, and anything doubtful goes to a supervisor's review queue instead of becoming an unpaid absence.
 
-The system has three parts that share one API:
+[![CI](https://github.com/Javanian/Hadir-Ops/actions/workflows/ci.yml/badge.svg)](https://github.com/Javanian/Hadir-Ops/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Javanian/Hadir-Ops?label=release)](https://github.com/Javanian/Hadir-Ops/releases)
+[![API reference](https://img.shields.io/badge/API-reference-2563EB)](https://javanian.github.io/Hadir-Ops/)
+
+**[Live demo](https://demo.rollproof.app)** · [Mobile app in the browser](https://demo.rollproof.app/app/) · [API reference](https://javanian.github.io/Hadir-Ops/) · [Changelog](CHANGELOG.md)
 
 | Component | Stack | Used by |
 | --- | --- | --- |
 | [`backend/`](backend/) | Python 3.14, FastAPI, MongoDB 9.0 (PyMongo async driver, replica set), OpenCV 5 face recognition (YuNet + SFace) | Mobile app and web dashboard |
 | [`web/`](web/) | React 19, React Router 8, Vite 8, TypeScript 6, Tailwind CSS 4, TanStack Query and Table 9, Leaflet | Admins and supervisors |
-| [`mobile/`](mobile/) | Expo SDK 58, React Native 0.88 (new architecture), TypeScript 6 | Employees and supervisors |
+| [`mobile/`](mobile/) | Expo SDK 58, React Native 0.88 (new architecture), TypeScript 6; also built for browsers | Employees and supervisors |
 
-Every dependency is locked with hashes (`backend/uv.lock`, the npm lockfiles), new releases are only adopted after a 7-day cooldown, and CI fails on any deprecation warning in the backend tests and on any use of a deprecated API in the web and mobile code (see [Supply chain and upgrades](#supply-chain-and-upgrades)).
+The web dashboard and the mobile app speak English and Indonesian. Every dependency is locked with hashes, new releases are only adopted after a 7-day cooldown, and CI fails on any deprecation warning (see [Supply chain and upgrades](#supply-chain-and-upgrades)).
+
+## Try the demo
+
+The [live demo](https://demo.rollproof.app) runs a fictional company, Acme Field Services, with sites in Rotterdam, Jakarta, Houston and Singapore, each in its own time zone, and two weeks of generated attendance, overtime, leave and review cases. No account is needed:
+
+- **Admin** and **Supervisor** sign in with one click on the dashboard's login page.
+- **Employee** opens the [mobile app in the browser](https://demo.rollproof.app/app/) and gets an account of their own. Enrol your face on the Profile screen, then check in. You are far from the demo site, so the check-in is recorded as out of radius and flagged, not refused, and the demo supervisor sees it.
+
+Everything resets every day at 00:00 UTC, including enrolled faces. Photos are never stored; see [PRIVACY.md](PRIVACY.md). The same demo runs on your own server with `docker-compose.demo.yml` ([docs/DEPLOY.md](docs/DEPLOY.md)).
 
 ## Screenshots
 
-Web dashboard and mobile app with fictional sample data.
+From the demo, with its fictional data.
 
-| Dashboard | Attendance monitoring |
+| Dashboard | Review queue |
 | --- | --- |
-| ![Dashboard with today's attendance KPIs, 7-day trend and activity table](docs/screenshots/web-dashboard.png) | ![Attendance list with check-in, check-out, duration and status per employee](docs/screenshots/web-attendance.png) |
-| **User management** | **Admin login** |
-| ![User list with role, site, status and face enrollment](docs/screenshots/web-users.png) | ![Admin login page](docs/screenshots/web-login.png) |
-| **Review queue** | **Check-in saved offline (mobile)** |
-| ![Review queue listing a check-in flagged for late upload, low GPS accuracy and a mock location, with approve and reject buttons](docs/screenshots/web-review.png) | <img src="docs/screenshots/mobile-offline.png" alt="Mobile home screen showing a check-in stored on the phone while offline, waiting for signal" width="260"> |
+| ![Dashboard with today's attendance figures, pending overtime, people on leave and a 7-day trend](docs/screenshots/web-dashboard.png) | ![Review queue listing check-ins flagged for a late upload, an unverified face or an unproven time, with approve and reject buttons](docs/screenshots/web-review.png) |
+| **Sites in four time zones** | **Users** |
+| ![Sites in Rotterdam, Jakarta, Houston, Singapore and Greenwich with their coordinates, radius and time zone](docs/screenshots/web-sites.png) | ![User list with employee id, role, site, status and face enrolment](docs/screenshots/web-users.png) |
 
-<img src="docs/screenshots/mobile-login.png" alt="Mobile app login screen" width="260">
+| Dashboard sign-in | Mobile sign-in | Mobile home | Mobile profile |
+| --- | --- | --- | --- |
+| ![Dashboard login with one-click demo sign-in for admin and supervisor](docs/screenshots/web-login.png) | <img src="docs/screenshots/mobile-login.png" alt="Mobile login with one-click demo sign-in" width="220"> | <img src="docs/screenshots/mobile-home.png" alt="Mobile home screen with today's attendance and the check-in button" width="220"> | <img src="docs/screenshots/mobile-profile.png" alt="Mobile profile with account details and face enrolment" width="220"> |
 
 ## What it does
 
@@ -56,7 +69,7 @@ flowchart LR
   Repo --> DB[("MongoDB<br/>replica set")]
 ```
 
-The web admin and mobile app share one design system with IEMS ([design-system/hadirops/MASTER.md](design-system/hadirops/MASTER.md)): navy chrome, soft-depth cards, one blue action color, Plus Jakarta Sans bundled with the web build, and color tokens instead of hex values in the mobile screens.
+The web admin and mobile app share one design system with IEMS ([design-system/rollproof/MASTER.md](design-system/rollproof/MASTER.md)): navy chrome, soft-depth cards, one blue action color, Plus Jakarta Sans bundled with the web build, and color tokens instead of hex values in the mobile screens.
 
 The backend follows a router, service and repository split; the repositories are the only code that talks to MongoDB (see [Data model](#data-model)). The face engine is loaded once in the FastAPI lifespan hook and injected into the face service, so requests do not pay the model load cost; inference runs in the thread pool so it never blocks the event loop. Login rate limiting is a small dependency on top of `limits`.
 
@@ -65,17 +78,17 @@ The backend follows a router, service and repository split; the repositories are
 The diagram shows the online path: the face matches the stored embedding, then the server applies the location and shift rules and stores the result. When a step cannot complete (no signal, no face proof), the check-in is still stored with risk flags, as described in [Reliability](#reliability).
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Javanian/Hadir-Ops/main/docs/diagrams/hadirops-checkin-dark.svg">
-  <img alt="Check-in sequence: the mobile app takes a GPS fix and a face photo, verifies the face through FastAPI and OpenCV SFace against the stored embedding, then posts the check-in, which the API validates against the site radius and shift before inserting the attendance row" src="docs/diagrams/hadirops-checkin-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Javanian/Hadir-Ops/main/docs/diagrams/rollproof-checkin-dark.svg">
+  <img alt="Check-in sequence: the mobile app takes a GPS fix and a face photo, verifies the face through FastAPI and OpenCV SFace against the stored embedding, then posts the check-in, which the API validates against the site radius and shift before inserting the attendance row" src="docs/diagrams/rollproof-checkin-light.svg">
 </picture>
 
-Drawn from [docs/diagrams/hadirops-checkin.json](docs/diagrams/hadirops-checkin.json), which lists the source lines behind each step.
+Drawn from [docs/diagrams/rollproof-checkin.json](docs/diagrams/rollproof-checkin.json), which lists the source lines behind each step.
 
 ## Reliability
 
-Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and two-star reviews across 13 apps, October 2024 to October 2026) keep returning to the same failures: errors at the morning rush, offline check-ins that never upload, GPS drifting hundreds of metres and refusing honest people, and failures that end up as an unpaid absence. HadirOps treats each of these as a design requirement.
+Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and two-star reviews across 13 apps, October 2024 to October 2026) keep returning to the same failures: errors at the morning rush, offline check-ins that never upload, GPS drifting hundreds of metres and refusing honest people, and failures that end up as an unpaid absence. Rollproof treats each of these as a design requirement.
 
-| Failure | What HadirOps does | Where |
+| Failure | What Rollproof does | Where |
 | --- | --- | --- |
 | Double tap or timeout creates two records | Each event has a client id. Repeating it returns the stored record (HTTP 200). Unique indexes on `(user_id, work_date)` and the event id settle races in the database. | `attendance_service.checkin`, `app/db/schema.py` |
 | No signal at the gate | The event is stored on the phone first and sent in order (check-in before check-out) with backoff when the network, the app or the login comes back. | `mobile/src/offline/` |
@@ -89,7 +102,7 @@ Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and
 
 ### Tests and load
 
-`backend/tests` runs against a real MongoDB replica set with the production indexes and validators: 83 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lease, login lockout, token invalidation after a password change, the leave request rules (including concurrent submissions), the attendance recap, the data layer (cascading deletes, validators, id allocation), per-client login rate limiting, passwords hashed by the earlier passlib release, the first-admin script, enrolments from an earlier face model, and the real face models on public-domain NASA photos (the same person in a different photo matches, two other people do not, a group photo and a photo without a face are refused, an altered model file or download is refused). Any `DeprecationWarning` fails the run.
+`backend/tests` runs against a real MongoDB replica set with the production indexes and validators: 93 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lease, login lockout, token invalidation after a password change, the leave request rules (including concurrent submissions), the attendance recap, the data layer (cascading deletes, validators, id allocation), per-client login rate limiting, passwords hashed by the earlier passlib release, the first-admin script, enrolments from an earlier face model, the public demo (daily reset, one-click sign-in, an account per visitor, shared accounts that cannot be changed), and the real face models on public-domain NASA photos (the same person in a different photo matches, two other people do not, a group photo and a photo without a face are refused, an altered model file or download is refused). Any `DeprecationWarning` fails the run.
 
 CI runs them on Python 3.12 and 3.14 against `mongo:9.0.4`. It also lints (zero warnings, deprecated APIs are errors) and builds the web dashboard, type-checks, lints, runs `expo-doctor` on and bundles the mobile app, audits every locked dependency against OSV (including known malicious releases), checks the workflows with zizmor and builds both production images.
 
@@ -120,7 +133,7 @@ Earlier versions stored data in PostgreSQL. `backend/scripts/migrate_from_postgr
 ```bash
 uv pip install asyncpg
 PG_URL=postgresql://hadirops:pass@host:5432/hadirops PG_SCHEMA=hadirops \
-MONGODB_URL="mongodb://host:27017/?replicaSet=rs0" MONGODB_DB=hadirops \
+MONGODB_URL="mongodb://host:27017/?replicaSet=rs0" MONGODB_DB=rollproof \
     python scripts/migrate_from_postgres.py
 ```
 
@@ -157,9 +170,8 @@ cp backend/.env.example backend/.env
 docker compose up -d --build
 docker compose logs -f backend   # wait until the face model has loaded
 
-# 3. Sample data: sites, shifts, supervisor/employee hierarchy, attendance, leave
+# 3. Sample data: the demo company with two weeks of attendance up to now
 docker compose exec backend python seed.py
-docker compose exec backend python seed_recent.py   # attendance for the last 7 days
 
 # 4. Mobile app
 cd mobile
@@ -180,11 +192,11 @@ On Windows PowerShell, use `Copy-Item` instead of `cp` for step 1.
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@hadirops.local` | `Admin@123` |
-| Supervisor | `spv101@example.com` | `12345` |
-| Employee | `emp101@example.com` | `12345` |
+| Admin | `admin@demo.rollproof.app` | `Rollproof-demo1` |
+| Supervisor | `supervisor@demo.rollproof.app` | `Rollproof-demo1` |
+| Employee | `lars.de.vries@demo.rollproof.app` (or `EMP101`) | `Rollproof-demo1` |
 
-These accounts exist only after running `seed.py`. Do not use them in any shared or production deployment.
+These accounts exist only after running `seed.py`, which refuses a database that already has users (`--reset` replaces everything). Do not use them in any shared or production deployment. With `DEMO_MODE=true` in `backend/.env` the login pages also offer the one-click demo sign-in.
 
 ### Useful commands
 
@@ -207,12 +219,13 @@ cp backend/.env.example backend/.env       # SECRET_KEY (see the comment in the 
 openssl rand -base64 756 > deploy/mongo-keyfile
 chmod 400 deploy/mongo-keyfile && sudo chown 999:999 deploy/mongo-keyfile
 
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml pull     # released images; or: up -d --build
+docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml exec backend \
     python scripts/create_admin.py --email it@company.example --name "IT Admin"
 ```
 
-Then log in at `https://DOMAIN`, create sites, shifts and users, and build the mobile app against the same address.
+Then log in at `https://DOMAIN`, create sites, shifts and users, and build the mobile app against the same address. Employees without the native app can use the browser build at `https://DOMAIN/app/`. [docs/DEPLOY.md](docs/DEPLOY.md) walks through a fresh server, the public demo, monitoring and mobile builds.
 
 | Before go-live | Why |
 | --- | --- |
@@ -221,8 +234,9 @@ Then log in at `https://DOMAIN`, create sites, shifts and users, and build the m
 | `create_admin.py`, never `seed.py`, on the production database | `seed.py` creates demo accounts with published passwords |
 | `deploy/backup.sh` runs nightly from cron and the archives are copied off the host | One volume holds all attendance data; the script keeps 14 days locally and documents the restore command |
 | The mobile app is built with `EXPO_PUBLIC_API_BASE_URL=https://DOMAIN/api` in the EAS `production` environment | Release builds refuse a missing or plain-HTTP address |
+| Optional: `SENTRY_DSN` in `backend/.env` and an uptime monitor on `https://DOMAIN/api/health/ready` | Unhandled errors reach Sentry without request bodies or personal data; the monitor notices an outage before the morning rush does |
 
-What production does differently: the API docs (`/docs`, `/redoc`, `/openapi.json`) are not served, CORS allows only `https://DOMAIN`, the backend trusts `X-Forwarded-For` only because nothing but Caddy can reach it (so login rate limits apply per employee, not to the proxy), Caddy sends HSTS, a Content-Security-Policy and the other security headers and refuses request bodies over 8 MB, and every container restarts on failure. The backend health check uses `/health/ready`, which fails while the database or the face model is missing.
+What production does differently: the API docs (`/docs`, `/redoc`, `/openapi.json`) are not served (the [API reference](https://javanian.github.io/Hadir-Ops/) is published from the code instead), CORS allows only `https://DOMAIN`, the backend trusts `X-Forwarded-For` only because nothing but Caddy can reach it (so login rate limits apply per employee, not to the proxy), Caddy sends HSTS, a Content-Security-Policy and the other security headers and refuses request bodies over 8 MB, and every container restarts on failure. The backend health check uses `/health/ready`, which fails while the database or the face model is missing.
 
 ### Face recognition models
 
@@ -233,7 +247,7 @@ What production does differently: the API docs (`/docs`, `/redoc`, `/openapi.jso
 
 Both run in OpenCV's DNN module, which the backend already uses to decode photos, so there is no separate inference runtime. `app/services/face_models.py` pins each file to one opencv_zoo commit and its SHA-256; the Docker image downloads them at build time, and the API checks the hashes again at every start and refuses to run on a mismatch.
 
-Both weight files carry permissive licenses that allow commercial use. The SFace paper trained its models on public research face datasets (CASIA-WebFace, VGGFace2, MS-Celeb-1M), as nearly every openly available recognition model is, and OpenCV does not say which one its file came from. Some of those datasets were published for research use. Whether that reaches a model trained on them is not settled; for a large commercial deployment, ask counsel. InsightFace's pretrained packs, used by earlier versions of HadirOps, are licensed for non-commercial research only and are no longer used.
+Both weight files carry permissive licenses that allow commercial use. The SFace paper trained its models on public research face datasets (CASIA-WebFace, VGGFace2, MS-Celeb-1M), as nearly every openly available recognition model is, and OpenCV does not say which one its file came from. Some of those datasets were published for research use. Whether that reaches a model trained on them is not settled; for a large commercial deployment, ask counsel. InsightFace's pretrained packs, used by earlier versions of this project, are licensed for non-commercial research only and are no longer used.
 
 **Upgrading from a version with InsightFace:** stored embeddings came from another model and cannot be compared with SFace. They are kept, but the API treats those users as not enrolled: `GET /face/status` reports `reregister_required`, verification answers 409, and the mobile app asks the employee to register their face again from the Profile screen. An admin can delete the old data from the user page. Rename `FACE_SIMILARITY_THRESHOLD` in `backend/.env` to `FACE_MATCH_THRESHOLD` (default 0.363, OpenCV's published SFace threshold); the old 0.3 would be too lenient for SFace.
 
@@ -247,6 +261,16 @@ npx eas-cli@latest build --profile production --platform android   # or ios
 
 `eas.json` has a `preview` profile (installable APK for testing) and a `production` profile with automatic build numbers. The app asks only for the camera and foreground location.
 
+## Releases
+
+A `vX.Y.Z` tag runs [`release.yml`](.github/workflows/release.yml): it checks the tag against the backend and mobile versions and [CHANGELOG.md](CHANGELOG.md), pushes `ghcr.io/javanian/rollproof-backend` and `rollproof-web` with SLSA provenance and an SBOM, attests both images and creates the GitHub release from the changelog. Anyone can check that an image was built here from the tagged commit:
+
+```bash
+gh attestation verify oci://ghcr.io/javanian/rollproof-backend:2.0.0 --repo Javanian/Hadir-Ops
+```
+
+Security reports: [SECURITY.md](SECURITY.md). Biometric data handling: [PRIVACY.md](PRIVACY.md).
+
 ## Supply chain and upgrades
 
 - **Locked:** `backend/uv.lock` and the npm lockfiles record every package with its hash; Docker builds install with `uv sync --locked` and `npm ci --ignore-scripts`. Base images and GitHub Actions are pinned by digest and commit SHA.
@@ -257,8 +281,8 @@ npx eas-cli@latest build --profile production --platform android   # or ios
 ## Repository notes
 
 - Source, app assets, npm lockfiles and `.env.example` are tracked. Local environment files, editor settings, dependencies, build output and runtime data are not.
-- Containers, the database, native package identifiers (`com.hadirops.mobile`) and the seed admin account all use the `hadirops` name.
-- The user interface is in Indonesian.
+- The project was called HadirOps until 2.0.0. Containers, images, the default database, storage keys and the mobile app identifier (`app.rollproof.mobile`) now use `rollproof`; an existing install keeps its data by setting `DB_NAME` and `DB_USER` to `hadirops` (see [CHANGELOG.md](CHANGELOG.md)).
+- Translations live in `web/src/i18n` and `mobile/src/i18n`: `en.ts` holds every message and `id.ts` is typed against it, so a missing translation fails the type check. Another language is one more file and an entry in `LOCALES`.
 
 ## Limitations
 
