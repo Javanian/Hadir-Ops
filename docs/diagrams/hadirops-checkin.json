@@ -67,8 +67,8 @@
     {
       "id": "face",
       "type": "security",
-      "label": "InsightFace",
-      "sublabel": "buffalo_s, in-process",
+      "label": "OpenCV",
+      "sublabel": "YuNet + SFace, in-process",
       "sources": [
         {
           "path": "backend/app/main.py",
@@ -150,7 +150,7 @@
       "from": "db",
       "to": "api",
       "y": 302,
-      "label": "512-d vector",
+      "label": "128-d vector",
       "variant": "return"
     },
     {
@@ -251,7 +251,7 @@
       "title": "Face first",
       "items": [
         "The app calls check-in only after the face matches the stored embedding; a mismatch asks for a new photo",
-        "Embeddings live in MongoDB as a 512-number array on the user document; matching is one-to-one, so no vector index is needed"
+        "Embeddings live in MongoDB as a 128-number array on the user document; matching is one-to-one, so no vector index is needed"
       ]
     },
     {

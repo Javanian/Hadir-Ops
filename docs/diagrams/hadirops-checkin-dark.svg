@@ -485,11 +485,11 @@ svg[data-preset="editorial"][data-animation="trace"] [data-animate="node"] { ani
         </g>
         </g>
 
-        <g data-edge-from="db" data-edge-to="api" data-edge-label="512-d vector" data-edge-key="4" data-edge-id="emb">
+        <g data-edge-from="db" data-edge-to="api" data-edge-label="128-d vector" data-edge-key="4" data-edge-id="emb">
           <path data-composition-edge-from="db" data-composition-edge-to="api" data-composition-edge-id="emb" data-composition-points="949.5,302;558,302" d="M 949.5 302 L 558 302" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g>
           <rect x="708.15" y="282" width="91.19999999999999" height="18" rx="3" class="c-mask"/>
-          <text x="753.75" y="292" class="t-muted" font-size="11" text-anchor="middle">512-d vector</text>
+          <text x="753.75" y="292" class="t-muted" font-size="11" text-anchor="middle">128-d vector</text>
         </g>
         </g>
 
@@ -611,16 +611,16 @@ svg[data-preset="editorial"][data-animation="trace"] [data-animate="node"] { ani
           <text x="551" y="122" class="t-muted" font-size="7" text-anchor="middle">attendance + face routers</text>
         </g>
 
-        <g id="node-face" data-node-id="face" data-node-label="InsightFace" tabindex="0" role="button" aria-label="Focus InsightFace, buffalo_s, in-process, Sequence participant" aria-pressed="false" data-node-kind="security" data-node-sublabel="buffalo_s, in-process" data-node-context="Sequence participant">
-          <title>InsightFace · buffalo_s, in-process · Sequence participant</title>
+        <g id="node-face" data-node-id="face" data-node-label="OpenCV" tabindex="0" role="button" aria-label="Focus OpenCV, YuNet + SFace, in-process, Sequence participant" aria-pressed="false" data-node-kind="security" data-node-sublabel="YuNet + SFace, in-process" data-node-context="Sequence participant">
+          <title>OpenCV · YuNet + SFace, in-process · Sequence participant</title>
           <rect x="670.25" y="72" width="167" height="60" rx="6" class="c-mask"/>
           <rect x="670.25" y="72" width="167" height="60" rx="6" class="c-security" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(676.25 78) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" x="753.75" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">InsightFace</text>
-          <text x="753.75" y="122" class="t-muted" font-size="7" text-anchor="middle">buffalo_s, in-process</text>
+          <text data-node-label="" x="753.75" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">OpenCV</text>
+          <text x="753.75" y="122" class="t-muted" font-size="7" text-anchor="middle">YuNet + SFace, in-process</text>
         </g>
 
         <g id="node-db" data-node-id="db" data-node-label="MongoDB" tabindex="0" role="button" aria-label="Focus MongoDB, replica set, Sequence participant" aria-pressed="false" data-node-kind="database" data-node-sublabel="replica set" data-node-context="Sequence participant">

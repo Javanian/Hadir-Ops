@@ -6,7 +6,7 @@ The system has three parts that share one API:
 
 | Component | Stack | Used by |
 | --- | --- | --- |
-| [`backend/`](backend/) | Python 3.14, FastAPI, MongoDB 9.0 (PyMongo async driver, replica set), InsightFace 2.1 on ONNX Runtime | Mobile app and web dashboard |
+| [`backend/`](backend/) | Python 3.14, FastAPI, MongoDB 9.0 (PyMongo async driver, replica set), OpenCV 5 face recognition (YuNet + SFace) | Mobile app and web dashboard |
 | [`web/`](web/) | React 19, React Router 8, Vite 8, TypeScript 6, Tailwind CSS 4, TanStack Query and Table 9, Leaflet | Admins and supervisors |
 | [`mobile/`](mobile/) | Expo SDK 58, React Native 0.88 (new architecture), TypeScript 6 | Employees and supervisors |
 
@@ -28,7 +28,7 @@ Web dashboard and mobile app with fictional sample data.
 
 ## What it does
 
-- Check-in and check-out with a selfie. The backend detects exactly one face, extracts a 512-dimension InsightFace embedding and compares it with the enrolled embedding by cosine similarity. A match returns a short-lived signed face token that the check-in carries as proof.
+- Check-in and check-out with a selfie. The backend detects exactly one face (YuNet), extracts a 128-dimension SFace embedding and compares it with the enrolled embedding by cosine similarity. A match returns a short-lived signed face token that the check-in carries as proof.
 - Location check per site, using the accuracy the phone reports. A point inside the radius passes. A point whose accuracy circle reaches the radius is accepted and flagged. A precise point outside is recorded as `OUT_OF_RADIUS`. Nothing is silently rejected.
 - Works without signal. The app writes each check-in to an on-device outbox before sending it, keeps the time of the button press, and delivers it when the connection returns. Retries are safe because every event carries a client-generated id.
 - Review queue instead of blocking. Mock locations, poor GPS, missing face proof and phone clocks that disagree become risk flags. A supervisor approves or rejects the record (a rejection needs a note).
@@ -50,7 +50,7 @@ flowchart LR
   subgraph API["FastAPI backend"]
     R["Routers<br/>auth, attendance, face, overtime,<br/>shifts, sites, assignments, users"] --> S["Services<br/>business rules"]
     S --> Repo["Repositories<br/>PyMongo async"]
-    S --> F["InsightFace buffalo_s<br/>(loaded once at startup)"]
+    S --> F["OpenCV YuNet + SFace<br/>(loaded once at startup)"]
     BG["Auto check-out worker"] --> S
   end
   Repo --> DB[("MongoDB<br/>replica set")]
@@ -58,7 +58,7 @@ flowchart LR
 
 The web admin and mobile app share one design system with IEMS ([design-system/hadirops/MASTER.md](design-system/hadirops/MASTER.md)): navy chrome, soft-depth cards, one blue action color, Plus Jakarta Sans bundled with the web build, and color tokens instead of hex values in the mobile screens.
 
-The backend follows a router, service and repository split; the repositories are the only code that talks to MongoDB (see [Data model](#data-model)). The InsightFace model is loaded once in the FastAPI lifespan hook and injected into the face service, so requests do not pay the model load cost. Rate limiting uses `slowapi`.
+The backend follows a router, service and repository split; the repositories are the only code that talks to MongoDB (see [Data model](#data-model)). The face engine is loaded once in the FastAPI lifespan hook and injected into the face service, so requests do not pay the model load cost; inference runs in the thread pool so it never blocks the event loop. Login rate limiting is a small dependency on top of `limits`.
 
 ### Check-in flow
 
@@ -66,7 +66,7 @@ The diagram shows the online path: the face matches the stored embedding, then t
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Javanian/Hadir-Ops/main/docs/diagrams/hadirops-checkin-dark.svg">
-  <img alt="Check-in sequence: the mobile app takes a GPS fix and a face photo, verifies the face through FastAPI and InsightFace against the stored embedding, then posts the check-in, which the API validates against the site radius and shift before inserting the attendance row" src="docs/diagrams/hadirops-checkin-light.svg">
+  <img alt="Check-in sequence: the mobile app takes a GPS fix and a face photo, verifies the face through FastAPI and OpenCV SFace against the stored embedding, then posts the check-in, which the API validates against the site radius and shift before inserting the attendance row" src="docs/diagrams/hadirops-checkin-light.svg">
 </picture>
 
 Drawn from [docs/diagrams/hadirops-checkin.json](docs/diagrams/hadirops-checkin.json), which lists the source lines behind each step.
@@ -89,17 +89,17 @@ Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and
 
 ### Tests and load
 
-`backend/tests` runs against a real MongoDB replica set with the production indexes and validators: 76 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lease, login lockout, token invalidation after a password change, the leave request rules (including concurrent submissions), the attendance recap, the data layer (cascading deletes, validators, id allocation), per-client login rate limiting, passwords hashed by the earlier passlib release, the first-admin script, and the real InsightFace model on its own sample photo (same person matches, another person does not, a group photo is refused). Any `DeprecationWarning` fails the run.
+`backend/tests` runs against a real MongoDB replica set with the production indexes and validators: 81 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lease, login lockout, token invalidation after a password change, the leave request rules (including concurrent submissions), the attendance recap, the data layer (cascading deletes, validators, id allocation), per-client login rate limiting, passwords hashed by the earlier passlib release, the first-admin script, enrolments from an earlier face model, and the real face models on public-domain NASA photos (the same person in a different photo matches, two other people do not, a group photo and a photo without a face are refused, an altered model file is refused). Any `DeprecationWarning` fails the run.
 
 CI runs them on Python 3.12 and 3.14 against `mongo:9.0.4`. It also lints (zero warnings, deprecated APIs are errors) and builds the web dashboard, type-checks, lints, runs `expo-doctor` on and bundles the mobile app, audits every locked dependency against OSV (including known malicious releases), checks the workflows with zizmor and builds both production images.
 
 ```bash
 cd backend
-uv sync --extra face            # exact versions from uv.lock, hashes checked
+uv sync                         # exact versions from uv.lock, hashes checked
 TEST_MONGODB_URL="mongodb://localhost:27017/?replicaSet=rs0" uv run pytest
 ```
 
-Leave out `--extra face` to skip InsightFace; the real-model tests are then skipped and the rest use a stub.
+The first run downloads the two face model files (39 MB) into `backend/models` and checks their SHA-256. The API tests use a stub for the face service; `tests/test_face_model.py` runs the real models.
 
 `backend/scripts/load_checkin.py` simulates a morning rush against a running API: every employee checks in at once and part of the requests are sent twice. Runs on a Windows desktop (2 uvicorn workers, local single-node MongoDB 8.0 replica set, face verification off, 100 concurrent clients):
 
@@ -140,13 +140,13 @@ MongoDB, one collection per aggregate. The choices that keep the old relational 
 | Cascading deletes | Done in a transaction by the repository (a user's attendance, overtime, leave and assignments go with them; references from other records are cleared). | `user_repository.delete_cascade` |
 | CHECK constraints | `$jsonSchema` validators (enums, required fields) plus `$expr` for date ranges. | `app/db/schema.py` |
 | Related data | Loaded in batches with `$in`, one query per related collection, not per row. | `app/db/relations.py` |
-| Face embeddings | A 512-number array on the user. Matching is one-to-one against the user's own embedding, so no vector index is involved. | `app/db/documents.py` |
+| Face embeddings | A 128-number array on the user, with the name of the model that made it (`face_model`). Matching is one-to-one against the user's own embedding, so no vector index is involved. | `app/db/documents.py` |
 
 Transactions need a replica set; a single-node set is enough and is what `docker-compose.yml` runs.
 
 ## Run locally
 
-Requirements: Docker Desktop with at least 4 GB of memory, Node.js 24 or 26 (LTS), and Expo Go for SDK 58 on a phone on the same network as your computer. Without Docker, the backend runs with [uv](https://docs.astral.sh/uv/) (`cd backend && uv sync --extra face && uv run uvicorn app.main:app --reload`) against any MongoDB 9.0 replica set.
+Requirements: Docker Desktop with at least 4 GB of memory, Node.js 24 or 26 (LTS), and Expo Go for SDK 58 on a phone on the same network as your computer. Without Docker, the backend runs with [uv](https://docs.astral.sh/uv/) (`cd backend && uv sync && uv run uvicorn app.main:app --reload`) against any MongoDB 9.0 replica set.
 
 ```bash
 # 1. Environment files (defaults work for local development)
@@ -220,12 +220,22 @@ Then log in at `https://DOMAIN`, create sites, shifts and users, and build the m
 | `SECRET_KEY` is random and at least 32 characters | The API refuses to start in production otherwise; it signs every token |
 | `create_admin.py`, never `seed.py`, on the production database | `seed.py` creates demo accounts with published passwords |
 | `deploy/backup.sh` runs nightly from cron and the archives are copied off the host | One volume holds all attendance data; the script keeps 14 days locally and documents the restore command |
-| A license for the face model, or a model you are allowed to use | See below |
 | The mobile app is built with `EXPO_PUBLIC_API_BASE_URL=https://DOMAIN/api` in the EAS `production` environment | Release builds refuse a missing or plain-HTTP address |
 
 What production does differently: the API docs (`/docs`, `/redoc`, `/openapi.json`) are not served, CORS allows only `https://DOMAIN`, the backend trusts `X-Forwarded-For` only because nothing but Caddy can reach it (so login rate limits apply per employee, not to the proxy), Caddy sends HSTS, a Content-Security-Policy and the other security headers and refuses request bodies over 8 MB, and every container restarts on failure. The backend health check uses `/health/ready`, which fails while the database or the face model is missing.
 
-**Face model license.** The InsightFace library is MIT licensed, but its pretrained models, including the default `buffalo_s`, are licensed for non-commercial research only. A commercial deployment needs a commercial license from InsightFace or another recognition model; `FACE_MODEL_NAME` and `FACE_MODEL_DIR` select the model pack.
+### Face recognition models
+
+| Model | Task | Weights license | Source |
+| --- | --- | --- | --- |
+| YuNet (`face_detection_yunet_2026may.onnx`) | Finds faces and five landmarks | MIT | [opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) |
+| SFace (`face_recognition_sface_2021dec.onnx`) | 128-d embedding of an aligned face | Apache 2.0 | [opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface) |
+
+Both run in OpenCV's DNN module, which the backend already uses to decode photos, so there is no separate inference runtime. `app/services/face_models.py` pins each file to one opencv_zoo commit and its SHA-256; the Docker image downloads them at build time, and the API checks the hashes again at every start and refuses to run on a mismatch.
+
+Both weight files carry permissive licenses that allow commercial use. The SFace paper trained its models on public research face datasets (CASIA-WebFace, VGGFace2, MS-Celeb-1M), as nearly every openly available recognition model is, and OpenCV does not say which one its file came from. Some of those datasets were published for research use. Whether that reaches a model trained on them is not settled; for a large commercial deployment, ask counsel. InsightFace's pretrained packs, used by earlier versions of HadirOps, are licensed for non-commercial research only and are no longer used.
+
+**Upgrading from a version with InsightFace:** stored embeddings came from another model and cannot be compared with SFace. They are kept, but the API treats those users as not enrolled: `GET /face/status` reports `reregister_required`, verification answers 409, and the mobile app asks the employee to register their face again from the Profile screen. An admin can delete the old data from the user page. Rename `FACE_SIMILARITY_THRESHOLD` in `backend/.env` to `FACE_MATCH_THRESHOLD` (default 0.363, OpenCV's published SFace threshold); the old 0.3 would be too lenient for SFace.
 
 ### Mobile release builds
 
@@ -242,7 +252,7 @@ npx eas-cli@latest build --profile production --platform android   # or ios
 - **Locked:** `backend/uv.lock` and the npm lockfiles record every package with its hash; Docker builds install with `uv sync --locked` and `npm ci --ignore-scripts`. Base images and GitHub Actions are pinned by digest and commit SHA.
 - **Cooldown:** a release is used only after it has been public for 7 days (`exclude-newer` in `backend/pyproject.toml`, `cooldown` in Dependabot), long enough for most malicious uploads to be found and pulled.
 - **Weekly updates:** Dependabot opens grouped pull requests for Python, npm, Docker images and Actions; CI tests and audits each one. Expo SDK packages are upgraded together with `npx expo install expo@^<sdk> --fix`.
-- **Known exceptions:** `scikit-image` is held below 2.2 until InsightFace releases its fix for a removed API (deepinsight/insightface#2901). The remaining `npm audit` findings are moderate, in build tooling only (ESLint's `minimatch`, the Expo CLI's `glob`), and wait for upstream releases.
+- **Known exceptions:** the remaining `npm audit` findings are moderate, in build tooling only (ESLint's `minimatch`, the Expo CLI's `glob`), and wait for upstream releases.
 
 ## Repository notes
 
@@ -252,10 +262,10 @@ npx eas-cli@latest build --profile production --platform android   # or ios
 
 ## Limitations
 
-- Face verification compares embeddings only. It has no liveness or anti-spoofing check, so a printed photo of an enrolled employee may pass. InsightFace 2.0 added an opt-in RGB liveness model (`FaceAnalysis(addons=["liveness"])`); it is not enabled here yet.
+- Face verification compares embeddings only. It has no liveness or anti-spoofing check, so a printed photo of an enrolled employee may pass. The GPS geofence, the device clock checks and the supervisor review queue are the other controls. MiniFASNet (Apache 2.0) is a candidate for a passive liveness check.
 - Android's monotonic clock pauses in deep sleep, so a phone that slept between an offline check-in and its upload is flagged `CLOCK_MISMATCH` for review rather than proven.
 - The mobile app has no automated UI tests. The offline flow was checked in the Expo web build, not on physical devices in the field.
-- InsightFace runs on CPU inside the backend container, which makes the first start slow.
+- SFace is a compact model (LFW 99.40%, per OpenCV). It is accurate enough to confirm an employee against their own enrolment, but it is not meant for searching one face among thousands.
 
 ## Author
 
