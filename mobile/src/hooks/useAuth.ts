@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../api/auth.api';
 import { isAxiosError } from '../api/axios';
 import { clearTokens, persistTokens, setAuthUser, setInitialized } from '../store/authStore';
-import { LoginPayload } from '../types/auth';
+import { LoginPayload, TokenResponse } from '../types/auth';
 import { showSuccess } from '../utils/toast';
+import { t } from '../i18n'
 
 export const AUTH_QUERY_KEYS = {
   me: ['auth', 'me'] as const,
@@ -18,11 +19,8 @@ export function useMe() {
   });
 }
 
-export function useLogin() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: LoginPayload) => authApi.login(payload),
-    onSuccess: async (data) => {
+/** Finishes a sign-in once tokens arrive (password or one-click demo login). */
+export async function completeLogin(data: TokenResponse, queryClient: QueryClient): Promise<void> {
       await persistTokens(data);
       try {
         const user = await authApi.me();
@@ -42,7 +40,13 @@ export function useLogin() {
           setInitialized(false);
         }
       }
-    },
+}
+
+export function useLogin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: LoginPayload) => authApi.login(payload),
+    onSuccess: (data) => completeLogin(data, queryClient),
   });
 }
 
@@ -61,7 +65,7 @@ export function useChangePassword() {
     mutationFn: (payload: { current_password: string; new_password: string }) =>
       authApi.changePassword(payload),
     onSuccess: async () => {
-      showSuccess('Silakan login kembali dengan password baru.', 'Password diperbarui');
+      showSuccess(t('auth.pleaseSignInAgainWith'), t('auth.passwordUpdated'));
       await clearTokens();
       setAuthUser(null);
       queryClient.clear();

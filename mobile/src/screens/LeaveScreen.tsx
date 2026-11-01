@@ -21,6 +21,7 @@ import { useAuthState } from '../store/authStore';
 import type { LeaveRequest, LeaveStatus, LeaveType } from '../types/leave';
 import { showError, showSuccess } from '../utils/toast';
 import { colors } from '../theme/colors';
+import { t } from '../i18n'
 
 // Same limits as the API (backend/app/services/leave_service.py)
 const MAX_DAYS = 30;
@@ -28,18 +29,18 @@ const MAX_BACKDATE_DAYS = 7;
 const MAX_ADVANCE_DAYS = 90;
 
 const TYPES: { value: LeaveType; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
-  { value: 'SICK', label: 'Sakit', icon: 'medkit-outline' },
-  { value: 'PERMIT', label: 'Izin', icon: 'document-text-outline' },
-  { value: 'ANNUAL', label: 'Cuti', icon: 'sunny-outline' },
+  { value: 'SICK', label: t('leave.sick'), icon: 'medkit-outline' },
+  { value: 'PERMIT', label: t('common.leave'), icon: 'document-text-outline' },
+  { value: 'ANNUAL', label: t('leave.annualLeave'), icon: 'sunny-outline' },
 ];
 
-const TYPE_LABEL: Record<LeaveType, string> = { SICK: 'Sakit', PERMIT: 'Izin', ANNUAL: 'Cuti tahunan' };
+const TYPE_LABEL: Record<LeaveType, string> = { SICK: t('leave.sick'), PERMIT: t('common.leave'), ANNUAL: t('leave.annualLeave') };
 
 const STATUS_STYLE: Record<LeaveStatus, { label: string; fg: string; bg: string }> = {
-  PENDING: { label: 'Menunggu', fg: colors.warningStrong, bg: colors.warningTintStrong },
-  APPROVED: { label: 'Disetujui', fg: colors.successStrong, bg: colors.successTintStrong },
-  REJECTED: { label: 'Ditolak', fg: colors.dangerStrong, bg: colors.dangerTintStrong },
-  CANCELLED: { label: 'Dibatalkan', fg: colors.textMuted, bg: colors.muted },
+  PENDING: { label: t('common.pending'), fg: colors.warningStrong, bg: colors.warningTintStrong },
+  APPROVED: { label: t('common.approved'), fg: colors.successStrong, bg: colors.successTintStrong },
+  REJECTED: { label: t('common.rejected'), fg: colors.dangerStrong, bg: colors.dangerTintStrong },
+  CANCELLED: { label: t('leave.cancelled'), fg: colors.textMuted, bg: colors.muted },
 };
 
 /** YYYY-MM-DD shifted by whole days (date-only arithmetic in UTC). */
@@ -102,21 +103,21 @@ export default function LeaveScreen() {
 
   async function onSubmit() {
     const text = reason.trim();
-    if (!text) return setFormError('Tulis alasan singkat, misalnya "demam, ada surat dokter".');
-    if (endDate < startDate) return setFormError('Tanggal selesai tidak boleh sebelum tanggal mulai.');
-    if (days > MAX_DAYS) return setFormError(`Satu pengajuan maksimal ${MAX_DAYS} hari.`);
+    if (!text) return setFormError(t('leave.writeAShortReasonFor'));
+    if (endDate < startDate) return setFormError(t('leave.theEndDateCannotBe'));
+    if (days > MAX_DAYS) return setFormError(t('leave.oneRequestCanCoverAt', { MAX_DAYS }));
     setFormError(null);
     try {
       await submit.mutateAsync({ leave_type: leaveType, start_date: startDate, end_date: endDate, reason: text });
-      showSuccess('Atasan Anda akan meninjau pengajuan ini.', 'Pengajuan terkirim');
+      showSuccess(t('leave.yourSupervisorWillReviewThis'), t('leave.requestSent'));
       setReason('');
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 409) {
-        setFormError('Tanggal ini bertabrakan dengan pengajuan lain yang masih aktif.');
+        setFormError(t('leave.theseDatesOverlapAnotherActive'));
       } else if (isAxiosError(err) && err.response?.status === 422) {
-        setFormError(apiMessage(err) ?? 'Data pengajuan tidak valid.');
+        setFormError(apiMessage(err) ?? t('leave.theRequestIsNotValid'));
       } else if (!isAxiosError(err) || err.response) {
-        setFormError(apiMessage(err) ?? 'Pengajuan gagal dikirim. Coba lagi.');
+        setFormError(apiMessage(err) ?? t('leave.theRequestCouldNotBe'));
       }
       // Network errors already show a toast from the API client.
     }
@@ -124,17 +125,17 @@ export default function LeaveScreen() {
 
   function onCancel(item: LeaveRequest) {
     Alert.alert(
-      'Batalkan pengajuan?',
+      t('leave.cancelThisRequest'),
       `${TYPE_LABEL[item.leave_type]}, ${rangeLabel(item.start_date, item.end_date)}`,
       [
-        { text: 'Tidak', style: 'cancel' },
+        { text: t('leave.no'), style: 'cancel' },
         {
-          text: 'Batalkan',
+          text: t('leave.cancelRequest'),
           style: 'destructive',
           onPress: () =>
             cancel.mutate(item.id, {
-              onSuccess: () => showSuccess('Pengajuan dibatalkan'),
-              onError: (err) => showError(apiMessage(err) ?? 'Gagal membatalkan pengajuan'),
+              onSuccess: () => showSuccess(t('leave.requestCancelled')),
+              onError: (err) => showError(apiMessage(err) ?? t('leave.couldNotCancelTheRequest')),
             }),
         },
       ],
@@ -144,7 +145,7 @@ export default function LeaveScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle} accessibilityRole="header">{'Izin & Cuti'}</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">{t('leave.leave')}</Text>
         {pendingCount > 0 && (
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{pendingCount} menunggu</Text>
@@ -160,9 +161,9 @@ export default function LeaveScreen() {
       >
         {/* ── Form ── */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Ajukan baru</Text>
+          <Text style={styles.sectionTitle}>{t('leave.newRequest')}</Text>
 
-          <Text style={styles.label}>Jenis</Text>
+          <Text style={styles.label}>{t('leave.type')}</Text>
           <View style={styles.typeRow} accessibilityRole="radiogroup">
             {TYPES.map((t) => {
               const active = leaveType === t.value;
@@ -183,34 +184,34 @@ export default function LeaveScreen() {
 
           <View style={styles.dateRow}>
             <View style={styles.dateCol}>
-              <Text style={styles.label}>Mulai</Text>
-              <Pressable style={styles.dateBtn} onPress={() => setPicker('start')} accessibilityLabel={`Tanggal mulai ${fmtDateShort(startDate)}`}>
+              <Text style={styles.label}>{t('leave.start')}</Text>
+              <Pressable style={styles.dateBtn} onPress={() => setPicker('start')} accessibilityLabel={t('leave.startDate2', { value: fmtDateShort(startDate) })}>
                 <Ionicons name="calendar-outline" size={16} color={colors.action} />
                 <Text style={styles.dateText}>{fmtDateShort(startDate)}</Text>
               </Pressable>
             </View>
             <View style={styles.dateCol}>
-              <Text style={styles.label}>Selesai</Text>
-              <Pressable style={styles.dateBtn} onPress={() => setPicker('end')} accessibilityLabel={`Tanggal selesai ${fmtDateShort(endDate)}`}>
+              <Text style={styles.label}>{t('common.done')}</Text>
+              <Pressable style={styles.dateBtn} onPress={() => setPicker('end')} accessibilityLabel={t('leave.endDate2', { value: fmtDateShort(endDate) })}>
                 <Ionicons name="calendar-outline" size={16} color={colors.action} />
                 <Text style={styles.dateText}>{fmtDateShort(endDate)}</Text>
               </Pressable>
             </View>
           </View>
           <Text style={[styles.hint, days > MAX_DAYS && styles.hintError]}>
-            {days} hari{days > MAX_DAYS ? ` — maksimal ${MAX_DAYS} hari` : ''}
+            {days} hari{days > MAX_DAYS ? t('leave.atMostDays', { MAX_DAYS }) : ''}
           </Text>
 
-          <Text style={styles.label}>Alasan</Text>
+          <Text style={styles.label}>{t('leave.reason')}</Text>
           <TextInput
             value={reason}
             onChangeText={(v) => { setReason(v); setFormError(null); }}
-            placeholder="Contoh: demam, ada surat dokter"
+            placeholder={t('leave.exampleFeverDoctorSNote')}
             placeholderTextColor={colors.textSubtle}
             multiline
             maxLength={500}
             style={styles.input}
-            accessibilityLabel="Alasan"
+            accessibilityLabel={t('leave.reason')}
           />
 
           {formError && (
@@ -228,23 +229,23 @@ export default function LeaveScreen() {
           >
             {submit.isPending
               ? <ActivityIndicator color={colors.white} />
-              : <Text style={styles.submitText}>Kirim pengajuan</Text>}
+              : <Text style={styles.submitText}>{t('leave.sendRequest')}</Text>}
           </Pressable>
         </View>
 
         {/* ── History ── */}
-        <Text style={styles.listTitle}>Pengajuan saya</Text>
+        <Text style={styles.listTitle}>{t('leave.myRequests')}</Text>
         {isLoading ? (
           <ActivityIndicator style={styles.spinner} color={colors.action} />
         ) : isError ? (
           <Pressable style={styles.emptyBox} onPress={() => refetch()}>
             <Ionicons name="cloud-offline-outline" size={28} color={colors.textSubtle} />
-            <Text style={styles.emptyText}>Gagal memuat. Ketuk untuk mencoba lagi.</Text>
+            <Text style={styles.emptyText}>{t('leave.couldNotLoadTapTo')}</Text>
           </Pressable>
         ) : data.length === 0 ? (
           <View style={styles.emptyBox}>
             <Ionicons name="calendar-clear-outline" size={28} color={colors.textSubtle} />
-            <Text style={styles.emptyText}>Belum ada pengajuan izin atau cuti.</Text>
+            <Text style={styles.emptyText}>{t('leave.noLeaveRequestsYet')}</Text>
           </View>
         ) : (
           data.map((item) => {
@@ -273,7 +274,7 @@ export default function LeaveScreen() {
                     disabled={cancel.isPending}
                     accessibilityRole="button"
                   >
-                    <Text style={styles.cancelText}>Batalkan</Text>
+                    <Text style={styles.cancelText}>{t('leave.cancelRequest')}</Text>
                   </Pressable>
                 )}
               </View>
@@ -284,7 +285,7 @@ export default function LeaveScreen() {
 
       <DatePickerModal
         visible={picker !== null}
-        title={picker === 'start' ? 'Tanggal mulai' : 'Tanggal selesai'}
+        title={picker === 'start' ? t('leave.startDate') : t('leave.endDate')}
         selected={picker === 'start' ? startDate : endDate}
         todayStr={today}
         onSelect={onPickDate}

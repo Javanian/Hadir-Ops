@@ -16,10 +16,12 @@ import { AttendanceRecord } from '../types/attendance';
 import CheckinModal from '../components/CheckinModal';
 import CheckoutModal from '../components/CheckoutModal';
 import OfflineBanner from '../components/OfflineBanner';
+import DemoBanner from '../components/DemoBanner';
 import OutboxStatus from '../components/OutboxStatus';
 import { useOutbox } from '../offline/outbox';
 import { colors } from '../theme/colors'
 import { roleLabel } from '../utils/roles'
+import { intlLocale, t } from '../i18n'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -37,7 +39,7 @@ function isValidIsoDate(iso: string | null | undefined): iso is string {
 function formatTime(iso: string | null | undefined, tz: string | null | undefined): string {
   if (!isValidIsoDate(iso)) return '-';
 
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: getSafeTimezone(tz),
     hour: '2-digit',
     minute: '2-digit',
@@ -50,18 +52,12 @@ function formatDuration(minutes: number | null | undefined): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}j`;
-  return `${h}j ${m}m`;
+  if (m === 0) return t('home.durationHours', { h });
+  return t('home.durationHoursMinutes', { h, m });
 }
 
 function formatDate(): string {
-  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
-  ];
-  const now = new Date();
-  return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  return new Intl.DateTimeFormat(intlLocale, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
 }
 
 function getStatusColor(status: AttendanceRecord['status']): string {
@@ -75,9 +71,9 @@ function getStatusColor(status: AttendanceRecord['status']): string {
 
 function getStatusLabel(status: AttendanceRecord['status']): string {
   switch (status) {
-    case 'ONTIME': return 'Tepat Waktu';
-    case 'LATE': return 'Terlambat';
-    case 'OUT_OF_RADIUS': return 'Di Luar Area';
+    case 'ONTIME': return t('common.onTime');
+    case 'LATE': return t('common.late');
+    case 'OUT_OF_RADIUS': return t('common.outsideTheArea');
     default: return '-';
   }
 }
@@ -107,9 +103,9 @@ function StatusCard({
     return (
       <View style={[styles.card, styles.cardGreen]}>
         <Ionicons name="cloud-upload-outline" size={32} color={colors.success} />
-        <Text style={styles.cardTitle}>Check In Tersimpan di HP</Text>
+        <Text style={styles.cardTitle}>{t('home.checkInSavedOnThe')}</Text>
         <Text style={styles.cardTime}>{formatTime(pendingCheckinAt, siteTimezone)}</Text>
-        <Text style={styles.cardSubtitle}>Akan dikirim otomatis saat ada sinyal</Text>
+        <Text style={styles.cardSubtitle}>{t('home.itIsSentAutomaticallyWhen')}</Text>
       </View>
     );
   }
@@ -128,8 +124,8 @@ function StatusCard({
     return (
       <View style={[styles.card, styles.cardGrey]}>
         <Ionicons name="time-outline" size={32} color={colors.textSubtle} />
-        <Text style={styles.cardTitle}>Belum Absen</Text>
-        <Text style={styles.cardSubtitle}>Anda belum melakukan absensi hari ini</Text>
+        <Text style={styles.cardTitle}>{t('home.notCheckedIn')}</Text>
+        <Text style={styles.cardSubtitle}>{t('home.youHaveNotCheckedIn')}</Text>
       </View>
     );
   }
@@ -139,14 +135,14 @@ function StatusCard({
     return (
       <View style={[styles.card, styles.cardGreen]}>
         <Ionicons name="checkmark-circle" size={32} color={colors.success} />
-        <Text style={styles.cardTitle}>Sudah Check In</Text>
+        <Text style={styles.cardTitle}>{t('home.checkedIn')}</Text>
         <Text style={styles.cardTime}>{formatTime(record.checkin_time, siteTimezone)}</Text>
         <View style={[styles.badge, { backgroundColor: getStatusColor(record.status) + '20' }]}>
           <Text style={[styles.badgeText, { color: getStatusColor(record.status) }]}>
             {getStatusLabel(record.status)}
           </Text>
         </View>
-        <Text style={styles.cardSubtitle}>Jangan lupa absen pulang!</Text>
+        <Text style={styles.cardSubtitle}>{t('home.donTForgetToCheck')}</Text>
       </View>
     );
   }
@@ -155,15 +151,15 @@ function StatusCard({
   return (
     <View style={[styles.card, styles.cardBlue]}>
       <Ionicons name="checkmark-done-circle" size={32} color={colors.action} />
-      <Text style={styles.cardTitle}>Absensi Selesai</Text>
+      <Text style={styles.cardTitle}>{t('home.dayComplete')}</Text>
       <View style={styles.timeRow}>
         <View style={styles.timeItem}>
-          <Text style={styles.timeLabel}>Masuk</Text>
+          <Text style={styles.timeLabel}>{t('common.in')}</Text>
           <Text style={styles.timeValue}>{formatTime(record.checkin_time, siteTimezone)}</Text>
         </View>
         <Ionicons name="arrow-forward" size={16} color={colors.textSubtle} />
         <View style={styles.timeItem}>
-          <Text style={styles.timeLabel}>Keluar</Text>
+          <Text style={styles.timeLabel}>{t('common.out')}</Text>
           <Text style={styles.timeValue}>{formatTime(record.checkout_time, siteTimezone)}</Text>
         </View>
       </View>
@@ -222,6 +218,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Welcome Card */}
+        <DemoBanner />
         <View style={styles.welcomeCard}>
           <View style={styles.welcomeRow}>
             <View style={styles.welcomeAvatar}>
@@ -230,7 +227,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={styles.welcomeInfo}>
-              <Text style={styles.welcomeGreeting}>Selamat datang,</Text>
+              <Text style={styles.welcomeGreeting}>{t('home.welcome')}</Text>
               <Text style={styles.welcomeName}>{user?.name ?? '-'}</Text>
             </View>
           </View>
@@ -240,20 +237,19 @@ export default function HomeScreen() {
         </View>
 
         {/* Status Section */}
-        <Text style={styles.sectionLabel}>Status Absensi Hari Ini</Text>
+        <Text style={styles.sectionLabel}>{t('home.todaySAttendance')}</Text>
         {isError ? (
           <View style={[styles.card, styles.cardGrey, { gap: 12 }]}>
             <Ionicons name="alert-circle-outline" size={32} color={colors.textSubtle} />
             <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center' }}>
-              Status hari ini belum bisa dimuat. Absen tetap bisa dilakukan dan
-              akan dikirim saat ada sinyal.
+              {t('home.todaySStatusCouldNot')}
             </Text>
             <Pressable
               style={[styles.ctaButton, styles.ctaCheckin, { alignSelf: 'stretch', marginTop: 0 }]}
               onPress={() => refetch()}
             >
               <Ionicons name="refresh-outline" size={18} color={colors.white} />
-              <Text style={styles.ctaText}>Muat Ulang</Text>
+              <Text style={styles.ctaText}>{t('home.reload')}</Text>
             </Pressable>
           </View>
         ) : (
@@ -288,7 +284,7 @@ export default function HomeScreen() {
         {!isError && (isCompleted ? (
           <View style={[styles.ctaButton, styles.ctaDisabled]}>
             <Ionicons name="checkmark-done" size={20} color={colors.white} />
-            <Text style={styles.ctaText}>Sudah Absen</Text>
+            <Text style={styles.ctaText}>{t('home.alreadyCheckedIn')}</Text>
           </View>
         ) : isCheckedIn ? (
           <Pressable

@@ -23,17 +23,18 @@ import { DateRangeBar, fmtDateShort } from '../components/DateRangePicker';
 import { exportCsv } from '../utils/exportCsv';
 import { showError, showSuccess } from '../utils/toast';
 import { colors } from '../theme/colors'
+import { intlLocale, t } from '../i18n'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
   }).format(new Date(iso));
 }
 
 function formatTime(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date(iso));
 }
@@ -58,10 +59,10 @@ function getStatusColor(status: AttendanceRecord['status']): string {
 
 function getStatusLabel(status: AttendanceRecord['status']): string {
   switch (status) {
-    case 'ONTIME':        return 'Tepat Waktu';
-    case 'EARLY':         return 'Lebih Awal';
-    case 'LATE':          return 'Terlambat';
-    case 'OUT_OF_RADIUS': return 'Luar Area';
+    case 'ONTIME':        return t('common.onTime');
+    case 'EARLY':         return t('history.early');
+    case 'LATE':          return t('common.late');
+    case 'OUT_OF_RADIUS': return t('history.outsideArea');
     default:              return '-';
   }
 }
@@ -106,12 +107,12 @@ function AttendanceCard({
       <View style={styles.cardBody}>
         <View style={styles.timesRow}>
           <View style={styles.timeItem}>
-            <Text style={styles.timeLabel}>Masuk</Text>
+            <Text style={styles.timeLabel}>{t('common.in')}</Text>
             <Text style={styles.timeValue}>{formatTime(record.checkin_time, tz)}</Text>
           </View>
           <Ionicons name="arrow-forward" size={14} color={colors.borderStrong} />
           <View style={styles.timeItem}>
-            <Text style={styles.timeLabel}>Keluar</Text>
+            <Text style={styles.timeLabel}>{t('common.out')}</Text>
             <Text style={styles.timeValue} numberOfLines={1}>
               {record.checkout_time
                 ? `${formatTime(record.checkout_time, tz)}${record.auto_checkout ? ' (auto)' : ''}`
@@ -121,7 +122,7 @@ function AttendanceCard({
         </View>
 
         <View style={styles.durationBlock}>
-          <Text style={styles.durationLabel}>Durasi</Text>
+          <Text style={styles.durationLabel}>{t('common.duration')}</Text>
           <Text style={styles.durationValue}>
             {record.work_duration_minutes > 0 ? formatDuration(record.work_duration_minutes) : '–'}
           </Text>
@@ -133,7 +134,7 @@ function AttendanceCard({
         <View style={styles.overtimeBadge}>
           <Ionicons name="time-outline" size={12} color={colors.overtime} />
           <Text style={styles.overtimeBadgeText}>
-            Lembur {formatDuration(record.overtime_minutes)}
+            {t('history.overtimeDuration', { duration: formatDuration(record.overtime_minutes) })}
           </Text>
         </View>
       )}
@@ -146,19 +147,19 @@ function AttendanceCard({
           activeOpacity={0.75}
         >
           <Ionicons name="document-text-outline" size={14} color={colors.white} />
-          <Text style={styles.ajukanOtBtnText}>Ajukan Overtime</Text>
+          <Text style={styles.ajukanOtBtnText}>{t('history.requestOvertime')}</Text>
         </TouchableOpacity>
       )}
       {otApproved && !showAjukanBtn && record.overtime_minutes > 0 && (
         <View style={styles.otStatusBadge}>
           <Ionicons name="checkmark-circle-outline" size={13} color={colors.success} />
-          <Text style={[styles.otStatusText, { color: colors.success }]}>Overtime Disetujui</Text>
+          <Text style={[styles.otStatusText, { color: colors.success }]}>{t('history.overtimeApproved')}</Text>
         </View>
       )}
       {otRejected && !showAjukanBtn && record.overtime_minutes > 0 && (
         <View style={styles.otStatusBadge}>
           <Ionicons name="close-circle-outline" size={13} color={colors.danger} />
-          <Text style={[styles.otStatusText, { color: colors.danger }]}>Overtime Ditolak</Text>
+          <Text style={[styles.otStatusText, { color: colors.danger }]}>{t('history.overtimeRejected')}</Text>
         </View>
       )}
     </View>
@@ -198,12 +199,12 @@ export default function HistoryScreen() {
 
   async function handleExport() {
     if (records.length === 0) {
-      showError('Tidak ada data untuk diekspor.');
+      showError(t('common.nothingToExport'));
       return;
     }
     setExporting(true);
     try {
-      const header = ['Tanggal', 'Jam Masuk', 'Jam Keluar', 'Durasi', 'Lembur', 'Status'];
+      const header = [t('common.date'), t('common.checkInTime'), t('common.checkOutTime'), t('common.duration'), t('common.overtime'), 'Status'];
       const rows = records.map((r) => {
         const tz = r.site_timezone ?? 'Asia/Jakarta';
         return [
@@ -216,10 +217,10 @@ export default function HistoryScreen() {
         ];
       });
       await exportCsv([header, ...rows], todayFilename());
-      showSuccess('Data berhasil diekspor.');
+      showSuccess(t('common.exported'));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      showError(`Gagal mengekspor: ${msg}`);
+      showError(t('common.exportFailed', { msg }));
     } finally {
       setExporting(false);
     }
@@ -234,12 +235,12 @@ export default function HistoryScreen() {
     if (hasNextPage) {
       return (
         <Pressable style={styles.loadMoreBtn} onPress={() => fetchNextPage()}>
-          <Text style={styles.loadMoreText}>Muat Lebih Banyak</Text>
+          <Text style={styles.loadMoreText}>{t('history.loadMore')}</Text>
         </Pressable>
       );
     }
     if (records.length > 0) {
-      return <Text style={styles.endText}>Semua data ditampilkan</Text>;
+      return <Text style={styles.endText}>{t('history.everythingIsShown')}</Text>;
     }
     return undefined;
   }
@@ -250,7 +251,7 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Riwayat Absensi</Text>
+        <Text style={styles.headerTitle}>{t('history.attendanceHistory')}</Text>
         <TouchableOpacity
           style={[styles.exportBtn, exporting && styles.exportBtnDisabled]}
           onPress={handleExport}
@@ -284,8 +285,8 @@ export default function HistoryScreen() {
         />
         <Text style={[styles.infoText, hasFilter && styles.infoTextActive]}>
           {hasFilter
-            ? `Periode: ${fromDate ? fmtDateShort(fromDate) : '…'}  –  ${toDate ? fmtDateShort(toDate) : '…'}`
-            : `Menampilkan ${records.length > 0 ? records.length : '–'} data terbaru`}
+            ? t('common.periodRange', { from: fromDate ? fmtDateShort(fromDate) : '…', to: toDate ? fmtDateShort(toDate) : '…' })
+            : t('common.showingLatest', { count: records.length > 0 ? records.length : '–' })}
         </Text>
         {records.length > 0 && !isLoading && (
           <Text style={styles.infoCount}>{records.length} data</Text>
@@ -300,10 +301,10 @@ export default function HistoryScreen() {
       ) : isError ? (
         <View style={styles.centered}>
           <Ionicons name="alert-circle-outline" size={52} color={colors.borderStrong} />
-          <Text style={styles.errorTitle}>Gagal memuat data</Text>
+          <Text style={styles.errorTitle}>{t('history.couldNotLoadTheData')}</Text>
           <Pressable style={styles.retryBtn} onPress={() => refetch()}>
             <Ionicons name="refresh-outline" size={16} color={colors.action} />
-            <Text style={styles.retryText}>Coba Lagi</Text>
+            <Text style={styles.retryText}>{t('common.tryAgain')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -325,8 +326,8 @@ export default function HistoryScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="calendar-outline" size={64} color={colors.borderStrong} />
-              <Text style={styles.emptyTitle}>Belum ada data</Text>
-              <Text style={styles.emptySubtitle}>Tidak ada riwayat absensi untuk periode ini.</Text>
+              <Text style={styles.emptyTitle}>{t('history.noDataYet')}</Text>
+              <Text style={styles.emptySubtitle}>{t('history.noAttendanceInThisPeriod')}</Text>
             </View>
           }
           ListFooterComponent={renderFooter()}

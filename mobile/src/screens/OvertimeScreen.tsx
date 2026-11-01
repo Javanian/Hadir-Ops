@@ -30,6 +30,7 @@ import { Calendar, DatePickerModal, fmtDateShort, getTodayStr } from '../compone
 import type { OvertimeRequest } from '../types/overtime';
 import type { MainTabParamList } from '../navigation/MainNavigator';
 import { colors } from '../theme/colors'
+import { intlLocale, t } from '../i18n'
 
 // ── Date / Time Helpers ───────────────────────────────────────────────────────
 
@@ -38,13 +39,13 @@ function fmtDateSv(iso: string, tz: string): string {
 }
 
 function fmtTime(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date(iso));
 }
 
 function fmtDate(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz, day: '2-digit', month: 'short', year: 'numeric',
   }).format(new Date(iso));
 }
@@ -64,9 +65,9 @@ function isCrossMidnight(startIso: string, endIso: string, tz: string): boolean 
 function durationLabel(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h === 0) return `${m} menit`;
-  if (m === 0) return `${h} jam`;
-  return `${h} jam ${m} menit`;
+  if (h === 0) return t('common.min', { m });
+  if (m === 0) return t('common.h', { h });
+  return t('common.hMin', { h, m });
 }
 
 function localToUtcIso(dateStr: string, h: number, m: number, tz: string): string {
@@ -107,9 +108,9 @@ function statusColor(s: OvertimeRequest['status']): string {
 
 function statusLabel(s: OvertimeRequest['status']): string {
   switch (s) {
-    case 'APPROVED': return 'Disetujui';
-    case 'REJECTED': return 'Ditolak';
-    default:         return 'Menunggu';
+    case 'APPROVED': return t('common.approved');
+    case 'REJECTED': return t('common.rejected');
+    default:         return t('common.pending');
   }
 }
 
@@ -121,31 +122,31 @@ function TimeStepper({
   return (
     <View style={styles.timeStepper}>
       <View style={styles.stepperUnit}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tambah jam" style={styles.stepperBtn} onPress={() => onHour((hour + 1) % 24)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('overtime.addAnHour')} style={styles.stepperBtn} onPress={() => onHour((hour + 1) % 24)}>
           <Ionicons name="chevron-up" size={22} color={colors.action} />
         </TouchableOpacity>
         <View style={styles.stepperValueBox}>
           <Text style={styles.stepperValue}>{String(hour).padStart(2, '0')}</Text>
         </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Kurangi jam" style={styles.stepperBtn} onPress={() => onHour((hour - 1 + 24) % 24)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('overtime.removeAnHour')} style={styles.stepperBtn} onPress={() => onHour((hour - 1 + 24) % 24)}>
           <Ionicons name="chevron-down" size={22} color={colors.action} />
         </TouchableOpacity>
-        <Text style={styles.stepperUnitLabel}>Jam</Text>
+        <Text style={styles.stepperUnitLabel}>{t('overtime.hoursUnit')}</Text>
       </View>
 
       <Text style={styles.stepperColon}>:</Text>
 
       <View style={styles.stepperUnit}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tambah menit" style={styles.stepperBtn} onPress={() => onMin((minute + 5) % 60)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('overtime.addMinutes')} style={styles.stepperBtn} onPress={() => onMin((minute + 5) % 60)}>
           <Ionicons name="chevron-up" size={22} color={colors.action} />
         </TouchableOpacity>
         <View style={styles.stepperValueBox}>
           <Text style={styles.stepperValue}>{String(minute).padStart(2, '0')}</Text>
         </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Kurangi menit" style={styles.stepperBtn} onPress={() => onMin(minute < 5 ? 55 : minute - 5)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('overtime.removeMinutes')} style={styles.stepperBtn} onPress={() => onMin(minute < 5 ? 55 : minute - 5)}>
           <Ionicons name="chevron-down" size={22} color={colors.action} />
         </TouchableOpacity>
-        <Text style={styles.stepperUnitLabel}>Menit</Text>
+        <Text style={styles.stepperUnitLabel}>{t('overtime.minutes')}</Text>
       </View>
     </View>
   );
@@ -193,11 +194,11 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
 
   async function handleSubmit() {
     if (!selectedDate || !startUtc || !endUtc) {
-      setError('Pilih tanggal lembur terlebih dahulu.');
+      setError(t('overtime.chooseTheOvertimeDateFirst'));
       return;
     }
     if (new Date(endUtc) <= new Date(startUtc)) {
-      setError('Waktu selesai harus setelah waktu mulai.');
+      setError(t('overtime.theEndTimeMustBe'));
       return;
     }
     setError('');
@@ -211,8 +212,8 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
     } catch (e) {
       setError(
         isAxiosError(e)
-          ? (e.response?.data as { detail?: string })?.detail ?? 'Gagal mengajukan lembur.'
-          : 'Gagal mengajukan lembur.',
+          ? (e.response?.data as { detail?: string })?.detail ?? t('overtime.couldNotRequestOvertime')
+          : t('overtime.couldNotRequestOvertime'),
       );
     }
   }
@@ -221,15 +222,15 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Ajukan Lembur</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={onClose}>
+          <Text style={styles.modalTitle}>{t('overtime.requestOvertime')}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={10} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sectionTitle}>Pilih Tanggal Lembur</Text>
-          <Text style={styles.sectionHint}>Hanya hari ini dan tanggal mendatang yang dapat dipilih.</Text>
+          <Text style={styles.sectionTitle}>{t('overtime.overtimeDate')}</Text>
+          <Text style={styles.sectionHint}>{t('overtime.onlyTodayAndLaterDates')}</Text>
           <View style={styles.calendarBox}>
             <Calendar todayStr={todayStr} selected={selectedDate} onSelect={setSelectedDate} disablePast />
           </View>
@@ -239,33 +240,33 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
               <View style={styles.selectedDateBadge}>
                 <Ionicons name="calendar-outline" size={15} color={colors.action} />
                 <Text style={styles.selectedDateText}>
-                  {new Intl.DateTimeFormat('id-ID', {
+                  {new Intl.DateTimeFormat(intlLocale, {
                     day: 'numeric', month: 'long', year: 'numeric',
                   }).format(new Date(`${selectedDate}T12:00:00Z`))}
                 </Text>
               </View>
 
-              <Text style={styles.label}>Jam Mulai Lembur</Text>
+              <Text style={styles.label}>{t('overtime.overtimeStart')}</Text>
               <TimeStepper hour={startH} minute={startM} onHour={setStartH} onMin={setStartM} />
 
-              <Text style={styles.label}>Jam Selesai Lembur</Text>
+              <Text style={styles.label}>{t('overtime.overtimeEnd')}</Text>
               <TimeStepper hour={endH} minute={endM} onHour={setEndH} onMin={setEndM} />
 
               {crossMidnight ? (
                 <View style={styles.crossMidnightWarn}>
                   <Ionicons name="moon-outline" size={16} color={colors.overtime} />
                   <Text style={styles.crossMidnightText}>
-                    Lembur melewati tengah malam — selesai pada hari berikutnya.
+                    {t('overtime.theOvertimeCrossesMidnightIt')}
                   </Text>
                 </View>
               ) : null}
 
-              <Text style={styles.label}>Catatan (opsional)</Text>
+              <Text style={styles.label}>{t('overtime.notesOptional')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="Alasan atau keterangan lembur..."
+                placeholder={t('overtime.reasonForTheOvertime')}
                 placeholderTextColor={colors.textSubtle}
                 multiline
                 numberOfLines={3}
@@ -275,7 +276,7 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
           ) : (
             <View style={styles.noDateHint}>
               <Ionicons name="hand-left-outline" size={32} color={colors.borderStrong} />
-              <Text style={styles.noDateHintText}>Pilih tanggal di atas untuk melanjutkan.</Text>
+              <Text style={styles.noDateHintText}>{t('overtime.chooseADateAboveTo')}</Text>
             </View>
           )}
 
@@ -293,7 +294,7 @@ function SubmitModal({ visible, onClose, tz }: { visible: boolean; onClose: () =
           >
             {submit.isPending
               ? <ActivityIndicator color={colors.white} />
-              : <Text style={styles.submitBtnText}>Kirim Pengajuan</Text>}
+              : <Text style={styles.submitBtnText}>{t('overtime.sendRequest')}</Text>}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -338,7 +339,7 @@ function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz:
       const s = localToUtcIso(baseDateStr, oStartH, oStartM, tz);
       const e = localToUtcIso(endDateStr, oEndH, oEndM, tz);
       if (new Date(e) <= new Date(s)) {
-        setError('Waktu selesai harus setelah waktu mulai.');
+        setError(t('overtime.theEndTimeMustBe'));
         return;
       }
       body.approved_start = s;
@@ -351,8 +352,8 @@ function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz:
     } catch (e) {
       setError(
         isAxiosError(e)
-          ? (e.response?.data as { detail?: string })?.detail ?? 'Gagal menyetujui.'
-          : 'Gagal menyetujui.',
+          ? (e.response?.data as { detail?: string })?.detail ?? t('overtime.couldNotApprove')
+          : t('overtime.couldNotApprove'),
       );
     }
   }
@@ -364,8 +365,8 @@ function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz:
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Setujui Lembur</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={onClose}>
+          <Text style={styles.modalTitle}>{t('overtime.approveOvertime')}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={10} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -383,14 +384,14 @@ function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz:
             </View>
           ) : null}
 
-          <Text style={styles.label}>Waktu Diajukan</Text>
+          <Text style={styles.label}>{t('overtime.requestedTime')}</Text>
           <View style={styles.infoBox}>
             <Text style={styles.infoDate}>{fmtDate(item.requested_start, tz)}</Text>
             <Text style={styles.infoTime}>{fmtTimeRange(item.requested_start, item.requested_end, tz)}</Text>
             {cross ? (
               <View style={styles.crossMidnightWarn}>
                 <Ionicons name="moon-outline" size={13} color={colors.overtime} />
-                <Text style={[styles.crossMidnightText, { fontSize: 12 }]}>Lintas tengah malam</Text>
+                <Text style={[styles.crossMidnightText, { fontSize: 12 }]}>{t('overtime.crossesMidnight2')}</Text>
               </View>
             ) : null}
             <Text style={styles.infoDuration}>{durationLabel(item.requested_minutes)}</Text>
@@ -398,31 +399,31 @@ function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz:
 
           <TouchableOpacity style={styles.overrideToggle} onPress={() => setOverrideEnabled(!overrideEnabled)}>
             <Ionicons name={overrideEnabled ? 'checkbox' : 'square-outline'} size={22} color={colors.action} />
-            <Text style={styles.overrideToggleText}>Ubah jam lembur yang disetujui</Text>
+            <Text style={styles.overrideToggleText}>{t('overtime.changeTheApprovedOvertimeHours')}</Text>
           </TouchableOpacity>
 
           {overrideEnabled ? (
             <>
-              <Text style={styles.label}>Jam Mulai yang Disetujui</Text>
+              <Text style={styles.label}>{t('overtime.approvedStart')}</Text>
               <TimeStepper hour={oStartH} minute={oStartM} onHour={setOStartH} onMin={setOStartM} />
-              <Text style={styles.label}>Jam Selesai yang Disetujui</Text>
+              <Text style={styles.label}>{t('overtime.approvedEnd')}</Text>
               <TimeStepper hour={oEndH} minute={oEndM} onHour={setOEndH} onMin={setOEndM} />
             </>
           ) : null}
 
           {item.notes ? (
             <View style={styles.infoBox}>
-              <Text style={[styles.infoDate, { marginBottom: 0 }]}>Catatan pengaju:</Text>
+              <Text style={[styles.infoDate, { marginBottom: 0 }]}>{t('overtime.employeeSNote')}</Text>
               <Text style={[styles.infoTime, { fontSize: 13, fontWeight: '400', color: colors.text }]}>{item.notes}</Text>
             </View>
           ) : null}
 
-          <Text style={styles.label}>Catatan untuk pengaju (opsional)</Text>
+          <Text style={styles.label}>{t('overtime.noteForTheEmployeeOptional')}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={supervisorNotes}
             onChangeText={setSupervisorNotes}
-            placeholder="Tambahkan catatan untuk karyawan..."
+            placeholder={t('overtime.addANoteForThe')}
             placeholderTextColor={colors.textSubtle}
             multiline
             numberOfLines={3}
@@ -439,7 +440,7 @@ function ApproveModal({ item, tz, onClose }: { item: OvertimeRequest | null; tz:
           >
             {approve.isPending
               ? <ActivityIndicator color={colors.white} />
-              : <Text style={styles.submitBtnText}>Setujui</Text>}
+              : <Text style={styles.submitBtnText}>{t('overtime.approve')}</Text>}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -465,8 +466,8 @@ function RejectModal({ item, onClose }: { item: OvertimeRequest | null; onClose:
     } catch (e) {
       setError(
         isAxiosError(e)
-          ? (e.response?.data as { detail?: string })?.detail ?? 'Gagal menolak.'
-          : 'Gagal menolak.',
+          ? (e.response?.data as { detail?: string })?.detail ?? t('overtime.couldNotReject')
+          : t('overtime.couldNotReject'),
       );
     }
   }
@@ -477,8 +478,8 @@ function RejectModal({ item, onClose }: { item: OvertimeRequest | null; onClose:
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Tolak Lembur</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={handleClose}>
+          <Text style={styles.modalTitle}>{t('overtime.rejectOvertime')}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={10} onPress={handleClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -496,12 +497,12 @@ function RejectModal({ item, onClose }: { item: OvertimeRequest | null; onClose:
             </View>
           ) : null}
 
-          <Text style={styles.label}>Catatan Penolakan (opsional)</Text>
+          <Text style={styles.label}>{t('overtime.reasonForRejectionOptional')}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={supervisorNotes}
             onChangeText={setSupervisorNotes}
-            placeholder="Alasan penolakan..."
+            placeholder={t('overtime.reasonForRejection')}
             placeholderTextColor={colors.textSubtle}
             multiline
             numberOfLines={4}
@@ -517,7 +518,7 @@ function RejectModal({ item, onClose }: { item: OvertimeRequest | null; onClose:
           >
             {reject.isPending
               ? <ActivityIndicator color={colors.white} />
-              : <Text style={styles.submitBtnText}>Tolak Pengajuan</Text>}
+              : <Text style={styles.submitBtnText}>{t('overtime.rejectRequest')}</Text>}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -537,8 +538,8 @@ function CheckinStatusBanner({ item, tz }: { item: OvertimeRequest; tz: string }
         <Ionicons name="hourglass-outline" size={13} color={colors.warningStrong} />
         <Text style={[styles.checkinBannerText, { color: colors.warningStrong }]}>
           {alreadyWorked
-            ? 'Menunggu persetujuan atasan'
-            : 'Menunggu persetujuan atasan — belum dapat memulai lembur'}
+            ? t('overtime.waitingForYourSupervisorS2')
+            : t('overtime.waitingForYourSupervisorS')}
         </Text>
       </View>
     );
@@ -549,8 +550,8 @@ function CheckinStatusBanner({ item, tz }: { item: OvertimeRequest; tz: string }
         <Ionicons name="close-circle-outline" size={13} color={colors.dangerStrong} />
         <Text style={[styles.checkinBannerText, { color: colors.dangerStrong }]}>
           {alreadyWorked
-            ? 'Pengajuan ditolak — jam ini tidak dihitung lembur'
-            : 'Pengajuan ditolak — tidak dapat memulai lembur'}
+            ? t('overtime.requestRejectedTheseHoursDo')
+            : t('overtime.requestRejectedOvertimeCannotStart')}
         </Text>
       </View>
     );
@@ -563,7 +564,7 @@ function CheckinStatusBanner({ item, tz }: { item: OvertimeRequest; tz: string }
       <View style={[styles.checkinBanner, { backgroundColor: colors.actionTint }]}>
         <Ionicons name="time-outline" size={13} color={colors.actionPressed} />
         <Text style={[styles.checkinBannerText, { color: colors.actionPressed }]}>
-          Disetujui · Dapat dimulai: {fmtTime(item.requested_start, tz)}
+          {t('overtime.approvedStartsAt', { time: fmtTime(item.requested_start, tz) })}
         </Text>
       </View>
     );
@@ -573,7 +574,7 @@ function CheckinStatusBanner({ item, tz }: { item: OvertimeRequest; tz: string }
       <View style={[styles.checkinBanner, { backgroundColor: colors.successTint }]}>
         <Ionicons name="radio-button-on-outline" size={13} color={colors.successStrong} />
         <Text style={[styles.checkinBannerText, { color: colors.successStrong }]}>
-          Sedang berlangsung · Berakhir: {fmtTime(item.requested_end, tz)}
+          {t('overtime.inProgressEndsAt', { time: fmtTime(item.requested_end, tz) })}
         </Text>
       </View>
     );
@@ -581,7 +582,7 @@ function CheckinStatusBanner({ item, tz }: { item: OvertimeRequest; tz: string }
   return (
     <View style={[styles.checkinBanner, { backgroundColor: colors.canvas }]}>
       <Ionicons name="checkmark-circle-outline" size={13} color={colors.textMuted} />
-      <Text style={[styles.checkinBannerText, { color: colors.textMuted }]}>Lembur telah selesai</Text>
+      <Text style={[styles.checkinBannerText, { color: colors.textMuted }]}>{t('overtime.overtimeFinished')}</Text>
     </View>
   );
 }
@@ -611,7 +612,7 @@ function OvertimeItem({
         <Ionicons name="time-outline" size={15} color={colors.textMuted} />
         <Text style={styles.cardMeta}>
           {fmtTimeRange(item.requested_start, item.requested_end, tz)}
-          {cross ? <Text style={styles.crossLabel}> (lintas tengah malam)</Text> : null}
+          {cross ? <Text style={styles.crossLabel}> {t('overtime.crossesMidnight')}</Text> : null}
         </Text>
       </View>
 
@@ -624,7 +625,7 @@ function OvertimeItem({
         <View style={styles.cardRow}>
           <Ionicons name="chatbubble-outline" size={15} color={colors.textMuted} />
           <Text style={[styles.cardMeta, { flex: 1 }]}>
-            <Text style={{ fontWeight: '600' }}>Catatan: </Text>{item.notes}
+            <Text style={{ fontWeight: '600' }}>{t('overtime.notesLabel')}</Text>{item.notes}
           </Text>
         </View>
       ) : null}
@@ -632,7 +633,7 @@ function OvertimeItem({
         <View style={styles.cardRow}>
           <Ionicons name="chatbubble-ellipses-outline" size={15} color={colors.action} />
           <Text style={[styles.cardMeta, { flex: 1, color: colors.actionPressed }]}>
-            <Text style={{ fontWeight: '600' }}>Atasan: </Text>{item.supervisor_notes}
+            <Text style={{ fontWeight: '600' }}>{t('overtime.supervisorLabel')}</Text>{item.supervisor_notes}
           </Text>
         </View>
       ) : null}
@@ -642,10 +643,10 @@ function OvertimeItem({
       {showActions && item.status === 'PENDING' ? (
         <View style={styles.actionRow}>
           <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => onReject(item)}>
-            <Text style={styles.actionBtnText}>Tolak</Text>
+            <Text style={styles.actionBtnText}>{t('overtime.reject')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} onPress={() => onApprove(item)}>
-            <Text style={styles.actionBtnText}>Setujui</Text>
+            <Text style={styles.actionBtnText}>{t('overtime.approve')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -658,10 +659,10 @@ function OvertimeItem({
 type StatusFilter = 'PENDING' | 'APPROVED' | 'REJECTED' | undefined;
 
 const STATUS_CHIPS: { label: string; value: StatusFilter }[] = [
-  { label: 'Semua', value: undefined },
-  { label: 'Menunggu', value: 'PENDING' },
-  { label: 'Disetujui', value: 'APPROVED' },
-  { label: 'Ditolak', value: 'REJECTED' },
+  { label: t('overtime.all'), value: undefined },
+  { label: t('common.pending'), value: 'PENDING' },
+  { label: t('common.approved'), value: 'APPROVED' },
+  { label: t('common.rejected'), value: 'REJECTED' },
 ];
 
 interface FilterBarProps {
@@ -714,7 +715,7 @@ function FilterBar({
             style={{ marginRight: 4 }}
           />
           <Text style={[fb.dateBtnText, fromDate && fb.dateBtnTextActive]} numberOfLines={1}>
-            {fromDate ? fmtDateShort(fromDate) : 'Dari tanggal'}
+            {fromDate ? fmtDateShort(fromDate) : t('common.fromDate')}
           </Text>
         </TouchableOpacity>
 
@@ -731,11 +732,11 @@ function FilterBar({
             style={{ marginRight: 4 }}
           />
           <Text style={[fb.dateBtnText, toDate && fb.dateBtnTextActive]} numberOfLines={1}>
-            {toDate ? fmtDateShort(toDate) : 'Sampai tanggal'}
+            {toDate ? fmtDateShort(toDate) : t('common.toDate')}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Hapus filter tanggal"
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('common.clearTheDateFilter')}
           onPress={() => { onFromDate(null); onToDate(null); }}
           style={[fb.clearBtn, !hasDateFilter && fb.clearBtnHidden]}
           disabled={!hasDateFilter}
@@ -747,7 +748,7 @@ function FilterBar({
       {/* Date picker modals */}
       <DatePickerModal
         visible={showFrom}
-        title="Dari Tanggal"
+        title={t('common.from')}
         selected={fromDate}
         todayStr={todayStr}
         onSelect={(d) => {
@@ -760,7 +761,7 @@ function FilterBar({
       />
       <DatePickerModal
         visible={showTo}
-        title="Sampai Tanggal"
+        title={t('common.to')}
         selected={toDate}
         todayStr={todayStr}
         onSelect={(d) => {
@@ -864,7 +865,7 @@ function UserGroupHeader({ name, employeeId, totalCount, pendingCount, totalMinu
         </View>
         <Text style={ugh.meta}>
           {employeeId ? `${employeeId} · ` : ''}
-          {totalCount} pengajuan · {totalHours} jam
+          {t('overtime.requestsAndHours', { count: totalCount, hours: totalHours })}
         </Text>
       </View>
 
@@ -1023,7 +1024,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
       if (!map.has(uid)) {
         map.set(uid, {
           userId: uid,
-          name: item.employee_name ?? `Karyawan #${uid}`,
+          name: item.employee_name ?? t('overtime.employee', { uid }),
           employeeId: item.employee_id ?? null,
           allItems: [],
           data: [],
@@ -1053,7 +1054,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lembur</Text>
+        <Text style={styles.headerTitle}>{t('common.overtime')}</Text>
       </View>
 
       <OfflineBanner />
@@ -1064,7 +1065,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
           style={[styles.tab, activeTab === 'my' && styles.tabActive]}
           onPress={() => setActiveTab('my')}
         >
-          <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>Pengajuan Saya</Text>
+          <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>{t('overtime.myRequests')}</Text>
         </TouchableOpacity>
         {isSupervisorOrAdmin ? (
           <TouchableOpacity
@@ -1107,15 +1108,15 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
       ) : isError ? (
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={40} color={colors.danger} />
-          <Text style={styles.errorText}>Gagal memuat data.</Text>
+          <Text style={styles.errorText}>{t('common.couldNotLoadTheData')}</Text>
           <TouchableOpacity onPress={() => activeQuery.refetch()} style={styles.retryBtn}>
-            <Text style={styles.retryBtnText}>Coba Lagi</Text>
+            <Text style={styles.retryBtnText}>{t('common.tryAgain')}</Text>
           </TouchableOpacity>
         </View>
       ) : isEmpty ? (
         <View style={styles.center}>
           <Ionicons name="time-outline" size={48} color={colors.borderStrong} />
-          <Text style={styles.emptyText}>Tidak ada pengajuan lembur.</Text>
+          <Text style={styles.emptyText}>{t('overtime.noOvertimeRequests')}</Text>
         </View>
       ) : activeTab === 'my' ? (
         /* ── My Overtime: flat FlatList ── */
@@ -1185,7 +1186,7 @@ export default function OvertimeScreen({ route }: OvertimeScreenProps) {
       )}
 
       {/* ── FAB ── */}
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ajukan lembur" style={styles.fab} onPress={() => setShowSubmit(true)}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('overtime.requestOvertime')} style={styles.fab} onPress={() => setShowSubmit(true)}>
         <Ionicons name="add" size={28} color={colors.white} />
       </TouchableOpacity>
 

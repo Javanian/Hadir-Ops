@@ -14,6 +14,7 @@ import { isAxiosError } from 'axios';
 import { useFaceRegister } from '../hooks/useFaceRegister';
 import { FaceRegisterResponse } from '../types/face';
 import { colors } from '../theme/colors'
+import { t } from '../i18n'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -30,13 +31,13 @@ interface Props {
 function mapErrorDetail(detail: string): string {
   const lower = detail.toLowerCase();
   if (lower.includes('no face')) {
-    return 'Tidak ada wajah terdeteksi. Pastikan wajah terlihat jelas dan cukup cahaya.';
+    return t('faceRegister.noFaceDetectedMakeSure');
   }
   if (lower.includes('multiple face')) {
-    return 'Terdeteksi lebih dari satu wajah. Gunakan foto dengan satu wajah saja.';
+    return t('faceRegister.moreThanOneFaceDetected');
   }
   if (lower.includes('decode') || lower.includes('invalid')) {
-    return 'Gambar tidak valid. Coba ambil foto ulang.';
+    return t('faceRegister.invalidImageTryTakingThe');
   }
   return detail;
 }
@@ -63,7 +64,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        setErrorMsg('Izin kamera diperlukan. Aktifkan di Pengaturan > Aplikasi > Izin Kamera.');
+        setErrorMsg(t('faceRegister.cameraAccessIsNeededTurn'));
         setStep('error');
         return;
       }
@@ -81,7 +82,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
         setStep('reviewing');
       }
     } catch {
-      setErrorMsg('Gagal mengambil foto. Coba lagi.');
+      setErrorMsg(t('common.couldNotTakeThePhoto'));
       setStep('error');
     }
   }
@@ -103,14 +104,14 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
       if (isAxiosError(e) && !e.response) {
         // Network error — backend unreachable or wrong IP
         const baseURL = e.config?.baseURL ?? 'unknown';
-        setErrorMsg(`Tidak dapat terhubung ke server.\nURL: ${baseURL}\nError: ${e.message}`);
+        setErrorMsg(t('faceRegister.cannotReachServerDetail', { url: baseURL, error: e.message }));
       } else if (isAxiosError(e)) {
         const detail = e.response?.data?.detail ?? `HTTP ${e.response?.status ?? '?'}`;
         setErrorMsg(mapErrorDetail(detail));
       } else {
         // Non-axios error — e.g. "No refresh token available"
         const msg = e instanceof Error ? e.message : String(e);
-        setErrorMsg(`Kesalahan: ${msg}`);
+        setErrorMsg(t('faceRegister.error', { msg }));
       }
       setStep('error');
     }
@@ -121,7 +122,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.action} />
-          <Text style={styles.stateTitle}>Meminta Izin Kamera…</Text>
+          <Text style={styles.stateTitle}>{t('faceRegister.requestingCameraAccess')}</Text>
         </View>
       );
     }
@@ -140,8 +141,8 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
           </View>
           {/* Floating controls */}
           <View style={styles.cameraControls}>
-            <Text style={styles.cameraHint}>Posisikan wajah di dalam lingkaran</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Ambil foto" style={styles.shutterBtn} onPress={handleCapture}>
+            <Text style={styles.cameraHint}>{t('common.placeYourFaceInsideThe')}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('common.takePhoto')} style={styles.shutterBtn} onPress={handleCapture}>
               <View style={styles.shutterInner} />
             </Pressable>
           </View>
@@ -159,11 +160,11 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
           />
           {/* Floating review controls */}
           <View style={styles.reviewControls}>
-            <Text style={styles.reviewHint}>Pastikan wajah terlihat jelas</Text>
+            <Text style={styles.reviewHint}>{t('faceRegister.makeSureYourFaceIs')}</Text>
             <View style={styles.reviewBtns}>
               <Pressable style={styles.retakeBtn} onPress={handleRetake}>
                 <Ionicons name="camera-reverse-outline" size={18} color={colors.textMuted} />
-                <Text style={styles.retakeBtnText}>Ambil Ulang</Text>
+                <Text style={styles.retakeBtnText}>{t('faceRegister.retake')}</Text>
               </Pressable>
               <Pressable
                 style={[styles.uploadBtn, register.isPending && { opacity: 0.7 }]}
@@ -172,7 +173,7 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
               >
                 {register.isPending
                   ? <ActivityIndicator color={colors.white} size="small" />
-                  : <><Ionicons name="checkmark" size={18} color={colors.white} /><Text style={styles.uploadBtnText}>Gunakan Foto Ini</Text></>}
+                  : <><Ionicons name="checkmark" size={18} color={colors.white} /><Text style={styles.uploadBtnText}>{t('faceRegister.useThisPhoto')}</Text></>}
               </Pressable>
             </View>
           </View>
@@ -184,8 +185,8 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.action} />
-          <Text style={styles.stateTitle}>Mendaftarkan Wajah…</Text>
-          <Text style={styles.stateSubtitle}>Sedang diproses, harap tunggu.</Text>
+          <Text style={styles.stateTitle}>{t('faceRegister.enrollingYourFace')}</Text>
+          <Text style={styles.stateSubtitle}>{t('faceRegister.processingPleaseWait')}</Text>
         </View>
       );
     }
@@ -196,10 +197,10 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
           <View style={[styles.iconCircle, { backgroundColor: colors.successTintStrong }]}>
             <Ionicons name="checkmark-circle" size={44} color={colors.success} />
           </View>
-          <Text style={styles.stateTitle}>Wajah Terdaftar!</Text>
+          <Text style={styles.stateTitle}>{t('faceRegister.faceEnrolled')}</Text>
           <Text style={styles.stateSubtitle}>{result.message}</Text>
           <Pressable style={styles.doneBtn} onPress={onClose}>
-            <Text style={styles.doneBtnText}>Selesai</Text>
+            <Text style={styles.doneBtnText}>{t('common.done')}</Text>
           </Pressable>
         </View>
       );
@@ -211,11 +212,11 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
           <View style={[styles.iconCircle, { backgroundColor: colors.dangerTintStrong }]}>
             <Ionicons name="alert-circle" size={40} color={colors.danger} />
           </View>
-          <Text style={styles.stateTitle}>Gagal</Text>
+          <Text style={styles.stateTitle}>{t('common.failed')}</Text>
           <Text style={styles.errorText}>{errorMsg}</Text>
           <Pressable style={styles.retryBtn} onPress={init}>
             <Ionicons name="refresh-outline" size={18} color={colors.action} />
-            <Text style={styles.retryBtnText}>Coba Lagi</Text>
+            <Text style={styles.retryBtnText}>{t('common.tryAgain')}</Text>
           </Pressable>
         </View>
       );
@@ -242,9 +243,9 @@ export default function FaceRegisterModal({ visible, userId, onClose }: Props) {
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Daftarkan Wajah</Text>
+            <Text style={styles.headerTitle}>{t('common.enrolFace')}</Text>
             {canClose && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} hitSlop={12}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={onClose} hitSlop={12}>
                 <Ionicons name="close" size={24} color={isFullscreen ? colors.textMuted : colors.textMuted} />
               </Pressable>
             )}

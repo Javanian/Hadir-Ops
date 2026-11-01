@@ -19,6 +19,7 @@ import { AttendanceRecord } from '../types/attendance';
 import { Fix, getFix } from '../utils/location';
 import { reviewReason } from '../utils/reviewReason';
 import { colors } from '../theme/colors'
+import { intlLocale, t } from '../i18n'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -44,15 +45,15 @@ function getStatusColor(status: AttendanceRecord['status']): string {
 
 function getStatusLabel(status: AttendanceRecord['status']): string {
   switch (status) {
-    case 'ONTIME': return 'Tepat Waktu';
-    case 'LATE': return 'Terlambat';
-    case 'OUT_OF_RADIUS': return 'Di Luar Area';
+    case 'ONTIME': return t('common.onTime');
+    case 'LATE': return t('common.late');
+    case 'OUT_OF_RADIUS': return t('common.outsideTheArea');
     default: return '-';
   }
 }
 
 function formatTime(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz,
     hour: '2-digit',
     minute: '2-digit',
@@ -91,7 +92,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       setFix(await getFix());
       setStep('ready');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Gagal mendapatkan lokasi.';
+      const msg = e instanceof Error ? e.message : t('checkin.couldNotGetYourLocation');
       if (userId) reportAttempt(userId, 'CHECKIN', 'NO_GPS', msg);
       setErrorMsg(msg);
       setStep('error');
@@ -103,7 +104,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        setErrorMsg('Izin kamera diperlukan untuk verifikasi wajah. Aktifkan di Pengaturan.');
+        setErrorMsg(t('common.cameraAccessIsNeededTo'));
         setRetryToFace(false);
         setStep('error');
         return;
@@ -132,7 +133,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       setCapturedUri(photo.uri);
       setStep('verifying');
     } catch {
-      setErrorMsg('Gagal mengambil foto. Coba lagi.');
+      setErrorMsg(t('common.couldNotTakeThePhoto'));
       setRetryToFace(true);
       setStep('error');
     } finally {
@@ -178,8 +179,8 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           setRetryToFace(false);
           setErrorMsg(
             status === 409
-              ? 'Data wajah Anda dibuat dengan versi lama. Silakan daftarkan ulang wajah di halaman Profil.'
-              : 'Wajah belum terdaftar. Silakan daftarkan wajah di halaman Profil terlebih dahulu.',
+              ? t('common.yourFaceWasEnrolledWith')
+              : t('common.noFaceEnrolledYetPlease'),
           );
           setStep('error');
           return;
@@ -202,7 +203,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       if (!res.verified) {
         reportAttempt(userId, 'CHECKIN', 'FACE_MISMATCH', `similarity ${res.similarity}`, item.body);
         setRetryToFace(true);
-        setErrorMsg('Wajah tidak dikenali. Pastikan wajah Anda menghadap kamera dan coba lagi.');
+        setErrorMsg(t('common.faceNotRecognisedFaceThe'));
         setStep('error');
         return;
       }
@@ -211,7 +212,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
     };
     run().catch((e) => {
       setRetryToFace(false);
-      setErrorMsg(`Kesalahan: ${errorMessage(e)}`);
+      setErrorMsg(t('checkin.error', { value: errorMessage(e) }));
       setStep('error');
     });
   }, [step, capturedUri, userId]);
@@ -221,8 +222,8 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.action} />
-          <Text style={styles.stateTitle}>Mendapatkan Lokasi</Text>
-          <Text style={styles.stateSubtitle}>Harap tunggu sebentar…</Text>
+          <Text style={styles.stateTitle}>{t('common.gettingYourLocation')}</Text>
+          <Text style={styles.stateSubtitle}>{t('common.pleaseWaitAMoment2')}</Text>
         </View>
       );
     }
@@ -233,17 +234,17 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           <View style={styles.iconCircle}>
             <Ionicons name="location" size={32} color={colors.action} />
           </View>
-          <Text style={styles.stateTitle}>Lokasi Ditemukan</Text>
+          <Text style={styles.stateTitle}>{t('checkin.locationFound')}</Text>
           <Text style={styles.coordText}>
             {fix?.latitude.toFixed(6)}, {fix?.longitude.toFixed(6)}
             {fix?.accuracy != null ? `  ±${Math.round(fix.accuracy)} m` : ''}
           </Text>
           {fix?.stale && (
-            <Text style={styles.stateSubtitle}>Memakai posisi terakhir yang tersimpan di HP.</Text>
+            <Text style={styles.stateSubtitle}>{t('checkin.usingTheLastPositionSaved')}</Text>
           )}
           <Pressable style={styles.confirmBtn} onPress={openFaceVerify}>
             <Ionicons name="log-in-outline" size={20} color={colors.white} />
-            <Text style={styles.confirmBtnText}>Konfirmasi Check In</Text>
+            <Text style={styles.confirmBtnText}>{t('checkin.confirmCheckIn')}</Text>
           </Pressable>
         </View>
       );
@@ -259,13 +260,13 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           </View>
           {/* Floating controls */}
           <View style={styles.cameraControls}>
-            <Text style={styles.cameraHint}>Posisikan wajah di dalam lingkaran</Text>
+            <Text style={styles.cameraHint}>{t('common.placeYourFaceInsideThe')}</Text>
             <Pressable
               style={styles.shutterBtn}
               onPress={handleCapture}
               disabled={isCapturing}
               accessibilityRole="button"
-              accessibilityLabel="Ambil foto"
+              accessibilityLabel={t('common.takePhoto')}
             >
               {isCapturing
                 ? <ActivityIndicator color={colors.success} />
@@ -280,8 +281,8 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.action} />
-          <Text style={styles.stateTitle}>Memverifikasi Wajah…</Text>
-          <Text style={styles.stateSubtitle}>Harap tunggu sebentar.</Text>
+          <Text style={styles.stateTitle}>{t('common.verifyingYourFace')}</Text>
+          <Text style={styles.stateSubtitle}>{t('common.pleaseWaitAMoment')}</Text>
         </View>
       );
     }
@@ -290,7 +291,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.success} />
-          <Text style={styles.stateTitle}>Mencatat Absensi…</Text>
+          <Text style={styles.stateTitle}>{t('checkin.recordingAttendance')}</Text>
         </View>
       );
     }
@@ -301,14 +302,13 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           <View style={[styles.iconCircle, { backgroundColor: colors.warning + '20' }]}>
             <Ionicons name="cloud-upload-outline" size={36} color={colors.warning} />
           </View>
-          <Text style={styles.stateTitle}>Absen Tersimpan di HP</Text>
+          <Text style={styles.stateTitle}>{t('checkin.checkInSavedOnThe')}</Text>
           <Text style={styles.timeText}>{formatTime(queuedAt, siteTimezone)}</Text>
           <Text style={styles.stateSubtitle}>
-            Belum ada sinyal ke server. Jam absen Anda sudah tercatat dan akan dikirim
-            otomatis saat koneksi kembali. Tidak perlu absen ulang.
+            {t('checkin.noSignalToTheServer')}
           </Text>
           <Pressable style={styles.doneBtn} onPress={onClose}>
-            <Text style={styles.doneBtnText}>Mengerti</Text>
+            <Text style={styles.doneBtnText}>{t('common.gotIt')}</Text>
           </Pressable>
         </View>
       );
@@ -321,7 +321,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           <View style={[styles.iconCircle, { backgroundColor: statusColor + '20' }]}>
             <Ionicons name="checkmark-circle" size={40} color={statusColor} />
           </View>
-          <Text style={styles.stateTitle}>Check In Berhasil!</Text>
+          <Text style={styles.stateTitle}>{t('checkin.checkedIn')}</Text>
           <Text style={styles.timeText}>{formatTime(result.checkin_time, siteTimezone)}</Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
             <Text style={[styles.statusBadgeText, { color: statusColor }]}>
@@ -330,11 +330,11 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           </View>
           {result.needs_review && (
             <Text style={styles.stateSubtitle}>
-              Absen tercatat. Supervisor akan meninjau karena {reviewReason(result.risk_flags)}.
+              {t('checkin.recordedNeedsReview', { reason: reviewReason(result.risk_flags) })}
             </Text>
           )}
           <Pressable style={styles.doneBtn} onPress={onClose}>
-            <Text style={styles.doneBtnText}>Selesai</Text>
+            <Text style={styles.doneBtnText}>{t('common.done')}</Text>
           </Pressable>
         </View>
       );
@@ -346,21 +346,21 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           <View style={[styles.iconCircle, { backgroundColor: colors.dangerTintStrong }]}>
             <Ionicons name="alert-circle" size={36} color={colors.danger} />
           </View>
-          <Text style={styles.stateTitle}>Gagal</Text>
+          <Text style={styles.stateTitle}>{t('common.failed')}</Text>
           <Text style={styles.errorText}>{errorMsg}</Text>
-          <Text style={styles.stateSubtitle}>Percobaan ini tercatat dan bisa dilihat supervisor.</Text>
+          <Text style={styles.stateSubtitle}>{t('checkin.thisAttemptIsRecordedAnd')}</Text>
           {retryToFace ? (
             <Pressable
               style={styles.retryBtn}
               onPress={() => { setErrorMsg(''); setStep('face_verify'); }}
             >
               <Ionicons name="camera-outline" size={18} color={colors.action} />
-              <Text style={styles.retryBtnText}>Coba Lagi</Text>
+              <Text style={styles.retryBtnText}>{t('common.tryAgain')}</Text>
             </Pressable>
           ) : (
             <Pressable style={styles.retryBtn} onPress={requestAndLocate}>
               <Ionicons name="refresh-outline" size={18} color={colors.action} />
-              <Text style={styles.retryBtnText}>Coba Lagi</Text>
+              <Text style={styles.retryBtnText}>{t('common.tryAgain')}</Text>
             </Pressable>
           )}
         </View>
@@ -390,7 +390,7 @@ export default function CheckinModal({ visible, onClose, userId, siteTimezone = 
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Check In</Text>
             {canClose && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} hitSlop={12}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={onClose} hitSlop={12}>
                 <Ionicons name="close" size={24} color={colors.textMuted} />
               </Pressable>
             )}

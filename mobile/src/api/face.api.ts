@@ -3,6 +3,7 @@ import { FaceStatus, FaceRegisterResponse, FaceVerifyResponse } from '../types/f
 import { AttendanceRecord } from '../types/attendance';
 import { Platform } from 'react-native';
 import { apiClient, BASE_URL } from './axios';
+import { t } from '../i18n'
 
 // Uploads FormData using XMLHttpRequest (same engine Axios uses for all API calls).
 //
@@ -56,7 +57,7 @@ async function faceUpload<T>(path: string, formData: FormData): Promise<T> {
     // Access token expired — refresh and retry once
     const { refresh: refreshToken } = await getStoredTokens();
     if (!refreshToken) {
-      const err: any = new Error('Sesi habis. Silakan login kembali.');
+      const err: any = new Error(t('api.yourSessionHasExpiredPlease2'));
       err.isAxiosError = true;
       throw err;
     }
@@ -66,7 +67,7 @@ async function faceUpload<T>(path: string, formData: FormData): Promise<T> {
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
     if (!refreshRes.ok) {
-      const err: any = new Error('Sesi habis. Silakan login kembali.');
+      const err: any = new Error(t('api.yourSessionHasExpiredPlease2'));
       err.isAxiosError = true;
       throw err;
     }

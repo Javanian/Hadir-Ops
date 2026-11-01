@@ -10,6 +10,7 @@ import SubordinateAttendanceScreen from '../screens/SubordinateAttendanceScreen'
 import { useAuthState } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors'
+import { t } from '../i18n'
 
 export type MainTabParamList = {
   Home: undefined;
@@ -37,12 +38,12 @@ const TAB_ICONS: Record<
 };
 
 const TAB_LABELS: Record<keyof MainTabParamList, string> = {
-  Home: 'Beranda',
-  History: 'Riwayat',
-  Overtime: 'Lembur',
-  Leave: 'Izin',
+  Home: t('mainNavigator.home'),
+  History: t('mainNavigator.history'),
+  Overtime: t('common.overtime'),
+  Leave: t('common.leave'),
   Team: 'Tim',
-  Profile: 'Profil',
+  Profile: t('common.profile'),
 };
 
 export default function MainNavigator() {

@@ -31,7 +31,7 @@ services:
 
   backend:
     build: ./backend
-    image: rollproof-backend:1.1.0
+    image: rollproof-backend:2.0.0
     container_name: rollproof_backend
     restart: always
     env_file:
@@ -62,8 +62,12 @@ services:
       start_period: 30s              # the face models ship in the image
 
   web:
-    build: ./web
-    image: rollproof-web:1.1.0
+    build:
+      context: ./web
+      # The image also serves the mobile app's web build at /app
+      additional_contexts:
+        mobile: ./mobile
+    image: rollproof-web:2.0.0
     container_name: rollproof_web
     restart: always
     environment:

@@ -1,0 +1,7 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Rollproof",
+    "NSCameraUsageDescription": "Kamera dipakai untuk verifikasi wajah saat absen dan untuk mendaftarkan wajah.",
+    "NSLocationWhenInUseUsageDescription": "Lokasi dipakai untuk memastikan Anda berada di area kerja saat absen."
+  }
+}

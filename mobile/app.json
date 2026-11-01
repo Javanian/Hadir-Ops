@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rollproof",
     "slug": "rollproof-mobile",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,14 +19,17 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Rollproof",
+      "shortName": "Rollproof",
+      "description": "Check in with face verification and GPS, even offline."
     },
     "plugins": [
       "expo-secure-store",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Lokasi dipakai untuk memastikan Anda berada di area kerja saat absen.",
+          "locationWhenInUsePermission": "Your location is used to confirm you are at your work site when you check in.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
           "isAndroidBackgroundLocationEnabled": false,
@@ -36,7 +39,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Kamera dipakai untuk verifikasi wajah saat absen dan untuk mendaftarkan wajah.",
+          "cameraPermission": "The camera is used to verify your face when you check in and to enrol your face.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -53,6 +56,12 @@
           "backgroundColor": "#2563EB"
         }
       ]
-    ]
+    ],
+    "locales": {
+      "id": "./locales/id.json"
+    },
+    "experiments": {
+      "baseUrl": "/app"
+    }
   }
 }

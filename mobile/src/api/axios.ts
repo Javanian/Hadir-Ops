@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import { clearTokens, persistTokens, getStoredTokens } from '../store/authStore';
 import { TokenResponse } from '../types/auth';
 import { showError } from '../utils/toast';
+import { t } from '../i18n'
 
 const API_BASE_OVERRIDE = process.env['EXPO_PUBLIC_API_BASE_URL']?.trim();
 const API_PORT = process.env['EXPO_PUBLIC_API_PORT']?.trim() || '8000';
@@ -40,6 +41,8 @@ function getExpoHost(): string | null {
 function resolveBaseUrl(): string {
   if (API_BASE_OVERRIDE && API_BASE_OVERRIDE.toLowerCase() !== 'auto') {
     const raw = API_BASE_OVERRIDE.replace(/\/+$/, '');
+    // The web build is served next to the dashboard, so it calls the API on its own origin
+    if (Platform.OS === 'web' && raw.startsWith('/')) return raw;
     const url = /^https?:\/\//i.test(raw) ? raw : `http://${raw}:${API_PORT}`;
     // Release builds block plain HTTP on Android and should never send
     // passwords or face photos unencrypted.
@@ -166,7 +169,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError: unknown) {
       processQueue(refreshError, null);
-      showError('Sesi habis, silakan login ulang', 'Sesi Berakhir');
+      showError(t('api.yourSessionHasExpiredPlease'), t('api.sessionEnded'));
       await clearTokens();
       return Promise.reject(refreshError);
     } finally {
@@ -198,20 +201,22 @@ apiClient.interceptors.response.use(
 
     if (!error.response) {
       // Network error / timeout
-      showError('Tidak ada koneksi internet atau server tidak dapat dijangkau', 'Koneksi Gagal');
+      showError(t('api.noInternetConnectionOrThe'), t('api.connectionFailed'));
+    } else if (status === 403 && (error.response.data as any)?.detail?.code === 'DEMO_READ_ONLY') {
+      showError(t('api.demoReadOnly'));
     } else if (status === 403) {
-      showError('Anda tidak memiliki izin untuk melakukan tindakan ini', 'Akses Ditolak');
+      showError(t('api.youDoNotHavePermission'), t('api.accessDenied'));
     } else if (status === 422) {
       const detail = (error.response.data as any)?.detail;
-      let msg = 'Data yang dikirim tidak valid';
+      let msg = t('api.theSubmittedDataIsNot');
       if (typeof detail === 'string') {
         msg = detail;
       } else if (Array.isArray(detail) && detail.length > 0) {
         msg = detail.map((d: any) => d?.msg ?? String(d)).join(', ');
       }
-      showError(msg, 'Validasi Gagal');
+      showError(msg, t('api.validationFailed'));
     } else if (status != null && status >= 500) {
-      showError('Terjadi kesalahan server. Silakan coba lagi', 'Server Error');
+      showError(t('api.serverErrorPleaseTryAgain'), 'Server Error');
     }
 
     return Promise.reject(error);

@@ -15,6 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { isAxiosError } from '../api/axios';
 import { useLogin } from '../hooks/useAuth';
 import { colors } from '../theme/colors'
+import { t } from '../i18n'
+import DemoLoginPanel from '../components/DemoLoginPanel';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
@@ -39,10 +42,10 @@ export default function LoginScreen() {
       // Network error — server never responded (wrong IP, backend down, firewall, etc.)
       if (!error.response) {
         const url = error.config?.baseURL ?? '';
-        return `Tidak dapat terhubung ke server.\n\nPastikan:\n• Backend berjalan\n• HP dan PC di jaringan Wi-Fi yang sama\n• IP di .env sudah benar\n  (${url})`;
+        return t('login.cannotReachTheServerCheck', { url });
       }
-      if (error.response.status === 429) return 'Terlalu banyak percobaan. Silakan tunggu.';
-      if (error.response.status >= 500) return 'Server error. Silakan coba lagi nanti.';
+      if (error.response.status === 429) return t('login.tooManyAttemptsPleaseWait');
+      if (error.response.status >= 500) return t('login.serverErrorPleaseTryAgain');
 
       // Structured error codes from backend
       const data = error.response.data as {
@@ -51,25 +54,25 @@ export default function LoginScreen() {
         retry_in_minutes?: number;
       } | undefined;
       const code = data?.code;
-      if (code === 'USER_NOT_FOUND') return 'Username tidak ditemukan.';
+      if (code === 'USER_NOT_FOUND') return t('login.accountNotFound');
       if (code === 'WRONG_PASSWORD') {
         const rem = data?.attempts_remaining;
         return rem != null
-          ? `Password salah. Sisa percobaan: ${rem} kali.`
-          : 'Password salah.';
+          ? t('login.wrongPasswordAttemptsLeft', { rem })
+          : t('login.wrongPassword');
       }
       if (code === 'ACCOUNT_LOCKED') {
         const mins = data?.retry_in_minutes;
         return mins != null
-          ? `Akun terkunci. Coba lagi dalam ${mins} menit.`
-          : 'Akun terkunci. Coba lagi beberapa menit lagi.';
+          ? t('login.accountLockedTryAgainIn2', { mins })
+          : t('login.accountLockedTryAgainIn');
       }
-      if (code === 'ACCOUNT_INACTIVE') return 'Akun tidak aktif. Hubungi administrator.';
+      if (code === 'ACCOUNT_INACTIVE') return t('login.accountInactiveContactYourAdministrator');
 
-      if (error.response.status === 401) return 'Email/ID atau password salah.';
+      if (error.response.status === 401) return t('login.wrongEmailIdOrPassword');
     }
     // Internal auth errors (e.g. "No refresh token available") must never surface raw
-    return 'Login gagal. Periksa username dan password.';
+    return t('login.signInFailedCheckYour');
   }
 
   async function handleLogin() {
@@ -100,21 +103,23 @@ export default function LoginScreen() {
               accessibilityIgnoresInvertColors
             />
             <Text style={styles.eyebrow}>Rollproof</Text>
-            <Text style={styles.appName}>Masuk ke akunmu</Text>
-            <Text style={styles.subtitle}>Presensi dan operasional karyawan</Text>
+            <Text style={styles.appName}>{t('login.signInToYourAccount')}</Text>
+            <Text style={styles.subtitle}>{t('login.attendanceWithProof')}</Text>
           </View>
+
+          <DemoLoginPanel />
 
           {/* Form */}
           <View style={[styles.form, styles.card]}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email atau ID karyawan</Text>
+              <Text style={styles.label}>{t('login.emailOrEmployeeId')}</Text>
               <TextInput
                 style={styles.input}
                 value={identifier}
                 onChangeText={setIdentifier}
-                placeholder="Masukkan email atau ID karyawan"
+                placeholder={t('login.enterYourEmailOrEmployee')}
                 placeholderTextColor={colors.textMuted}
-                accessibilityLabel="Email atau ID karyawan"
+                accessibilityLabel={t('login.emailOrEmployeeId')}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -124,15 +129,15 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Kata sandi</Text>
+              <Text style={styles.label}>{t('login.password')}</Text>
               <View style={styles.passwordRow}>
                 <TextInput
                   style={[styles.input, styles.passwordInput]}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Masukkan kata sandi"
+                  placeholder={t('login.enterYourPassword')}
                   placeholderTextColor={colors.textMuted}
-                  accessibilityLabel="Kata sandi"
+                  accessibilityLabel={t('login.password')}
                   secureTextEntry={secureText}
                   textContentType="password"
                   returnKeyType="done"
@@ -143,9 +148,9 @@ export default function LoginScreen() {
                   style={styles.eyeBtn}
                   onPress={() => setSecureText((v) => !v)}
                   accessibilityRole="button"
-                  accessibilityLabel={secureText ? 'Tampilkan kata sandi' : 'Sembunyikan kata sandi'}
+                  accessibilityLabel={secureText ? t('login.showPassword') : t('login.hidePassword')}
                 >
-                  <Text style={styles.eyeText}>{secureText ? 'Lihat' : 'Tutup'}</Text>
+                  <Text style={styles.eyeText}>{secureText ? t('login.show') : t('login.hide')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -170,9 +175,13 @@ export default function LoginScreen() {
               {login.isPending ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.buttonText}>Masuk ke Rollproof</Text>
+                <Text style={styles.buttonText}>{t('login.signInToRollproof')}</Text>
               )}
             </Pressable>
+          </View>
+
+          <View style={styles.language}>
+            <LanguageSwitcher />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -309,6 +318,10 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.55,
+  },
+  language: {
+    marginTop: 24,
+    alignItems: 'center',
   },
   buttonText: {
     fontSize: 16,

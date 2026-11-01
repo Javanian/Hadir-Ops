@@ -19,17 +19,18 @@ import { useAuthState } from '../store/authStore';
 import { exportCsv } from '../utils/exportCsv';
 import { showError, showSuccess } from '../utils/toast';
 import { colors } from '../theme/colors'
+import { intlLocale, t } from '../i18n'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz, weekday: 'short', day: 'numeric', month: 'short',
   }).format(new Date(iso));
 }
 
 function formatTime(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date(iso));
 }
@@ -41,9 +42,9 @@ function formatDuration(minutes: number): string {
 }
 
 function statusLabel(status: TeamAttendanceRecord['status']): string {
-  if (status === 'ONTIME')        return 'Tepat Waktu';
-  if (status === 'LATE')          return 'Terlambat';
-  if (status === 'OUT_OF_RADIUS') return 'Di Luar Area';
+  if (status === 'ONTIME')        return t('common.onTime');
+  if (status === 'LATE')          return t('common.late');
+  if (status === 'OUT_OF_RADIUS') return t('common.outsideTheArea');
   return '-';
 }
 
@@ -102,25 +103,25 @@ function EmployeeCard({
           {summary.ontime_count > 0 && (
             <View style={[styles.statBadge, { backgroundColor: colors.successTintStrong }]}>
               <Text style={[styles.statCount, { color: colors.success }]}>{summary.ontime_count}</Text>
-              <Text style={[styles.statLabel, { color: colors.success }]}>Tepat</Text>
+              <Text style={[styles.statLabel, { color: colors.success }]}>{t('subordinateAttendance.onTime')}</Text>
             </View>
           )}
           {summary.late_count > 0 && (
             <View style={[styles.statBadge, { backgroundColor: colors.warningTintStrong }]}>
               <Text style={[styles.statCount, { color: colors.warning }]}>{summary.late_count}</Text>
-              <Text style={[styles.statLabel, { color: colors.warning }]}>Terlambat</Text>
+              <Text style={[styles.statLabel, { color: colors.warning }]}>{t('common.late')}</Text>
             </View>
           )}
           {summary.out_of_radius_count > 0 && (
             <View style={[styles.statBadge, { backgroundColor: colors.dangerTintStrong }]}>
               <Text style={[styles.statCount, { color: colors.danger }]}>{summary.out_of_radius_count}</Text>
-              <Text style={[styles.statLabel, { color: colors.danger }]}>Di Luar</Text>
+              <Text style={[styles.statLabel, { color: colors.danger }]}>{t('subordinateAttendance.outside')}</Text>
             </View>
           )}
         </View>
         <View style={[styles.statBadge, { backgroundColor: colors.muted }]}>
           <Text style={[styles.statCount, { color: colors.text }]}>{summary.total_days}</Text>
-          <Text style={[styles.statLabel, { color: colors.text }]}>Hari</Text>
+          <Text style={[styles.statLabel, { color: colors.text }]}>{t('subordinateAttendance.days')}</Text>
         </View>
       </View>
 
@@ -183,12 +184,12 @@ export default function SubordinateAttendanceScreen() {
 
   async function handleExport() {
     if (summaries.length === 0) {
-      showError('Tidak ada data untuk diekspor.');
+      showError(t('common.nothingToExport'));
       return;
     }
     setExporting(true);
     try {
-      const header = ['Karyawan', 'ID Karyawan', 'Tanggal', 'Jam Masuk', 'Jam Keluar', 'Durasi', 'Status'];
+      const header = [t('common.employee'), t('common.employeeId'), t('common.date'), t('common.checkInTime'), t('common.checkOutTime'), t('common.duration'), 'Status'];
       const rows = summaries.flatMap((s) =>
         s.records.map((r) => {
           const tz = r.site_timezone ?? 'Asia/Jakarta';
@@ -204,10 +205,10 @@ export default function SubordinateAttendanceScreen() {
         })
       );
       await exportCsv([header, ...rows], todayFilename());
-      showSuccess('Data berhasil diekspor.');
+      showSuccess(t('common.exported'));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      showError(`Gagal mengekspor: ${msg}`);
+      showError(t('common.exportFailed', { msg }));
     } finally {
       setExporting(false);
     }
@@ -224,8 +225,8 @@ export default function SubordinateAttendanceScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Tim Saya</Text>
-          <Text style={styles.headerSub}>Rekap kehadiran bawahan</Text>
+          <Text style={styles.headerTitle}>{t('subordinateAttendance.myTeam')}</Text>
+          <Text style={styles.headerSub}>{t('subordinateAttendance.yourTeamSAttendance')}</Text>
         </View>
         <TouchableOpacity
           style={[styles.exportBtn, (exporting || summaries.length === 0) && styles.exportBtnDisabled]}
@@ -260,8 +261,8 @@ export default function SubordinateAttendanceScreen() {
         />
         <Text style={[styles.infoText, hasFilter && styles.infoTextActive]}>
           {hasFilter
-            ? `Periode: ${fromDate ? fmtDateShort(fromDate) : '…'}  –  ${toDate ? fmtDateShort(toDate) : '…'}`
-            : `Menampilkan ${(records?.length ?? 0) > 0 ? records!.length : '–'} data terbaru`}
+            ? t('common.periodRange', { from: fromDate ? fmtDateShort(fromDate) : '…', to: toDate ? fmtDateShort(toDate) : '…' })
+            : t('common.showingLatest', { count: (records?.length ?? 0) > 0 ? records!.length : '–' })}
         </Text>
         {summaries.length > 0 && !isLoading && (
           <Text style={styles.infoCount}>{summaries.length} karyawan</Text>
@@ -276,19 +277,19 @@ export default function SubordinateAttendanceScreen() {
       ) : isError ? (
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={40} color={colors.textSubtle} />
-          <Text style={styles.infoTextGray}>Gagal memuat data.</Text>
+          <Text style={styles.infoTextGray}>{t('common.couldNotLoadTheData')}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
-            <Text style={styles.retryText}>Coba Lagi</Text>
+            <Text style={styles.retryText}>{t('common.tryAgain')}</Text>
           </TouchableOpacity>
         </View>
       ) : summaries.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="people-outline" size={48} color={colors.borderStrong} />
-          <Text style={styles.emptyTitle}>Tidak ada data</Text>
+          <Text style={styles.emptyTitle}>{t('subordinateAttendance.noData')}</Text>
           <Text style={styles.emptySubtitle}>
             {hasFilter
-              ? 'Tidak ada kehadiran pada periode yang dipilih.'
-              : 'Tidak ada bawahan terdaftar atau belum ada kehadiran terbaru.'}
+              ? t('subordinateAttendance.noAttendanceInTheSelected')
+              : t('subordinateAttendance.noTeamMembersYetOr')}
           </Text>
         </View>
       ) : (

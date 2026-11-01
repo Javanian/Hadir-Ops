@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { OutboxItem, removeItem } from '../offline/outbox';
 import { flush } from '../offline/sync';
 import { colors } from '../theme/colors';
+import { intlLocale, t } from '../i18n'
 
 const LABEL: Record<string, string> = {
   checkin: 'Check in',
@@ -11,7 +12,7 @@ const LABEL: Record<string, string> = {
 };
 
 function formatTime(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz,
     day: '2-digit',
     month: 'short',
@@ -51,7 +52,7 @@ export default function OutboxStatus({ items, siteTimezone }: { items: OutboxIte
           <View style={styles.row}>
             <Ionicons name="cloud-upload-outline" size={20} color={colors.warningStrong} />
             <Text style={styles.title}>
-              {pending.length} absen tersimpan di HP, menunggu sinyal
+              {t('outboxStatus.pendingCount', { count: pending.length })}
             </Text>
           </View>
           {pending.map((i) => (
@@ -60,13 +61,13 @@ export default function OutboxStatus({ items, siteTimezone }: { items: OutboxIte
             </Text>
           ))}
           <Text style={styles.hint}>
-            Jam absen sudah tercatat. Data dikirim otomatis, tidak perlu absen ulang.
+            {t('outboxStatus.yourTimeIsRecordedIt')}
           </Text>
           <Pressable style={styles.button} onPress={sendNow} disabled={sending}>
             {sending ? (
               <ActivityIndicator size="small" color={colors.warningStrong} />
             ) : (
-              <Text style={styles.buttonText}>Kirim sekarang</Text>
+              <Text style={styles.buttonText}>{t('outboxStatus.sendNow')}</Text>
             )}
           </Pressable>
         </View>
@@ -77,13 +78,13 @@ export default function OutboxStatus({ items, siteTimezone }: { items: OutboxIte
           <View style={styles.row}>
             <Ionicons name="alert-circle-outline" size={20} color={colors.danger} />
             <Text style={styles.title}>
-              {LABEL[i.kind]} {formatTime(i.capturedAt, siteTimezone)} ditolak server
+              {t('outboxStatus.refused', { kind: LABEL[i.kind], time: formatTime(i.capturedAt, siteTimezone) })}
             </Text>
           </View>
           <Text style={styles.line}>{i.lastError}</Text>
-          <Text style={styles.hint}>Percobaan ini sudah dilaporkan ke supervisor.</Text>
+          <Text style={styles.hint}>{t('outboxStatus.thisAttemptHasBeenReported')}</Text>
           <Pressable style={styles.button} onPress={() => removeItem(i.id)}>
-            <Text style={styles.buttonText}>Tutup</Text>
+            <Text style={styles.buttonText}>{t('common.close')}</Text>
           </Pressable>
         </View>
       ))}

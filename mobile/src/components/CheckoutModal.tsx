@@ -18,6 +18,7 @@ import { AttendanceRecord } from '../types/attendance';
 import { Fix, getFix } from '../utils/location';
 import { reviewReason } from '../utils/reviewReason';
 import { colors } from '../theme/colors'
+import { intlLocale, t } from '../i18n'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -35,13 +36,13 @@ interface Props {
 function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h === 0) return `${m} menit`;
-  if (m === 0) return `${h} jam`;
-  return `${h} jam ${m} menit`;
+  if (h === 0) return t('common.min', { m });
+  if (m === 0) return t('common.h', { h });
+  return t('common.hMin', { h, m });
 }
 
 function formatTime(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: tz,
     hour: '2-digit',
     minute: '2-digit',
@@ -87,7 +88,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        setErrorMsg('Izin kamera diperlukan untuk verifikasi wajah. Aktifkan di Pengaturan.');
+        setErrorMsg(t('common.cameraAccessIsNeededTo'));
         setRetryToFace(false);
         setStep('error');
         return;
@@ -140,8 +141,8 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           setRetryToFace(false);
           setErrorMsg(
             status === 409
-              ? 'Data wajah Anda dibuat dengan versi lama. Silakan daftarkan ulang wajah di halaman Profil.'
-              : 'Wajah belum terdaftar. Silakan daftarkan wajah di halaman Profil terlebih dahulu.',
+              ? t('common.yourFaceWasEnrolledWith')
+              : t('common.noFaceEnrolledYetPlease'),
           );
           setStep('error');
           return;
@@ -162,7 +163,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
       if (!res.verified) {
         reportAttempt(userId, 'CHECKOUT', 'FACE_MISMATCH', `similarity ${res.similarity}`, body);
         setRetryToFace(true);
-        setErrorMsg('Wajah tidak dikenali. Pastikan wajah Anda menghadap kamera dan coba lagi.');
+        setErrorMsg(t('common.faceNotRecognisedFaceThe'));
         setStep('error');
         return;
       }
@@ -170,7 +171,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
       await send(item);
     } catch (e) {
       setRetryToFace(true);
-      setErrorMsg(`Gagal check out: ${errorMessage(e)}`);
+      setErrorMsg(t('checkout.checkOutFailed', { value: errorMessage(e) }));
       setStep('error');
     } finally {
       setIsCapturing(false);
@@ -182,8 +183,8 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.action} />
-          <Text style={styles.stateTitle}>Mendapatkan Lokasi</Text>
-          <Text style={styles.stateSubtitle}>Harap tunggu sebentar…</Text>
+          <Text style={styles.stateTitle}>{t('common.gettingYourLocation')}</Text>
+          <Text style={styles.stateSubtitle}>{t('common.pleaseWaitAMoment2')}</Text>
         </View>
       );
     }
@@ -194,15 +195,15 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           <View style={styles.iconCircle}>
             <Ionicons name="log-out-outline" size={32} color={colors.action} />
           </View>
-          <Text style={styles.stateTitle}>Konfirmasi Check Out</Text>
+          <Text style={styles.stateTitle}>{t('checkout.confirmCheckOut')}</Text>
           <Text style={styles.stateSubtitle}>
             {fix
-              ? `Lokasi: ${fix.latitude.toFixed(5)}, ${fix.longitude.toFixed(5)}`
-              : 'Tanpa data lokasi'}
+              ? t('checkout.location', { value: fix.latitude.toFixed(5), value2: fix.longitude.toFixed(5) })
+              : t('checkout.noLocationData')}
           </Text>
           <Pressable style={styles.confirmBtn} onPress={openFaceVerify}>
             <Ionicons name="log-out-outline" size={20} color={colors.white} />
-            <Text style={styles.confirmBtnText}>Konfirmasi Check Out</Text>
+            <Text style={styles.confirmBtnText}>{t('checkout.confirmCheckOut')}</Text>
           </Pressable>
         </View>
       );
@@ -218,13 +219,13 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           </View>
           {/* Floating controls */}
           <View style={styles.cameraControls}>
-            <Text style={styles.cameraHint}>Posisikan wajah di dalam lingkaran</Text>
+            <Text style={styles.cameraHint}>{t('common.placeYourFaceInsideThe')}</Text>
             <Pressable
               style={styles.shutterBtn}
               onPress={handleCapture}
               disabled={isCapturing}
               accessibilityRole="button"
-              accessibilityLabel="Ambil foto"
+              accessibilityLabel={t('common.takePhoto')}
             >
               {isCapturing
                 ? <ActivityIndicator color={colors.action} />
@@ -239,8 +240,8 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.action} />
-          <Text style={styles.stateTitle}>Memverifikasi Wajah…</Text>
-          <Text style={styles.stateSubtitle}>Harap tunggu sebentar.</Text>
+          <Text style={styles.stateTitle}>{t('common.verifyingYourFace')}</Text>
+          <Text style={styles.stateSubtitle}>{t('common.pleaseWaitAMoment')}</Text>
         </View>
       );
     }
@@ -249,7 +250,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
       return (
         <View style={styles.stateBox}>
           <ActivityIndicator size="large" color={colors.action} />
-          <Text style={styles.stateTitle}>Mencatat Absensi Pulang…</Text>
+          <Text style={styles.stateTitle}>{t('checkout.recordingCheckOut')}</Text>
         </View>
       );
     }
@@ -260,14 +261,13 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           <View style={[styles.iconCircle, { backgroundColor: colors.warningTintStrong }]}>
             <Ionicons name="cloud-upload-outline" size={36} color={colors.warning} />
           </View>
-          <Text style={styles.stateTitle}>Check Out Tersimpan di HP</Text>
+          <Text style={styles.stateTitle}>{t('checkout.checkOutSavedOnThe')}</Text>
           <Text style={styles.timeText}>{formatTime(queuedAt, siteTimezone)}</Text>
           <Text style={styles.stateSubtitle}>
-            Belum ada sinyal ke server. Jam pulang Anda sudah tercatat dan akan dikirim
-            otomatis saat koneksi kembali.
+            {t('checkout.noSignalToTheServer')}
           </Text>
           <Pressable style={styles.doneBtn} onPress={onClose}>
-            <Text style={styles.doneBtnText}>Mengerti</Text>
+            <Text style={styles.doneBtnText}>{t('common.gotIt')}</Text>
           </Pressable>
         </View>
       );
@@ -279,20 +279,20 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           <View style={[styles.iconCircle, { backgroundColor: colors.successTintStrong }]}>
             <Ionicons name="checkmark-circle" size={40} color={colors.success} />
           </View>
-          <Text style={styles.stateTitle}>Check Out Berhasil!</Text>
+          <Text style={styles.stateTitle}>{t('checkout.checkedOut')}</Text>
           {result.checkout_time && (
             <Text style={styles.timeText}>{formatTime(result.checkout_time, siteTimezone)}</Text>
           )}
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Durasi Kerja</Text>
+              <Text style={styles.summaryLabel}>{t('checkout.timeWorked')}</Text>
               <Text style={styles.summaryValue}>
                 {formatDuration(result.work_duration_minutes)}
               </Text>
             </View>
             {result.overtime_minutes > 0 && (
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Lembur</Text>
+                <Text style={styles.summaryLabel}>{t('common.overtime')}</Text>
                 <Text style={[styles.summaryValue, { color: colors.overtime }]}>
                   {formatDuration(result.overtime_minutes)}
                 </Text>
@@ -301,11 +301,11 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           </View>
           {result.needs_review && (
             <Text style={styles.stateSubtitle}>
-              Supervisor akan meninjau karena {reviewReason(result.risk_flags)}.
+              {t('checkout.needsReview', { reason: reviewReason(result.risk_flags) })}
             </Text>
           )}
           <Pressable style={styles.doneBtn} onPress={onClose}>
-            <Text style={styles.doneBtnText}>Selesai</Text>
+            <Text style={styles.doneBtnText}>{t('common.done')}</Text>
           </Pressable>
         </View>
       );
@@ -317,7 +317,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           <View style={[styles.iconCircle, { backgroundColor: colors.dangerTintStrong }]}>
             <Ionicons name="alert-circle" size={36} color={colors.danger} />
           </View>
-          <Text style={styles.stateTitle}>Gagal</Text>
+          <Text style={styles.stateTitle}>{t('common.failed')}</Text>
           <Text style={styles.errorText}>{errorMsg}</Text>
           {retryToFace ? (
             <Pressable
@@ -325,12 +325,12 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
               onPress={() => { setErrorMsg(''); setStep('face_verify'); }}
             >
               <Ionicons name="camera-outline" size={18} color={colors.action} />
-              <Text style={styles.retryBtnText}>Coba Lagi</Text>
+              <Text style={styles.retryBtnText}>{t('common.tryAgain')}</Text>
             </Pressable>
           ) : (
             <Pressable style={styles.retryBtn} onPress={requestAndLocate}>
               <Ionicons name="refresh-outline" size={18} color={colors.action} />
-              <Text style={styles.retryBtnText}>Coba Lagi</Text>
+              <Text style={styles.retryBtnText}>{t('common.tryAgain')}</Text>
             </Pressable>
           )}
         </View>
@@ -360,7 +360,7 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Check Out</Text>
             {canClose && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} hitSlop={12}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={onClose} hitSlop={12}>
                 <Ionicons name="close" size={24} color={colors.textMuted} />
               </Pressable>
             )}

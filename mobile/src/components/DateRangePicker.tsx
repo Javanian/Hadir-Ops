@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors'
+import { intlLocale, t } from '../i18n'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -28,18 +29,20 @@ export function getTodayStr(tz: string): string {
 }
 
 export function fmtDateShort(dateStr: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     day: '2-digit', month: 'short', year: 'numeric',
   }).format(new Date(`${dateStr}T12:00:00Z`));
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
 
-const MONTHS_ID = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-];
-const DAY_LABELS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+// Month and weekday names in the app's language (2026-03-01 is a Sunday)
+const MONTHS = Array.from({ length: 12 }, (_, i) =>
+  new Intl.DateTimeFormat(intlLocale, { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, i, 1))),
+);
+const DAY_LABELS = Array.from({ length: 7 }, (_, i) =>
+  new Intl.DateTimeFormat(intlLocale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 2, 1 + i))),
+);
 
 export interface CalendarProps {
   todayStr: string;
@@ -86,11 +89,11 @@ export function Calendar({
     <View>
       {/* Month nav */}
       <View style={cal.nav}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Bulan sebelumnya" style={cal.navBtn} onPress={() => goMonth(-1)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('dateRangePicker.previousMonth')} style={cal.navBtn} onPress={() => goMonth(-1)}>
           <Ionicons name="chevron-back" size={20} color={colors.action} />
         </TouchableOpacity>
-        <Text style={cal.navTitle}>{MONTHS_ID[month]} {year}</Text>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Bulan berikutnya" style={cal.navBtn} onPress={() => goMonth(1)}>
+        <Text style={cal.navTitle}>{MONTHS[month]} {year}</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('dateRangePicker.nextMonth')} style={cal.navBtn} onPress={() => goMonth(1)}>
           <Ionicons name="chevron-forward" size={20} color={colors.action} />
         </TouchableOpacity>
       </View>
@@ -184,7 +187,7 @@ export function DatePickerModal({
       <SafeAreaView style={dpm.safe} edges={['top', 'bottom']}>
         <View style={dpm.header}>
           <Text style={dpm.title}>{title}</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tutup" hitSlop={10} onPress={onClose}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={10} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -194,7 +197,7 @@ export function DatePickerModal({
             <View style={dpm.selectedBadge}>
               <Ionicons name="calendar" size={15} color={colors.action} />
               <Text style={dpm.selectedText}>{fmtDateShort(selected)}</Text>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Hapus tanggal terpilih" hitSlop={10} onPress={() => onSelect('__clear__')} style={dpm.clearIcon}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('dateRangePicker.clearTheSelectedDate')} hitSlop={10} onPress={() => onSelect('__clear__')} style={dpm.clearIcon}>
                 <Ionicons name="close-circle" size={16} color={colors.textSubtle} />
               </TouchableOpacity>
             </View>
@@ -271,7 +274,7 @@ export function DateRangeBar({
           style={{ marginRight: 4 }}
         />
         <Text style={[drb.btnText, !!fromDate && drb.btnTextActive]} numberOfLines={1}>
-          {fromDate ? fmtDateShort(fromDate) : 'Dari tanggal'}
+          {fromDate ? fmtDateShort(fromDate) : t('common.fromDate')}
         </Text>
       </TouchableOpacity>
 
@@ -288,11 +291,11 @@ export function DateRangeBar({
           style={{ marginRight: 4 }}
         />
         <Text style={[drb.btnText, !!toDate && drb.btnTextActive]} numberOfLines={1}>
-          {toDate ? fmtDateShort(toDate) : 'Sampai tanggal'}
+          {toDate ? fmtDateShort(toDate) : t('common.toDate')}
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Hapus filter tanggal"
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('common.clearTheDateFilter')}
         onPress={() => { onFromDate(null); onToDate(null); }}
         style={[drb.clearBtn, !hasFilter && drb.clearBtnHidden]}
         disabled={!hasFilter}
@@ -302,7 +305,7 @@ export function DateRangeBar({
 
       <DatePickerModal
         visible={showFrom}
-        title="Dari Tanggal"
+        title={t('common.from')}
         selected={fromDate}
         todayStr={todayStr}
         onSelect={(d) => {
@@ -316,7 +319,7 @@ export function DateRangeBar({
 
       <DatePickerModal
         visible={showTo}
-        title="Sampai Tanggal"
+        title={t('common.to')}
         selected={toDate}
         todayStr={todayStr}
         onSelect={(d) => {

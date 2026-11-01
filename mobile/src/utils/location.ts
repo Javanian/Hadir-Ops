@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { t } from '../i18n'
 
 export interface Fix {
   latitude: number;
@@ -29,7 +30,7 @@ export async function getFix(timeoutMs = 15_000): Promise<Fix> {
   if (status !== 'granted') {
     throw new LocationError(
       'PERMISSION',
-      'Izin lokasi diperlukan untuk absensi. Aktifkan di Pengaturan > Aplikasi > Izin Lokasi.',
+      t('location.locationAccessIsNeededTo'),
     );
   }
 
@@ -58,5 +59,5 @@ export async function getFix(timeoutMs = 15_000): Promise<Fix> {
     };
   }
 
-  throw new LocationError('NO_FIX', 'Lokasi belum didapat. Pastikan GPS aktif, lalu coba di tempat terbuka.');
+  throw new LocationError('NO_FIX', t('location.noLocationYetMakeSure'));
 }

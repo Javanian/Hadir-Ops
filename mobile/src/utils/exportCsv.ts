@@ -14,6 +14,7 @@
  */
 
 import { Platform } from 'react-native';
+import { t } from '../i18n'
 
 function escapeCsvCell(value: unknown): string {
   const str = String(value ?? '');
@@ -47,7 +48,7 @@ export async function exportCsv(rows: unknown[][], filename: string): Promise<vo
   if (isAvailable) {
     await Sharing.shareAsync(uri, {
       mimeType: 'text/csv',
-      dialogTitle: 'Ekspor ke Excel / CSV',
+      dialogTitle: t('exportCsv.exportToExcelCsv'),
       UTI: 'public.comma-separated-values-text',
     });
     return;
@@ -58,11 +59,11 @@ export async function exportCsv(rows: unknown[][], filename: string): Promise<vo
     try {
       folder = await Directory.pickDirectoryAsync();
     } catch {
-      throw new Error('Izin penyimpanan ditolak.');
+      throw new Error(t('exportCsv.storageAccessDenied'));
     }
     await folder.createFile(filename, 'text/csv').write(csv);
     return;
   }
 
-  throw new Error('Berbagi file tidak tersedia di perangkat ini.');
+  throw new Error(t('exportCsv.fileSharingIsNotAvailable'));
 }

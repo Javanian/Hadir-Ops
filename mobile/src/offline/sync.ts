@@ -20,6 +20,7 @@ import { getAuthState, subscribeToAuthState } from '../store/authStore';
 import { AttendanceRecord } from '../types/attendance';
 import { newEventId } from '../utils/eventId';
 import { addItem, getItems, loadOutbox, OutboxItem, OutboxKind, removeItem, updateItem } from './outbox';
+import { t } from '../i18n'
 
 const SESSION = newEventId();
 const APP_VERSION = Constants.expoConfig?.version ?? 'dev';
@@ -82,7 +83,7 @@ export function errorMessage(e: unknown): string {
   if (isAxiosError(e)) {
     const detail = (e.response?.data as { detail?: unknown } | undefined)?.detail;
     if (typeof detail === 'string') return detail;
-    if (!e.response) return 'Tidak ada koneksi ke server';
+    if (!e.response) return t('sync.noConnectionToTheServer');
     return `HTTP ${e.response.status}`;
   }
   return e instanceof Error ? e.message : String(e);

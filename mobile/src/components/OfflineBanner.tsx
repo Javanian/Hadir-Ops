@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { colors } from '../theme/colors'
+import { t } from '../i18n'
 
 export default function OfflineBanner() {
   const { isConnected } = useNetworkStatus();
@@ -12,7 +13,7 @@ export default function OfflineBanner() {
   return (
     <View style={styles.banner}>
       <Ionicons name="cloud-offline-outline" size={16} color={colors.white} />
-      <Text style={styles.text}>Tidak ada koneksi internet</Text>
+      <Text style={styles.text}>{t('offlineBanner.noInternetConnection')}</Text>
     </View>
   );
 }

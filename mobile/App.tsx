@@ -7,6 +7,7 @@ import Toast from 'react-native-toast-message';
 import { isAxiosError } from './src/api/axios';
 import RootNavigator from './src/navigation/RootNavigator';
 import { startOutboxSync } from './src/offline/sync';
+import { t } from './src/i18n';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,15 +46,15 @@ class ErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <SafeAreaView style={styles.container}>
-          <Text style={styles.title}>Terjadi Kesalahan</Text>
+          <Text style={styles.title}>{t('app.somethingWentWrong')}</Text>
           <Text style={styles.message}>
-            {this.state.error?.message ?? 'Kesalahan tidak diketahui'}
+            {this.state.error?.message ?? t('app.unknownError')}
           </Text>
           <TouchableOpacity
             style={styles.button}
             onPress={() => this.setState({ hasError: false, error: null })}
           >
-            <Text style={styles.buttonText}>Muat Ulang</Text>
+            <Text style={styles.buttonText}>{t('app.reload')}</Text>
           </TouchableOpacity>
         </SafeAreaView>
       );

@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { isAxiosError } from '../api/axios';
 import { useChangePassword } from '../hooks/useAuth';
 import { colors } from '../theme/colors'
+import { t } from '../i18n'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,21 +28,24 @@ interface Props {
 
 function getServerError(error: unknown): string {
   if (isAxiosError(error) && error.response?.data) {
-    const data = error.response.data as { code?: string } | undefined;
-    switch (data?.code) {
+    // FastAPI puts the code in `detail` ({"detail": {"code": ...}})
+    const data = error.response.data as { code?: string; detail?: { code?: string } } | undefined;
+    switch (data?.code ?? (typeof data?.detail === 'object' ? data.detail?.code : undefined)) {
+      case 'DEMO_READ_ONLY':
+        return t('api.demoReadOnly');
       case 'SAME_PASSWORD':
-        return 'Password baru tidak boleh sama dengan password lama.';
+        return t('changePassword.theNewPasswordMustDiffer');
       case 'WRONG_CURRENT_PASSWORD':
-        return 'Password saat ini salah.';
+        return t('changePassword.theCurrentPasswordIsWrong');
       default:
         break;
     }
     // FastAPI validation error (422)
     if (error.response.status === 422) {
-      return 'Input tidak valid. Periksa kembali isian Anda.';
+      return t('changePassword.invalidInputPleaseCheckWhat');
     }
   }
-  return 'Terjadi kesalahan. Silakan coba lagi.';
+  return t('changePassword.somethingWentWrongPleaseTry');
 }
 
 // ── PasswordField sub-component ───────────────────────────────────────────────
@@ -80,7 +84,7 @@ function PasswordField({
           style={fieldStyles.eyeBtn}
           onPress={() => setSecure((v) => !v)}
           accessibilityRole="button"
-          accessibilityLabel={secure ? 'Tampilkan password' : 'Sembunyikan password'}
+          accessibilityLabel={secure ? t('changePassword.showPassword') : t('changePassword.hidePassword')}
         >
           <Ionicons name={secure ? 'eye-outline' : 'eye-off-outline'} size={20} color={colors.textMuted} />
         </Pressable>
@@ -151,15 +155,15 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
 
     // Client-side validation
     if (!currentPw || !newPw || !confirmPw) {
-      setClientError('Semua kolom wajib diisi.');
+      setClientError(t('changePassword.pleaseFillInEveryField'));
       return;
     }
     if (newPw.length < 8) {
-      setClientError('Password baru minimal 8 karakter.');
+      setClientError(t('changePassword.theNewPasswordNeedsAt'));
       return;
     }
     if (newPw !== confirmPw) {
-      setClientError('Konfirmasi password tidak cocok.');
+      setClientError(t('changePassword.thePasswordsDoNotMatch'));
       return;
     }
 
@@ -194,9 +198,9 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Ionicons name="lock-closed-outline" size={20} color={colors.action} />
-              <Text style={styles.headerTitle}>Ubah Password</Text>
+              <Text style={styles.headerTitle}>{t('common.changePassword')}</Text>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={handleClose} disabled={isPending} style={styles.closeBtn}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={handleClose} disabled={isPending} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -207,24 +211,24 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
             showsVerticalScrollIndicator={false}
           >
             <PasswordField
-              label="Password Saat Ini"
+              label={t('changePassword.currentPassword')}
               value={currentPw}
               onChangeText={setCurrentPw}
-              placeholder="Masukkan password saat ini"
+              placeholder={t('changePassword.enterYourCurrentPassword')}
               editable={!isPending}
             />
             <PasswordField
-              label="Password Baru"
+              label={t('changePassword.newPassword')}
               value={newPw}
               onChangeText={setNewPw}
-              placeholder="Minimal 8 karakter"
+              placeholder={t('changePassword.atLeast8Characters')}
               editable={!isPending}
             />
             <PasswordField
-              label="Konfirmasi Password Baru"
+              label={t('changePassword.confirmNewPassword')}
               value={confirmPw}
               onChangeText={setConfirmPw}
-              placeholder="Ulangi password baru"
+              placeholder={t('changePassword.repeatTheNewPassword')}
               editable={!isPending}
             />
 
@@ -243,7 +247,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
               {isPending ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.submitText}>Simpan Password</Text>
+                <Text style={styles.submitText}>{t('changePassword.savePassword')}</Text>
               )}
             </Pressable>
           </ScrollView>

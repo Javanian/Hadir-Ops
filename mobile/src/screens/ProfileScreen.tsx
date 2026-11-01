@@ -18,6 +18,9 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import OfflineBanner from '../components/OfflineBanner';
 import { colors } from '../theme/colors'
 import { roleLabel } from '../utils/roles'
+import { t } from '../i18n'
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import DemoBanner from '../components/DemoBanner';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -85,7 +88,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profil</Text>
+        <Text style={styles.headerTitle}>{t('common.profile')}</Text>
       </View>
       <OfflineBanner />
 
@@ -105,12 +108,14 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        <DemoBanner />
+
         {/* Info Section */}
         <View style={styles.infoCard}>
-          <Text style={styles.sectionLabel}>Informasi Akun</Text>
+          <Text style={styles.sectionLabel}>{t('profile.account')}</Text>
           <InfoRow
             icon="id-card-outline"
-            label="ID Karyawan"
+            label={t('common.employeeId')}
             value={user?.employee_id ?? '-'}
           />
           <View style={styles.divider} />
@@ -122,20 +127,20 @@ export default function ProfileScreen() {
           <View style={styles.divider} />
           <InfoRow
             icon="location-outline"
-            label="Lokasi Kerja"
-            value={user?.site_name ?? (user?.site_id != null ? `Lokasi #${user.site_id}` : 'Belum ditetapkan')}
+            label={t('profile.workSite')}
+            value={user?.site_name ?? (user?.site_id != null ? t('profile.site', { site_id: user.site_id }) : t('profile.notAssigned'))}
           />
           <View style={styles.divider} />
           <InfoRow
             icon="shield-checkmark-outline"
             label="Status"
-            value={user?.is_active ? 'Aktif' : 'Nonaktif'}
+            value={user?.is_active ? t('profile.active') : t('profile.inactive')}
           />
         </View>
 
         {/* Face Biometric */}
         <View style={styles.faceCard}>
-            <Text style={styles.sectionLabel}>Wajah Biometrik</Text>
+            <Text style={styles.sectionLabel}>{t('profile.faceEnrolment')}</Text>
             <View style={styles.faceStatusRow}>
               {faceStatusLoading ? (
                 <ActivityIndicator size="small" color={colors.textMuted} />
@@ -148,10 +153,10 @@ export default function ProfileScreen() {
                   />
                   <Text style={[styles.faceStatusText, faceStatus?.has_face && styles.faceStatusActive]}>
                     {faceStatus?.has_face
-                      ? 'Wajah sudah terdaftar'
+                      ? t('profile.faceEnrolled')
                       : faceStatus?.reregister_required
-                        ? 'Perlu didaftarkan ulang'
-                        : 'Belum terdaftar'}
+                        ? t('profile.needsToBeEnrolledAgain')
+                        : t('profile.notEnrolled')}
                   </Text>
                 </>
               )}
@@ -167,9 +172,15 @@ export default function ProfileScreen() {
                 color={faceStatus?.has_face ? colors.action : colors.white}
               />
               <Text style={[styles.faceBtnText, faceStatus?.has_face && styles.faceBtnTextOutline]}>
-                {faceStatus?.has_face ? 'Perbarui Wajah' : 'Daftarkan Wajah'}
+                {faceStatus?.has_face ? t('profile.updateFace') : t('common.enrolFace')}
               </Text>
             </Pressable>
+        </View>
+
+        {/* Language */}
+        <View style={styles.infoCard}>
+          <Text style={styles.sectionLabel}>{t('profile.language')}</Text>
+          <LanguageSwitcher />
         </View>
 
         {/* Change Password */}
@@ -180,7 +191,7 @@ export default function ProfileScreen() {
           <View style={styles.infoIcon}>
             <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
           </View>
-          <Text style={styles.actionLabel}>Ubah Password</Text>
+          <Text style={styles.actionLabel}>{t('common.changePassword')}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
         </Pressable>
 
@@ -195,7 +206,7 @@ export default function ProfileScreen() {
           ) : (
             <>
               <Ionicons name="log-out-outline" size={20} color={colors.white} />
-              <Text style={styles.logoutText}>Keluar</Text>
+              <Text style={styles.logoutText}>{t('profile.signOut')}</Text>
             </>
           )}
         </Pressable>
