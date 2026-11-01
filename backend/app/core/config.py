@@ -73,9 +73,13 @@ class Settings(BaseSettings):
         except Exception:
             return ["http://localhost:3000"]
 
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.lower() == "production"
+
     def check_production_safety(self) -> None:
         """Refuse to start a production instance with development secrets."""
-        if self.ENVIRONMENT.lower() != "production":
+        if not self.is_production:
             return
         if self.SECRET_KEY.startswith("change-this") or len(self.SECRET_KEY) < 32:
             raise RuntimeError(

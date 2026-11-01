@@ -87,3 +87,6 @@ backend/models/
 
 # MongoDB replica set keyfile (a secret, generated per deployment)
 deploy/mongo-keyfile
+
+# Database backups (deploy/backup.sh)
+backups/

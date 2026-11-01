@@ -1,22 +1,28 @@
+# Production, one host:  internet -> web (Caddy: HTTPS, dashboard, /api) -> backend -> db
+#
+#   cp .env.example .env               # set DOMAIN, DB_PASSWORD
+#   cp backend/.env.example backend/.env   # set SECRET_KEY
+#   openssl rand -base64 756 > deploy/mongo-keyfile
+#   chmod 400 deploy/mongo-keyfile && sudo chown 999:999 deploy/mongo-keyfile
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Only the web service publishes ports. For MongoDB Atlas or another managed
+# database, drop the db service and point MONGODB_URL at it.
 services:
   db:
-    # Single-host deployment. For several hosts or a managed service (MongoDB
-    # Atlas on GCP or AWS), drop this service and point MONGODB_URL at it.
-    image: mongo:8.0.12
+    image: mongo:9.0.4@sha256:452bdaf2127b8ff851e31410a267809b9829eded219979f2210e7c7efb85a058
     container_name: hadirops_db
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${DB_USER:-hadirops}
-      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASSWORD}
-    # Access control on a replica set needs a keyfile shared by its members:
-    #   openssl rand -base64 756 > deploy/mongo-keyfile
-    #   chmod 400 deploy/mongo-keyfile && sudo chown 999:999 deploy/mongo-keyfile
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    # Access control on a replica set needs a keyfile shared by its members.
     command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo/keyfile"]
-    # No ports exposed to host — accessible only within Docker network
     volumes:
       - mongodata:/data/db
       - ./deploy/mongo-keyfile:/etc/mongo/keyfile:ro
     healthcheck:
+      # Initiates the replica set on first start, then reports its state
       test: ["CMD-SHELL", "mongosh -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --quiet --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'db:27017'}]}).ok }\""]
       interval: 10s
       timeout: 10s
@@ -25,32 +31,58 @@ services:
 
   backend:
     build: ./backend
+    image: hadirops-backend:1.1.0
     container_name: hadirops_backend
     restart: always
-    ports:
-      - "127.0.0.1:8000:8000"   # Bind to localhost only — Nginx proxies externally
     env_file:
       - ./backend/.env
     environment:
-      - MONGODB_URL=mongodb://${DB_USER:-hadirops}:${DB_PASSWORD}@db:27017/?replicaSet=rs0&authSource=admin
-      - MONGODB_DB=${DB_NAME:-hadirops}
-      - ENVIRONMENT=production   # refuses to start with the development SECRET_KEY
+      MONGODB_URL: mongodb://${DB_USER:-hadirops}:${DB_PASSWORD}@db:27017/?replicaSet=rs0&authSource=admin
+      MONGODB_DB: ${DB_NAME:-hadirops}
+      ENVIRONMENT: production          # refuses the development SECRET_KEY, hides /docs
+      # Browsers only reach the API through the dashboard's own origin; the
+      # mobile app is not a browser and needs no CORS at all.
+      CORS_ORIGINS: '["https://${DOMAIN:?set DOMAIN in .env}"]'
+      CORS_ORIGIN_REGEX: ""
+      # Nothing but Caddy can reach this port (it is not published), so its
+      # X-Forwarded-For header is trusted and rate limits see real clients.
+      FORWARDED_ALLOW_IPS: "*"
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - insightface_models:/root/.insightface
-    # No --reload, no source volume mount. Each worker runs the auto check-out
-    # loop; a lease document in MongoDB lets only one of them work at a time.
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+      - face_models:/models          # InsightFace model pack, downloaded on first start
+    # Each worker runs the auto check-out loop; a lease document in MongoDB
+    # lets only one of them work at a time.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--workers", "2"]
     healthcheck:
       # 503 (database down or face model missing) makes urlopen raise
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 180s
+      start_period: 300s             # first start downloads the face model
+
+  web:
+    build: ./web
+    image: hadirops-web:1.1.0
+    container_name: hadirops_web
+    restart: always
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"                # HTTP/3
+    volumes:
+      - caddy_data:/data             # certificates; keep this volume
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   mongodata:
-  insightface_models:
+  face_models:
+  caddy_data:
+  caddy_config:

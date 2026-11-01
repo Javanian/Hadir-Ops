@@ -138,3 +138,26 @@ async def test_passwords_written_by_passlib_still_verify():
     assert not verify_password("anything", "not-a-hash")
     with pytest.raises(ValueError):
         validate_new_password("é" * 40)  # 80 bytes
+
+
+async def test_create_admin_script_makes_one_admin(client, seed):
+    import pytest as _pytest
+    from scripts.create_admin import create_admin
+
+    user_id = await create_admin("IT@Company.example", "IT Admin", "ADM9", "Str0ng-pass")
+    r = await client.post("/auth/login", json={"identifier": "it@company.example", "password": "Str0ng-pass"})
+    assert r.status_code == 200
+    me = await client.get("/auth/me", headers={"Authorization": f"Bearer {r.json()['access_token']}"})
+    assert me.json()["role"] == "ADMIN" and me.json()["id"] == user_id
+    with _pytest.raises(SystemExit):
+        await create_admin("it@company.example", "Again", "ADM10", "Str0ng-pass")
+
+
+async def test_production_hides_the_api_docs():
+    from app.core.config import Settings
+
+    prod = Settings(ENVIRONMENT="production", SECRET_KEY="x" * 40)
+    assert prod.is_production
+    prod.check_production_safety()  # a real secret passes
+    with pytest.raises(RuntimeError):
+        Settings(ENVIRONMENT="production", SECRET_KEY="change-this-secret-key-in-production").check_production_safety()

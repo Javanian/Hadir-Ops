@@ -6,9 +6,11 @@ The system has three parts that share one API:
 
 | Component | Stack | Used by |
 | --- | --- | --- |
-| [`backend/`](backend/) | FastAPI, MongoDB (PyMongo async driver, replica set), InsightFace | Mobile app and web dashboard |
-| [`web/`](web/) | React, Vite, TypeScript, Tailwind CSS, TanStack Query and Table, Leaflet | Admins and supervisors |
-| [`mobile/`](mobile/) | React Native with Expo SDK 54, TypeScript | Employees and supervisors |
+| [`backend/`](backend/) | Python 3.14, FastAPI, MongoDB 9.0 (PyMongo async driver, replica set), InsightFace 2.1 on ONNX Runtime | Mobile app and web dashboard |
+| [`web/`](web/) | React 19, React Router 8, Vite 8, TypeScript 6, Tailwind CSS 4, TanStack Query and Table 9, Leaflet | Admins and supervisors |
+| [`mobile/`](mobile/) | Expo SDK 58, React Native 0.88 (new architecture), TypeScript 6 | Employees and supervisors |
+
+Every dependency is locked with hashes (`backend/uv.lock`, the npm lockfiles), new releases are only adopted after a 7-day cooldown, and CI fails on any deprecation warning in the backend tests and on any use of a deprecated API in the web and mobile code (see [Supply chain and upgrades](#supply-chain-and-upgrades)).
 
 ## Screenshots
 
@@ -87,13 +89,17 @@ Low-star Play Store reviews of attendance apps used in Indonesia (2,127 one- and
 
 ### Tests and load
 
-`backend/tests` runs against a real MongoDB replica set with the production indexes and validators: 69 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lease, login lockout, token invalidation after a password change, the leave request rules (including concurrent submissions), the attendance recap and the data layer (cascading deletes, validators, id allocation). CI runs them on every push against `mongo:8.0.12`, and also lints and builds the web dashboard and type-checks the mobile app.
+`backend/tests` runs against a real MongoDB replica set with the production indexes and validators: 76 tests covering the time and geofence rules, idempotent retries, concurrent submissions, offline check-ins and check-outs, review queue permissions, failed attempts, health checks, the worker lease, login lockout, token invalidation after a password change, the leave request rules (including concurrent submissions), the attendance recap, the data layer (cascading deletes, validators, id allocation), per-client login rate limiting, passwords hashed by the earlier passlib release, the first-admin script, and the real InsightFace model on its own sample photo (same person matches, another person does not, a group photo is refused). Any `DeprecationWarning` fails the run.
+
+CI runs them on Python 3.12 and 3.14 against `mongo:9.0.4`. It also lints (zero warnings, deprecated APIs are errors) and builds the web dashboard, type-checks, lints, runs `expo-doctor` on and bundles the mobile app, audits every locked dependency against OSV (including known malicious releases), checks the workflows with zizmor and builds both production images.
 
 ```bash
 cd backend
-pip install -r requirements.txt -r requirements-dev.txt
-TEST_MONGODB_URL="mongodb://localhost:27017/?replicaSet=rs0" pytest
+uv sync --extra face            # exact versions from uv.lock, hashes checked
+TEST_MONGODB_URL="mongodb://localhost:27017/?replicaSet=rs0" uv run pytest
 ```
+
+Leave out `--extra face` to skip InsightFace; the real-model tests are then skipped and the rest use a stub.
 
 `backend/scripts/load_checkin.py` simulates a morning rush against a running API: every employee checks in at once and part of the requests are sent twice. Runs on a Windows desktop (2 uvicorn workers, local single-node MongoDB 8.0 replica set, face verification off, 100 concurrent clients):
 
@@ -112,7 +118,7 @@ The offline flow was also driven end to end in the Expo web build: the browser w
 Earlier versions stored data in PostgreSQL. `backend/scripts/migrate_from_postgres.py` copies every table into MongoDB with the same ids (work schedules folded into their shift, roles into each user, pgvector embeddings into arrays) and raises the id counters above the copied ones. Stop the API first.
 
 ```bash
-pip install asyncpg
+uv pip install asyncpg
 PG_URL=postgresql://hadirops:pass@host:5432/hadirops PG_SCHEMA=hadirops \
 MONGODB_URL="mongodb://host:27017/?replicaSet=rs0" MONGODB_DB=hadirops \
     python scripts/migrate_from_postgres.py
@@ -140,7 +146,7 @@ Transactions need a replica set; a single-node set is enough and is what `docker
 
 ## Run locally
 
-Requirements: Docker Desktop with at least 4 GB of memory, Node.js 18 or newer, and Expo Go on a phone on the same network as your computer.
+Requirements: Docker Desktop with at least 4 GB of memory, Node.js 24 or 26 (LTS), and Expo Go for SDK 58 on a phone on the same network as your computer. Without Docker, the backend runs with [uv](https://docs.astral.sh/uv/) (`cd backend && uv sync --extra face && uv run uvicorn app.main:app --reload`) against any MongoDB 9.0 replica set.
 
 ```bash
 # 1. Environment files (defaults work for local development)
@@ -157,7 +163,7 @@ docker compose exec backend python seed_recent.py   # attendance for the last 7 
 
 # 4. Mobile app
 cd mobile
-npm install
+npm ci
 npm start -- --clear             # scan the QR code with Expo Go
 ```
 
@@ -188,6 +194,56 @@ docker compose down              # stop, keep database data
 docker compose down -v           # stop and delete the database volume
 ```
 
+A database volume created by an earlier version (MongoDB 8.0) starts on 9.0 as is; MongoDB keeps the 8.0 feature set until `db.adminCommand({setFeatureCompatibilityVersion: "9.0", confirm: true})` is run.
+
+## Going live
+
+`docker-compose.prod.yml` runs three containers on one host: **web** (Caddy: HTTPS with automatic certificates, the dashboard, and the API under `/api`), **backend** (two uvicorn workers) and **db** (MongoDB with authentication). Only ports 80 and 443 are published.
+
+```bash
+# On the server, in a checkout of this repository
+cp .env.example .env                       # DOMAIN, DB_PASSWORD (openssl rand -hex 24)
+cp backend/.env.example backend/.env       # SECRET_KEY (see the comment in the file)
+openssl rand -base64 756 > deploy/mongo-keyfile
+chmod 400 deploy/mongo-keyfile && sudo chown 999:999 deploy/mongo-keyfile
+
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec backend \
+    python scripts/create_admin.py --email it@company.example --name "IT Admin"
+```
+
+Then log in at `https://DOMAIN`, create sites, shifts and users, and build the mobile app against the same address.
+
+| Before go-live | Why |
+| --- | --- |
+| DNS for `DOMAIN` points at the server; ports 80 and 443 are open | Caddy needs them to obtain and renew the certificate |
+| `SECRET_KEY` is random and at least 32 characters | The API refuses to start in production otherwise; it signs every token |
+| `create_admin.py`, never `seed.py`, on the production database | `seed.py` creates demo accounts with published passwords |
+| `deploy/backup.sh` runs nightly from cron and the archives are copied off the host | One volume holds all attendance data; the script keeps 14 days locally and documents the restore command |
+| A license for the face model, or a model you are allowed to use | See below |
+| The mobile app is built with `EXPO_PUBLIC_API_BASE_URL=https://DOMAIN/api` in the EAS `production` environment | Release builds refuse a missing or plain-HTTP address |
+
+What production does differently: the API docs (`/docs`, `/redoc`, `/openapi.json`) are not served, CORS allows only `https://DOMAIN`, the backend trusts `X-Forwarded-For` only because nothing but Caddy can reach it (so login rate limits apply per employee, not to the proxy), Caddy sends HSTS, a Content-Security-Policy and the other security headers and refuses request bodies over 8 MB, and every container restarts on failure. The backend health check uses `/health/ready`, which fails while the database or the face model is missing.
+
+**Face model license.** The InsightFace library is MIT licensed, but its pretrained models, including the default `buffalo_s`, are licensed for non-commercial research only. A commercial deployment needs a commercial license from InsightFace or another recognition model; `FACE_MODEL_NAME` and `FACE_MODEL_DIR` select the model pack.
+
+### Mobile release builds
+
+```bash
+cd mobile
+npx eas-cli@latest env:set production --name EXPO_PUBLIC_API_BASE_URL --value https://DOMAIN/api --visibility plaintext
+npx eas-cli@latest build --profile production --platform android   # or ios
+```
+
+`eas.json` has a `preview` profile (installable APK for testing) and a `production` profile with automatic build numbers. The app asks only for the camera and foreground location.
+
+## Supply chain and upgrades
+
+- **Locked:** `backend/uv.lock` and the npm lockfiles record every package with its hash; Docker builds install with `uv sync --locked` and `npm ci --ignore-scripts`. Base images and GitHub Actions are pinned by digest and commit SHA.
+- **Cooldown:** a release is used only after it has been public for 7 days (`exclude-newer` in `backend/pyproject.toml`, `cooldown` in Dependabot), long enough for most malicious uploads to be found and pulled.
+- **Weekly updates:** Dependabot opens grouped pull requests for Python, npm, Docker images and Actions; CI tests and audits each one. Expo SDK packages are upgraded together with `npx expo install expo@^<sdk> --fix`.
+- **Known exceptions:** `scikit-image` is held below 2.2 until InsightFace releases its fix for a removed API (deepinsight/insightface#2901). The remaining `npm audit` findings are moderate, in build tooling only (ESLint's `minimatch`, the Expo CLI's `glob`), and wait for upstream releases.
+
 ## Repository notes
 
 - Source, app assets, npm lockfiles and `.env.example` are tracked. Local environment files, editor settings, dependencies, build output and runtime data are not.
@@ -196,7 +252,7 @@ docker compose down -v           # stop and delete the database volume
 
 ## Limitations
 
-- Face verification compares embeddings only. It has no liveness or anti-spoofing check, so a printed photo of an enrolled employee may pass.
+- Face verification compares embeddings only. It has no liveness or anti-spoofing check, so a printed photo of an enrolled employee may pass. InsightFace 2.0 added an opt-in RGB liveness model (`FaceAnalysis(addons=["liveness"])`); it is not enabled here yet.
 - Android's monotonic clock pauses in deep sleep, so a phone that slept between an offline check-in and its upload is flagged `CLOCK_MISMATCH` for review rather than proven.
 - The mobile app has no automated UI tests. The offline flow was checked in the Expo web build, not on physical devices in the field.
 - InsightFace runs on CPU inside the backend container, which makes the first start slow.

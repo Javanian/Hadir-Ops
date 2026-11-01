@@ -1,0 +1,71 @@
+# Keeps every part of the stack current after a 7-day cooldown: a release must
+# have been public for a week before it is proposed, long enough for most
+# malicious uploads to be caught and pulled. CI tests and audits each PR.
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      backend:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      web-minor:
+        update-types: ["minor", "patch"]
+
+  # Expo SDK packages, React Native and React must move together, to the
+  # versions the SDK was tested with: upgrade them with
+  # `npx expo install expo@^<sdk> --fix`, not one by one.
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "@react-native-community/*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "@types/react"
+    groups:
+      mobile:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories: ["/backend", "/web", "/mobile"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]

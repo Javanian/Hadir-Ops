@@ -134,9 +134,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="HadirOps API",
     description="API manajemen presensi, shift, penugasan, dan lembur.",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    version="1.1.0",
+    # The interactive docs list every endpoint; production does not publish them.
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
     lifespan=lifespan,
 )
 

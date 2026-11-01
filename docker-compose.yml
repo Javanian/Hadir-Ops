@@ -1,7 +1,7 @@
 services:
   db:
     # Single-node replica set: MongoDB transactions need one.
-    image: mongo:8.0.12
+    image: mongo:9.0.4@sha256:452bdaf2127b8ff851e31410a267809b9829eded219979f2210e7c7efb85a058
     container_name: hadirops_db
     restart: unless-stopped
     command: ["--replSet", "rs0", "--bind_ip_all"]
@@ -34,15 +34,15 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - insightface_models:/root/.insightface
+      - insightface_models:/models
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   web:
-    image: node:20-alpine
+    image: node:26.13.0-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94
     container_name: hadirops_web
     restart: unless-stopped
     working_dir: /app
-    command: sh -c "npm install && npm run dev -- --host"
+    command: sh -c "npm ci && npm run dev -- --host"
     ports:
       - "${WEB_PORT:-5173}:5173"
     environment:
