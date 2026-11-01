@@ -2,11 +2,11 @@
 
 **Attendance with proof.** Employees check in from their phone with a face match and a GPS fix, even without signal. Every check-in carries its evidence, nothing is silently refused, and anything doubtful goes to a supervisor's review queue instead of becoming an unpaid absence.
 
-[![CI](https://github.com/Javanian/Hadir-Ops/actions/workflows/ci.yml/badge.svg)](https://github.com/Javanian/Hadir-Ops/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Javanian/Hadir-Ops?label=release)](https://github.com/Javanian/Hadir-Ops/releases)
-[![API reference](https://img.shields.io/badge/API-reference-2563EB)](https://javanian.github.io/Hadir-Ops/)
+[![CI](https://github.com/Javanian/rollproof/actions/workflows/ci.yml/badge.svg)](https://github.com/Javanian/rollproof/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Javanian/rollproof?label=release)](https://github.com/Javanian/rollproof/releases)
+[![API reference](https://img.shields.io/badge/API-reference-2563EB)](https://javanian.github.io/rollproof/)
 
-**[Live demo](https://demo.rollproof.app)** · [Mobile app in the browser](https://demo.rollproof.app/app/) · [API reference](https://javanian.github.io/Hadir-Ops/) · [Changelog](CHANGELOG.md)
+**[Live demo](https://demo.rollproof.app)** · [Mobile app in the browser](https://demo.rollproof.app/app/) · [API reference](https://javanian.github.io/rollproof/) · [Changelog](CHANGELOG.md)
 
 | Component | Stack | Used by |
 | --- | --- | --- |
@@ -78,7 +78,7 @@ The backend follows a router, service and repository split; the repositories are
 The diagram shows the online path: the face matches the stored embedding, then the server applies the location and shift rules and stores the result. When a step cannot complete (no signal, no face proof), the check-in is still stored with risk flags, as described in [Reliability](#reliability).
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Javanian/Hadir-Ops/main/docs/diagrams/rollproof-checkin-dark.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Javanian/rollproof/main/docs/diagrams/rollproof-checkin-dark.svg">
   <img alt="Check-in sequence: the mobile app takes a GPS fix and a face photo, verifies the face through FastAPI and OpenCV SFace against the stored embedding, then posts the check-in, which the API validates against the site radius and shift before inserting the attendance row" src="docs/diagrams/rollproof-checkin-light.svg">
 </picture>
 
@@ -236,7 +236,7 @@ Then log in at `https://DOMAIN`, create sites, shifts and users, and build the m
 | The mobile app is built with `EXPO_PUBLIC_API_BASE_URL=https://DOMAIN/api` in the EAS `production` environment | Release builds refuse a missing or plain-HTTP address |
 | Optional: `SENTRY_DSN` in `backend/.env` and an uptime monitor on `https://DOMAIN/api/health/ready` | Unhandled errors reach Sentry without request bodies or personal data; the monitor notices an outage before the morning rush does |
 
-What production does differently: the API docs (`/docs`, `/redoc`, `/openapi.json`) are not served (the [API reference](https://javanian.github.io/Hadir-Ops/) is published from the code instead), CORS allows only `https://DOMAIN`, the backend trusts `X-Forwarded-For` only because nothing but Caddy can reach it (so login rate limits apply per employee, not to the proxy), Caddy sends HSTS, a Content-Security-Policy and the other security headers and refuses request bodies over 8 MB, and every container restarts on failure. The backend health check uses `/health/ready`, which fails while the database or the face model is missing.
+What production does differently: the API docs (`/docs`, `/redoc`, `/openapi.json`) are not served (the [API reference](https://javanian.github.io/rollproof/) is published from the code instead), CORS allows only `https://DOMAIN`, the backend trusts `X-Forwarded-For` only because nothing but Caddy can reach it (so login rate limits apply per employee, not to the proxy), Caddy sends HSTS, a Content-Security-Policy and the other security headers and refuses request bodies over 8 MB, and every container restarts on failure. The backend health check uses `/health/ready`, which fails while the database or the face model is missing.
 
 ### Face recognition models
 
@@ -266,7 +266,7 @@ npx eas-cli@latest build --profile production --platform android   # or ios
 A `vX.Y.Z` tag runs [`release.yml`](.github/workflows/release.yml): it checks the tag against the backend and mobile versions and [CHANGELOG.md](CHANGELOG.md), pushes `ghcr.io/javanian/rollproof-backend` and `rollproof-web` with SLSA provenance and an SBOM, attests both images and creates the GitHub release from the changelog. Anyone can check that an image was built here from the tagged commit:
 
 ```bash
-gh attestation verify oci://ghcr.io/javanian/rollproof-backend:2.0.0 --repo Javanian/Hadir-Ops
+gh attestation verify oci://ghcr.io/javanian/rollproof-backend:2.0.0 --repo Javanian/rollproof
 ```
 
 Security reports: [SECURITY.md](SECURITY.md). Biometric data handling: [PRIVACY.md](PRIVACY.md).

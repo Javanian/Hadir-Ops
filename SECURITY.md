@@ -18,7 +18,7 @@ The public demo resets every day and holds only fictional data. Testing against 
 ## What the project does to stay secure
 
 - **Supply chain.** Every Python and npm dependency is locked with its hash and installed with `uv sync --locked` and `npm ci --ignore-scripts`. New releases are adopted only after a 7-day cooldown. Base images and GitHub Actions are pinned by digest and commit SHA. CI audits every locked package against OSV, including known malicious releases, and checks the workflows with zizmor.
-- **Releases.** Images on `ghcr.io` carry SLSA provenance, an SBOM and a GitHub artifact attestation; verify one with `gh attestation verify oci://ghcr.io/javanian/rollproof-backend:<version> --repo Javanian/Hadir-Ops`.
+- **Releases.** Images on `ghcr.io` carry SLSA provenance, an SBOM and a GitHub artifact attestation; verify one with `gh attestation verify oci://ghcr.io/javanian/rollproof-backend:<version> --repo Javanian/rollproof`.
 - **Model files.** The face models are pinned to one upstream commit and their SHA-256, checked at build time and again at every start.
 - **Authentication.** bcrypt password hashes, short-lived access tokens, refresh tokens that stop working after a password change, account lockout after repeated failures, and per-client rate limits on sign-in.
 - **Authorization.** Object-level access rules in one module: supervisors reach only their direct reports, employees only themselves, and an unknown role gets the narrowest access.

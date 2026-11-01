@@ -12,7 +12,7 @@
     "quality_profile": "showcase",
     "locale": "en",
     "repository": {
-      "url": "git@github.com:Javanian/Hadir-Ops.git",
+      "url": "git@github.com:Javanian/rollproof.git",
       "link_mode": "local-only",
       "revision": "0618b3312f0dc8c62346b8fb923a427dd522d2b1"
     }

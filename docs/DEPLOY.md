@@ -12,7 +12,7 @@ Install Docker Engine with the compose plugin ([docs.docker.com/engine/install](
 
 ```bash
 sudo mkdir -p /opt/rollproof && sudo chown "$USER" /opt/rollproof
-git clone https://github.com/Javanian/Hadir-Ops.git /opt/rollproof
+git clone https://github.com/Javanian/rollproof.git /opt/rollproof
 cd /opt/rollproof
 ```
 
@@ -67,7 +67,7 @@ Releases are tagged `vX.Y.Z` and published as images. Change the tag in `docker-
 docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
 ```
 
-Verify an image before running it: `gh attestation verify oci://ghcr.io/javanian/rollproof-backend:2.0.0 --repo Javanian/Hadir-Ops`.
+Verify an image before running it: `gh attestation verify oci://ghcr.io/javanian/rollproof-backend:2.0.0 --repo Javanian/rollproof`.
 
 ## 5. Monitoring
 

@@ -64,7 +64,7 @@ The project is now **Rollproof** (it was HadirOps), built for teams in any count
 
 First version, as HadirOps: face-verified check-in with GPS geofence, shifts and schedules per site, temporary assignments, overtime requests, holidays, reports, and role-based access for admins, supervisors and employees.
 
-[Unreleased]: https://github.com/Javanian/Hadir-Ops/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/Javanian/Hadir-Ops/releases/tag/v2.0.0
-[1.1.0]: https://github.com/Javanian/Hadir-Ops/commits/main
-[1.0.0]: https://github.com/Javanian/Hadir-Ops/commits/main
+[Unreleased]: https://github.com/Javanian/rollproof/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Javanian/rollproof/releases/tag/v2.0.0
+[1.1.0]: https://github.com/Javanian/rollproof/commits/main
+[1.0.0]: https://github.com/Javanian/rollproof/commits/main
