@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
@@ -30,7 +30,7 @@ const reportSchema = z
         (new Date(to_date).getTime() - new Date(from_date).getTime()) / 86_400_000
       return diff >= 0 && diff <= 30
     },
-    { message: 'Rentang tanggal maksimal 31 hari', path: ['to_date'] },
+    { error: 'Rentang tanggal maksimal 31 hari', path: ['to_date'] },
   )
 
 type ReportFormValues = z.infer<typeof reportSchema>
@@ -117,7 +117,7 @@ export function ReportsPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors },
   } = useForm<ReportFormValues>({
     resolver: zodResolver(reportSchema),
@@ -129,8 +129,8 @@ export function ReportsPage() {
     },
   })
 
-  const employeeSearch = watch('employee_search') ?? ''
-  const statusFilter = watch('status_filter') ?? ''
+  const employeeSearch = useWatch({ control, name: 'employee_search' }) ?? ''
+  const statusFilter = useWatch({ control, name: 'status_filter' }) ?? ''
 
   // Manual-trigger query — only runs after form submit
   const { data: rawData, isFetching: detailFetching } = useQuery({
@@ -244,7 +244,7 @@ export function ReportsPage() {
               aria-invalid={Boolean(errors.from_date)}
               aria-describedby={errors.from_date ? 'report-from-date-error' : undefined}
               {...register('from_date')}
-              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40"
             />
             {errors.from_date && (
               <p id="report-from-date-error" className="text-xs text-red-600 mt-1">{errors.from_date.message}</p>
@@ -262,7 +262,7 @@ export function ReportsPage() {
               aria-invalid={Boolean(errors.to_date)}
               aria-describedby={errors.to_date ? 'report-to-date-error' : undefined}
               {...register('to_date')}
-              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40"
             />
             {errors.to_date && (
               <p id="report-to-date-error" className="text-xs text-red-600 mt-1">{errors.to_date.message}</p>
@@ -285,7 +285,7 @@ export function ReportsPage() {
                 type="text"
                 placeholder="Cari..."
                 {...register('employee_search')}
-                className="w-full rounded-lg border border-divider pl-8 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
+                className="w-full rounded-lg border border-divider pl-8 pr-3 py-2 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40"
               />
             </div>
           </div>
@@ -300,7 +300,7 @@ export function ReportsPage() {
               {...register('status_filter')}
               disabled={view === 'recap'}
               title={view === 'recap' ? 'Filter status hanya untuk detail absensi' : undefined}
-              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 bg-white disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-disabled"
+              className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40 bg-white disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-disabled"
             >
               <option value="">Semua Status</option>
               <option value="ONTIME">Tepat Waktu</option>

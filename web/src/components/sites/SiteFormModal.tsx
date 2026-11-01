@@ -23,15 +23,15 @@ import { SiteMapPicker } from './SiteMapPicker'
 const siteSchema = z.object({
   name: z.string().min(1, 'Nama lokasi wajib diisi'),
   latitude: z
-    .number({ invalid_type_error: 'Latitude harus berupa angka' })
+    .number({ error: 'Latitude harus berupa angka' })
     .min(-90, 'Latitude minimum -90')
     .max(90, 'Latitude maksimum 90'),
   longitude: z
-    .number({ invalid_type_error: 'Longitude harus berupa angka' })
+    .number({ error: 'Longitude harus berupa angka' })
     .min(-180, 'Longitude minimum -180')
     .max(180, 'Longitude maksimum 180'),
   radius_meter: z
-    .number({ invalid_type_error: 'Radius harus berupa angka' })
+    .number({ error: 'Radius harus berupa angka' })
     .int('Radius harus bilangan bulat')
     .positive('Radius harus lebih dari 0'),
   timezone: z.enum(['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura']),
@@ -53,9 +53,10 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
     resolver: zodResolver(siteSchema),
     defaultValues: {
       name: '',
-      // NaN so Number.isFinite() → false → map shows default location on create
-      latitude: NaN,
-      longitude: NaN,
+      // Empty on create: Number.isFinite() is false, so the map shows the default
+      // location. (NaN would be written into the number input, which browsers reject.)
+      latitude: undefined,
+      longitude: undefined,
       radius_meter: 100,
       timezone: 'Asia/Jakarta',
     },
@@ -71,7 +72,7 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
         timezone: editingSite.timezone as 'Asia/Jakarta' | 'Asia/Makassar' | 'Asia/Jayapura',
       })
     } else {
-      reset({ name: '', latitude: NaN, longitude: NaN, radius_meter: 100, timezone: 'Asia/Jakarta' })
+      reset({ name: '', latitude: undefined, longitude: undefined, radius_meter: 100, timezone: 'Asia/Jakarta' })
     }
   }, [editingSite, open]) // eslint-disable-line react-hooks/exhaustive-deps
 

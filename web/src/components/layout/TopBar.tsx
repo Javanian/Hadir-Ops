@@ -1,5 +1,5 @@
 import { Menu, LogOut, User } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router'
 import { useAuthStore } from '@/store/authStore'
 import { useLogout } from '@/hooks/useAuth'
 
@@ -14,7 +14,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const pageTitle = ({ dashboard: 'Ringkasan kehadiran', users: 'Pengguna', sites: 'Lokasi kerja', assignments: 'Penugasan', shifts: 'Jadwal shift', holidays: 'Hari libur', attendance: 'Presensi', review: 'Tinjauan absen', leave: 'Izin & cuti', overtime: 'Pengajuan lembur', reports: 'Laporan' } as Record<string, string>)[pathname.split('/')[1]] ?? 'Ruang kerja'
 
   return (
-    <header className="h-16 flex items-center px-4 md:px-8 border-b border-slate-200/80 bg-white/75 backdrop-blur-md gap-4 flex-shrink-0">
+    <header className="h-16 flex items-center px-4 md:px-8 border-b border-slate-200/80 bg-white/75 backdrop-blur-md gap-4 shrink-0">
       {/* Hamburger — mobile/tablet only */}
       <button
         onClick={onMenuClick}
@@ -30,7 +30,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       <div className="flex items-center gap-3">
         {/* User avatar + info — hidden on small mobile */}
         <div className="hidden sm:flex items-center gap-2.5 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 shadow-sm">
-          <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center flex-shrink-0 order-first">
+          <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center shrink-0 order-first">
             <User size={16} className="text-brand" />
           </div>
           <div className="text-left">

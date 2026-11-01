@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, User, Mail, MapPin, Shield, CheckCircle, XCircle,
@@ -178,14 +178,14 @@ export function UserDetailPage() {
 
         {hasFace ? (
           <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
-            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
             <p className="text-sm text-green-700">
               Data wajah pengguna ini sudah terdaftar dan dapat digunakan untuk absensi.
             </p>
           </div>
         ) : (
           <div className="flex items-center gap-3 p-3 rounded-lg bg-surface border border-divider">
-            <XCircle className="h-5 w-5 text-text-secondary flex-shrink-0" />
+            <XCircle className="h-5 w-5 text-text-secondary shrink-0" />
             <p className="text-sm text-text-secondary">
               Pengguna belum mendaftarkan wajah. Mereka perlu mendaftar wajah melalui aplikasi mobile.
             </p>

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router'
 import {
   type LucideIcon,
   LayoutDashboard,
@@ -58,8 +58,8 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <nav aria-label="Navigasi utama" className="flex flex-col h-full w-[248px] bg-chrome text-slate-300">
       {/* Brand header */}
-      <div className="h-16 flex items-center px-4 gap-3 border-b border-white/5 flex-shrink-0">
-        <img src="/hadirops-logo.svg" alt="" className="h-9 w-9 flex-shrink-0 rounded-xl shadow-glow" />
+      <div className="h-16 flex items-center px-4 gap-3 border-b border-white/5 shrink-0">
+        <img src="/hadirops-logo.svg" alt="" className="h-9 w-9 shrink-0 rounded-xl shadow-glow" />
         <div className="flex-1 min-w-0">
           <p className="text-white font-bold text-base tracking-tight leading-tight truncate">
             HadirOps
@@ -71,7 +71,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         {onClose && (
           <button
             onClick={onClose}
-            className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-colors lg:hidden"
+            className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-colors lg:hidden"
             aria-label="Tutup sidebar"
           >
             <X size={18} />
@@ -92,7 +92,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   'flex min-h-11 items-center gap-3 mx-3 my-0.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
                   isActive
                     ? 'bg-brand text-white shadow-glow'
-                    : 'text-slate-300 hover:bg-white/[0.06] hover:text-white',
+                    : 'text-slate-300 hover:bg-white/6 hover:text-white',
                 )
               }
             >
@@ -104,7 +104,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       </ul>
 
       {/* User info footer */}
-      <div className="m-3 p-3 rounded-xl bg-white/[0.04] border border-white/5 flex-shrink-0">
+      <div className="m-3 p-3 rounded-xl bg-white/4 border border-white/5 shrink-0">
         <p className="text-xs font-semibold text-white truncate">{user?.name}</p>
         <p className="text-xs text-slate-400 mt-0.5">{user?.role}</p>
       </div>

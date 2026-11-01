@@ -47,7 +47,7 @@ export function LoginPage() {
 
   const inputClass = `w-full h-12 rounded-xl border border-slate-200 bg-white text-sm font-medium text-text-primary shadow-sm
                       placeholder:text-text-disabled hover:border-slate-300
-                      focus:outline-none focus:ring-4 focus:ring-brand/15 focus:border-brand
+                      focus:outline-hidden focus:ring-4 focus:ring-brand/15 focus:border-brand
                       disabled:bg-surface disabled:text-text-disabled disabled:cursor-not-allowed
                       transition`
 
@@ -57,11 +57,11 @@ export function LoginPage() {
       <section className="relative hidden overflow-hidden bg-chrome text-white lg:flex lg:flex-col">
         <div
           aria-hidden="true"
-          className="absolute inset-0 opacity-[0.35] [background-image:linear-gradient(rgb(255_255_255/0.06)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.06)_1px,transparent_1px)] [background-size:40px_40px] [mask-image:radial-gradient(ellipse_at_70%_30%,black,transparent_75%)]"
+          className="absolute inset-0 opacity-[0.35] bg-[linear-gradient(rgb(255_255_255/0.06)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.06)_1px,transparent_1px)] bg-size-[40px_40px] mask-[radial-gradient(ellipse_at_70%_30%,black,transparent_75%)]"
         />
         <div
           aria-hidden="true"
-          className="absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-brand/30 blur-3xl"
+          className="absolute -right-32 -top-32 h-112 w-md rounded-full bg-brand/30 blur-3xl"
         />
         <div className="relative flex items-center gap-3 px-12 pt-10">
           <img src="/hadirops-logo.svg" alt="" className="h-10 w-10 rounded-xl shadow-glow" />
@@ -82,7 +82,7 @@ export function LoginPage() {
           </p>
           <ul className="mt-8 grid max-w-xl grid-cols-3 gap-3">
             {HIGHLIGHTS.map(({ icon: Icon, label }) => (
-              <li key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
+              <li key={label} className="rounded-2xl border border-white/10 bg-white/4 p-4 backdrop-blur-xs">
                 <Icon className="h-5 w-5 text-brand-light" aria-hidden="true" />
                 <p className="mt-3 text-sm font-medium leading-snug text-slate-200">{label}</p>
               </li>
@@ -180,7 +180,7 @@ export function LoginPage() {
             {/* Inline error message from API */}
             {loginError && (
               <div role="alert" className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 border border-red-200">
-                <AlertCircle size={16} aria-hidden="true" className="mt-0.5 flex-shrink-0 text-red-600" />
+                <AlertCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-red-600" />
                 <p className="text-sm text-red-700">{loginError}</p>
               </div>
             )}

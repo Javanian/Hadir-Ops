@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -21,12 +21,12 @@ import { showSuccess, showError } from '@/utils/toast'
 import type { ShiftResponse } from '@/types/shifts'
 
 const shiftSchema = z.object({
-  site_id: z.number({ invalid_type_error: 'Lokasi wajib dipilih' }),
+  site_id: z.number({ error: 'Lokasi wajib dipilih' }),
   name: z.string().min(1, 'Nama shift wajib diisi'),
   start_time: z.string().min(1, 'Jam mulai wajib diisi'),
   end_time: z.string().min(1, 'Jam selesai wajib diisi'),
   work_hours_standard: z
-    .number({ invalid_type_error: 'Jam kerja harus berupa angka' })
+    .number({ error: 'Jam kerja harus berupa angka' })
     .int()
     .min(1, 'Minimal 1 jam')
     .max(24, 'Maksimal 24 jam'),
@@ -56,7 +56,7 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
     staleTime: 5 * 60_000,
   })
 
-  const { register, handleSubmit, control, watch, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(shiftSchema),
     defaultValues: {
       site_id: undefined,
@@ -67,8 +67,8 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
     },
   })
 
-  const watchedStart = watch('start_time')
-  const watchedEnd = watch('end_time')
+  const watchedStart = useWatch({ control, name: 'start_time' })
+  const watchedEnd = useWatch({ control, name: 'end_time' })
   const crossMidnight = isCrossMidnight(watchedStart, watchedEnd)
 
   useEffect(() => {

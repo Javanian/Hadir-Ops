@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { authApi } from '@/api/auth.api'
 import { isAxiosError } from '@/api/axios'
 import { tokenAccessors, REFRESH_TOKEN_KEY, useAuthStore } from '@/store/authStore'

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -23,14 +23,14 @@ import type { UserListItem } from '@/types/users'
 import { localDateISO } from '@/utils/datetime'
 
 const schema = z.object({
-  user_id:    z.number({ required_error: 'Pilih karyawan' }),
-  site_id:    z.number({ required_error: 'Pilih lokasi' }),
-  shift_id:   z.number({ required_error: 'Pilih shift' }),
+  user_id:    z.number({ error: 'Pilih karyawan' }),
+  site_id:    z.number({ error: 'Pilih lokasi' }),
+  shift_id:   z.number({ error: 'Pilih shift' }),
   start_date: z.string().min(1, 'Pilih tanggal mulai'),
   end_date:   z.string().min(1, 'Pilih tanggal selesai'),
   notes:      z.string().optional(),
 }).refine((d) => d.end_date >= d.start_date, {
-  message: 'Tanggal selesai harus setelah tanggal mulai',
+  error: 'Tanggal selesai harus setelah tanggal mulai',
   path: ['end_date'],
 })
 
@@ -59,23 +59,21 @@ export function AssignmentFormModal({ open, onClose }: Props) {
     control,
     reset,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
-  const watchedSiteId = watch('site_id')
+  const watchedSiteId = useWatch({ control, name: 'site_id' })
 
-  // Reset form when modal opens/closes
-  useEffect(() => {
-    if (!open) {
-      reset()
-      setSelectedUser(null)
-      setUserSearch('')
-      setOverlapError(null)
-    }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Every way of closing goes through here, so the next open starts empty.
+  const close = () => {
+    reset()
+    setSelectedUser(null)
+    setUserSearch('')
+    setOverlapError(null)
+    onClose()
+  }
 
   // Reset shift when site changes
   useEffect(() => {
@@ -125,7 +123,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
     onSuccess: () => {
       showSuccess('Penugasan berhasil ditambahkan')
       void qc.invalidateQueries({ queryKey: ['assignments'] })
-      onClose()
+      close()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 409) {
@@ -150,7 +148,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
   const today = localDateISO()
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent className="max-w-lg w-full">
         <DialogHeader>
           <DialogTitle>Tambah Penugasan</DialogTitle>
@@ -272,7 +270,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
             <Label htmlFor="assignment-notes">Catatan (opsional)</Label>
             <textarea
               id="assignment-notes"
-              className="w-full px-3 py-2 text-sm border border-divider rounded-md bg-white text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-brand/30 resize-none"
+              className="w-full px-3 py-2 text-sm border border-divider rounded-md bg-white text-text-primary placeholder:text-text-secondary focus:outline-hidden focus:ring-2 focus:ring-brand/30 resize-none"
               rows={2}
               placeholder="Alasan penugasan, instruksi khusus, dll."
               {...register('notes')}
@@ -288,7 +286,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-divider">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={close}>
               Batal
             </Button>
             <Button type="submit" disabled={mutation.isPending}>

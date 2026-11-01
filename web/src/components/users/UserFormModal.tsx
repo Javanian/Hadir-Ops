@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -21,7 +21,7 @@ import type { UserListItem } from '@/types/users'
 const createSchema = z.object({
   employee_id: z.string().min(1, 'ID karyawan wajib diisi'),
   name: z.string().min(1, 'Nama wajib diisi'),
-  email: z.string().email('Format email tidak valid'),
+  email: z.email('Format email tidak valid'),
   password: z.string().min(8, 'Password minimal 8 karakter'),
   role: z.enum(['ADMIN', 'SUPERVISOR', 'EMPLOYEE', 'SALES']),
   site_id: z.number().nullable(),
@@ -30,7 +30,7 @@ const createSchema = z.object({
 
 const editSchema = z.object({
   name: z.string().min(1, 'Nama wajib diisi'),
-  email: z.string().email('Format email tidak valid'),
+  email: z.email('Format email tidak valid'),
   role: z.enum(['ADMIN', 'SUPERVISOR', 'EMPLOYEE', 'SALES']),
   site_id: z.number().nullable(),
   supervisor_id: z.number().nullable(),
@@ -52,7 +52,7 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
 
   const {
     register: regCreate, handleSubmit: handleCreate, control: controlCreate,
-    watch: watchCreate, reset: resetCreate, formState: { errors: ce },
+    reset: resetCreate, formState: { errors: ce },
   } = useForm<CreateFormData>({
     resolver: zodResolver(createSchema),
     defaultValues: { employee_id: '', name: '', email: '', password: '', role: 'EMPLOYEE', site_id: null, supervisor_id: null },
@@ -60,12 +60,14 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
 
   const {
     register: regEdit, handleSubmit: handleEdit, control: controlEdit,
-    watch: watchEdit, reset: resetEdit, setValue: setEditValue,
+    reset: resetEdit, setValue: setEditValue,
     formState: { errors: ee },
   } = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
     defaultValues: { name: '', email: '', role: 'EMPLOYEE', site_id: null, supervisor_id: null, is_active: true },
   })
+  const createRole = useWatch({ control: controlCreate, name: 'role' })
+  const editRole = useWatch({ control: controlEdit, name: 'role' })
 
   useEffect(() => {
     if (editingUser) {
@@ -139,7 +141,7 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
               )} />
             </Field>
 
-            {watchEdit('role') === 'EMPLOYEE' && (
+            {editRole === 'EMPLOYEE' && (
               <Field>
                 <Label>Supervisor</Label>
                 <Input
@@ -189,7 +191,7 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
               )} />
             </Field>
 
-            {watchCreate('role') === 'EMPLOYEE' && (
+            {createRole === 'EMPLOYEE' && (
               <Field>
                 <Label>Supervisor</Label>
                 <Input

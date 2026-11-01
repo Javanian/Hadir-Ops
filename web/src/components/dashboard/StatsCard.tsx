@@ -34,7 +34,7 @@ export function StatsCard({
     <div className="group bg-white rounded-2xl border border-slate-200/80 shadow-soft p-4 flex flex-col items-start gap-3 transition duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:p-5 sm:flex-row sm:items-center sm:gap-4">
       <div
         className={cn(
-          'h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-inset ring-slate-900/5',
+          'h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ring-1 ring-inset ring-slate-900/5',
           styles.bg,
         )}
       >

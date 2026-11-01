@@ -315,7 +315,7 @@ export function ReviewPage() {
             rows={3}
             maxLength={500}
             placeholder="Contoh: tidak berada di lokasi menurut laporan pos jaga"
-            className="w-full rounded-lg border border-divider bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+            className="w-full rounded-lg border border-divider bg-white px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand/40"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => { setRejecting(null); setNote('') }}>Batal</Button>

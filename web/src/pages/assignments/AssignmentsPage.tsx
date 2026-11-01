@@ -93,7 +93,7 @@ export function AssignmentsPage() {
       <div className="flex flex-wrap items-center gap-3">
         <select
           aria-label="Filter lokasi"
-          className="text-sm border border-divider rounded-md px-3 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className="text-sm border border-divider rounded-md px-3 py-1.5 bg-white text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/30"
           value={filterSiteId}
           onChange={(e) => setFilterSiteId(e.target.value === '' ? '' : Number(e.target.value))}
         >

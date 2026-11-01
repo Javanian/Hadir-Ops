@@ -15,10 +15,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Mutable ref so the module-level getter never has a stale closure.
-  // Updated synchronously on every render (before any useEffect runs).
+  // Mutable ref so the module-level getter never has a stale closure. Every
+  // place that changes the token writes the ref at the same time, so it is
+  // never assigned during render.
   const accessTokenRef = useRef<string | null>(null)
-  accessTokenRef.current = accessToken
 
   const logout = useCallback(() => {
     setAccessToken(null)

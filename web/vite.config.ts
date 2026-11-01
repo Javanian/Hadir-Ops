@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig(({ mode }) => {
@@ -10,7 +11,12 @@ export default defineConfig(({ mode }) => {
     (apiBase.startsWith('http') ? apiBase : 'http://localhost:8000')
 
   return {
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
+    build: {
+      // Small font subsets would otherwise be inlined as data: URIs, which the
+      // Content-Security-Policy (font-src 'self') refuses.
+      assetsInlineLimit: (file: string) => (file.endsWith('.woff2') || file.endsWith('.woff') ? false : undefined),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

@@ -127,7 +127,7 @@ export function SitesPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-brand flex-shrink-0" />
+                        <MapPin className="h-4 w-4 text-brand shrink-0" />
                         <span className="font-medium text-text-primary">{site.name}</span>
                       </div>
                     </td>

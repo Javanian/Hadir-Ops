@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState} from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -39,14 +39,17 @@ interface Props {
 
 export function ScheduleManagerModal({ open, onClose, shift }: Props) {
   const qc = useQueryClient()
-  const [state, setState] = useState<ScheduleState>({})
+  const [state, setState] = useState<ScheduleState>(() => (shift ? buildInitialState(shift.schedules) : {}))
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (shift) {
-      setState(buildInitialState(shift.schedules))
-    }
-  }, [shift, open])
+  // Reset the form when another shift is opened (or the same one is reopened).
+  // Done during render rather than in an effect, so there is no extra render
+  // showing the previous shift's days.
+  const [shown, setShown] = useState({ shift, open })
+  if (shown.shift !== shift || shown.open !== open) {
+    setShown({ shift, open })
+    if (shift) setState(buildInitialState(shift.schedules))
+  }
 
   const toggleDay = (day: number) => {
     setState((prev) => ({
@@ -143,12 +146,12 @@ export function ScheduleManagerModal({ open, onClose, shift }: Props) {
                   id={`day-${d}`}
                   checked={dayState.checked}
                   onChange={() => toggleDay(d)}
-                  className="h-4 w-4 accent-brand flex-shrink-0 cursor-pointer"
+                  className="h-4 w-4 accent-brand shrink-0 cursor-pointer"
                 />
                 {/* Day label */}
                 <Label
                   htmlFor={`day-${d}`}
-                  className="w-20 flex-shrink-0 cursor-pointer font-medium text-sm"
+                  className="w-20 shrink-0 cursor-pointer font-medium text-sm"
                 >
                   {DAY_LABELS[d]}
                 </Label>

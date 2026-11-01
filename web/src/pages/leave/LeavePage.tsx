@@ -166,7 +166,7 @@ export function LeavePage() {
               <p className="text-sm text-text-primary">
                 {dateRange(r)} <span className="text-text-secondary">· {r.days} hari</span>
               </p>
-              <p className="text-sm text-text-secondary break-words">{r.reason}</p>
+              <p className="text-sm text-text-secondary wrap-break-word">{r.reason}</p>
               {tab === 'pending' ? (
                 <DecisionButtons
                   row={r}
@@ -208,7 +208,7 @@ export function LeavePage() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="border-t border-divider align-top">
-                    <td className="px-4 py-3 min-w-[10rem]">
+                    <td className="px-4 py-3 min-w-40">
                       <p className="font-medium text-text-primary">{r.employee_name}</p>
                       <p className="text-xs text-text-secondary font-mono">{r.employee_id}</p>
                     </td>
@@ -220,7 +220,7 @@ export function LeavePage() {
                       <span className="block text-xs text-text-secondary tabular-nums">{r.days} hari</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-text-secondary max-w-sm">
-                      <p className="line-clamp-3 break-words">{r.reason}</p>
+                      <p className="line-clamp-3 wrap-break-word">{r.reason}</p>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell text-xs text-text-secondary whitespace-nowrap">
                       {formatDateTime(r.created_at, tz ?? 'Asia/Jakarta')}
@@ -262,7 +262,7 @@ export function LeavePage() {
             rows={3}
             maxLength={500}
             placeholder="Contoh: jadwal audit di tanggal tersebut, mohon ajukan di minggu berikutnya"
-            className="w-full rounded-lg border border-divider bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+            className="w-full rounded-lg border border-divider bg-white px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand/40"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => { setRejecting(null); setNote('') }}>Batal</Button>
@@ -363,7 +363,7 @@ function StatusBlock({ row, align }: { row: LeaveRequest; align: 'start' | 'end'
       <Badge variant={STATUS_VARIANT[row.status]}>{LEAVE_STATUS_LABEL[row.status]}</Badge>
       {row.reviewer_name && <span className="text-xs text-text-secondary">oleh {row.reviewer_name}</span>}
       {row.review_note && (
-        <span className="text-xs text-text-secondary max-w-[16rem] break-words">“{row.review_note}”</span>
+        <span className="text-xs text-text-secondary max-w-[16rem] wrap-break-word">“{row.review_note}”</span>
       )}
     </div>
   )

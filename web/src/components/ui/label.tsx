@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useFieldContext } from './field-context'
 
 const Label = React.forwardRef<
-  React.ElementRef<typeof LabelPrimitive.Root>,
+  React.ComponentRef<typeof LabelPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
 >(({ className, htmlFor, ...props }, ref) => {
   const field = useFieldContext()

@@ -233,7 +233,7 @@ export function OvertimePage() {
                     <td className="px-4 py-3">
                       <span className="font-mono text-sm text-text-secondary">#{req.id}</span>
                     </td>
-                    <td className="px-4 py-3 min-w-[10rem]">
+                    <td className="px-4 py-3 min-w-40">
                       <p className="font-medium text-text-primary">{req.employee_name ?? '—'}</p>
                       {req.employee_id && (
                         <p className="text-xs text-text-secondary font-mono">{req.employee_id}</p>

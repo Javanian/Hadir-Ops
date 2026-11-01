@@ -208,7 +208,7 @@ export function AttendancePage() {
               type="date"
               value={fromDate}
               onChange={(e) => { setFromDate(e.target.value); setPage(0) }}
-              className="h-9 min-w-0 flex-1 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 sm:flex-none"
+              className="h-9 min-w-0 flex-1 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40 sm:flex-none"
             />
           </div>
           <div className="col-span-2 flex items-center gap-2 sm:col-auto">
@@ -221,7 +221,7 @@ export function AttendancePage() {
               value={toDate}
               min={fromDate}
               onChange={(e) => { setToDate(e.target.value); setPage(0) }}
-              className="h-9 min-w-0 flex-1 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 sm:flex-none"
+              className="h-9 min-w-0 flex-1 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40 sm:flex-none"
             />
           </div>
 
@@ -230,7 +230,7 @@ export function AttendancePage() {
             aria-label="Filter status"
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as AttendanceStatus | ''); setPage(0) }}
-            className="col-span-2 h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40 sm:col-auto"
+            className="col-span-2 h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40 sm:col-auto"
           >
             <option value="">Semua Status</option>
             <option value="ONTIME">Tepat Waktu</option>
@@ -247,7 +247,7 @@ export function AttendancePage() {
               placeholder="Cari nama atau ID karyawan..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-full rounded-md border border-divider bg-white pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="h-9 w-full rounded-md border border-divider bg-white pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary focus:outline-hidden focus:ring-2 focus:ring-brand/40"
             />
           </div>
 

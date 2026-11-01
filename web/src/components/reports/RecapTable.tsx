@@ -80,7 +80,7 @@ export function RecapTable({ rows, fromDate, toDate }: RecapTableProps) {
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
-              className="min-w-0 flex-1 rounded-lg border border-divider bg-white px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="min-w-0 flex-1 rounded-lg border border-divider bg-white px-2 py-1.5 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40"
             >
               {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
@@ -120,7 +120,7 @@ export function RecapTable({ rows, fromDate, toDate }: RecapTableProps) {
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.user_id} className="border-b border-divider hover:bg-surface align-top">
-                  <td className="px-3 py-2 min-w-[11rem]">
+                  <td className="px-3 py-2 min-w-44">
                     <p className="font-medium text-text-primary">{r.name}</p>
                     <p className="text-xs text-text-secondary">
                       <span className="font-mono">{r.employee_id}</span>

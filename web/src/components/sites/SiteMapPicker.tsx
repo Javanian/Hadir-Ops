@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, useCallback } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -115,6 +115,10 @@ export function SiteMapPicker({ latitude, longitude, radiusMeter, onChange }: Si
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Moving the marker reads the current radius, but a radius change alone is
+  // handled by the effect below and must not move the map.
+  const placeAt = useEffectEvent((lat: number, lng: number) => placeMarker(lat, lng, radiusMeter, true))
+
   // ── Sync marker + circle when lat/lng props change ─────────────────────────
   // This also handles edit mode: RHF reset() fires after mount, changing props
   // from null → real coords. If the viewport hasn't been centered yet (init ran
@@ -125,8 +129,8 @@ export function SiteMapPicker({ latitude, longitude, radiusMeter, onChange }: Si
       mapRef.current.setView([latitude, longitude], ZOOM)
       viewCenteredRef.current = true
     }
-    placeMarker(latitude, longitude, radiusMeter, true)
-  }, [latitude, longitude, placeMarker]) // radiusMeter handled separately
+    placeAt(latitude, longitude)
+  }, [latitude, longitude])
 
   // ── Update circle radius reactively ────────────────────────────────────────
   useEffect(() => {

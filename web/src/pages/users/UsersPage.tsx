@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router'
 import {
-  useReactTable,
-  getCoreRowModel,
+  useTable,
+  tableFeatures,
   flexRender,
   type ColumnDef,
 } from '@tanstack/react-table'
+
+// Rows only: pagination, sorting and filtering happen on the server.
+const features = tableFeatures({})
 import {
   Plus, Search, RefreshCw, ChevronLeft, ChevronRight,
   Eye, Pencil, Trash2, AlertCircle,
@@ -149,7 +152,7 @@ export function UsersPage() {
     },
   })
 
-  const columns: ColumnDef<UserListItem>[] = [
+  const columns: ColumnDef<typeof features, UserListItem>[] = [
     {
       accessorKey: 'employee_id',
       header: 'ID Karyawan',
@@ -250,12 +253,10 @@ export function UsersPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useTable({
+    features,
     data: data?.items ?? [],
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    manualPagination: true,
-    pageCount: data ? Math.ceil(data.total / PAGE_SIZE) : -1,
   })
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0
@@ -372,7 +373,7 @@ export function UsersPage() {
                     key={row.id}
                     className="group border-t border-divider hover:bg-surface transition-colors"
                   >
-                    {row.getVisibleCells().map((cell) => (
+                    {row.getAllCells().map((cell) => (
                       <td key={cell.id} className={`px-4 py-3 ${cell.column.id === 'actions' ? STICKY_ACTIONS_CELL : ''}`}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>

@@ -40,7 +40,7 @@ interface DetailRowProps {
 function DetailRow({ label, children }: DetailRowProps) {
   return (
     <div className="flex items-start gap-3 py-2 border-b border-divider last:border-0">
-      <span className="text-xs font-medium text-text-secondary uppercase tracking-wide w-32 flex-shrink-0 pt-0.5">
+      <span className="text-xs font-medium text-text-secondary uppercase tracking-wide w-32 shrink-0 pt-0.5">
         {label}
       </span>
       <span className="text-sm text-text-primary flex-1">{children}</span>
@@ -136,7 +136,7 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
             <div className="space-y-3 mt-2">
               {Array.from({ length: 7 }).map((_, i) => (
                 <div key={i} className="flex gap-3 py-2">
-                  <Skeleton className="h-4 w-32 flex-shrink-0" />
+                  <Skeleton className="h-4 w-32 shrink-0" />
                   <Skeleton className="h-4 flex-1" />
                 </div>
               ))}
@@ -209,7 +209,7 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-brand hover:underline font-mono text-xs"
                         >
-                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
                           {attendance.latitude.toFixed(6)}, {attendance.longitude.toFixed(6)}
                           <ExternalLink className="h-3 w-3" />
                         </a>

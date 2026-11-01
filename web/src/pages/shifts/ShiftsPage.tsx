@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  useReactTable, getCoreRowModel, flexRender, type ColumnDef,
+  useTable, tableFeatures, flexRender, type ColumnDef,
 } from '@tanstack/react-table'
+
+const features = tableFeatures({})
 import {
   Plus, Pencil, Trash2, RefreshCw, AlertCircle, CalendarDays,
 } from 'lucide-react'
@@ -78,7 +80,7 @@ export function ShiftsPage() {
   const siteName = (siteId: number) =>
     sites.find((s) => s.id === siteId)?.name ?? `Site #${siteId}`
 
-  const columns: ColumnDef<ShiftResponse>[] = [
+  const columns: ColumnDef<typeof features, ShiftResponse>[] = [
     {
       accessorKey: 'name',
       header: 'Nama Shift',
@@ -167,10 +169,10 @@ export function ShiftsPage() {
     },
   ]
 
-  const table = useReactTable({
+  const table = useTable({
+    features,
     data: shifts,
     columns,
-    getCoreRowModel: getCoreRowModel(),
   })
 
   const COLUMN_COUNT = columns.length
@@ -270,7 +272,7 @@ export function ShiftsPage() {
                     key={row.id}
                     className="group border-t border-divider hover:bg-surface transition-colors"
                   >
-                    {row.getVisibleCells().map((cell) => (
+                    {row.getAllCells().map((cell) => (
                       <td key={cell.id} className={`px-4 py-3 ${cell.column.id === 'actions' ? STICKY_ACTIONS_CELL : ''}`}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>

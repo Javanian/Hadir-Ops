@@ -78,13 +78,14 @@ export function AttendanceChart({ records, loading = false }: AttendanceChartPro
         />
         <Tooltip
           contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: '#E2E8F0' }}
-          formatter={(value: number, name: string) => {
+          formatter={(value, name) => {
             const labels: Record<string, string> = {
               ONTIME: 'Tepat Waktu',
               LATE: 'Terlambat',
               OUT_OF_RADIUS: 'Di Luar Radius',
             }
-            return [value, labels[name] ?? name]
+            const key = String(name)
+            return [value, labels[key] ?? key]
           }}
         />
         <Legend
