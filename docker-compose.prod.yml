@@ -4,7 +4,10 @@
 #   cp backend/.env.example backend/.env   # set SECRET_KEY
 #   openssl rand -base64 756 > deploy/mongo-keyfile
 #   chmod 400 deploy/mongo-keyfile && sudo chown 999:999 deploy/mongo-keyfile
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml pull     # released images (ghcr.io)
+#   docker compose -f docker-compose.prod.yml up -d    # or: up -d --build, to build here
+#
+# Public demo: add docker-compose.demo.yml (see docs/DEPLOY.md).
 #
 # Only the web service publishes ports. For MongoDB Atlas or another managed
 # database, drop the db service and point MONGODB_URL at it.
@@ -31,7 +34,7 @@ services:
 
   backend:
     build: ./backend
-    image: rollproof-backend:2.0.0
+    image: ghcr.io/javanian/rollproof-backend:2.0.0
     container_name: rollproof_backend
     restart: always
     env_file:
@@ -67,7 +70,7 @@ services:
       # The image also serves the mobile app's web build at /app
       additional_contexts:
         mobile: ./mobile
-    image: rollproof-web:2.0.0
+    image: ghcr.io/javanian/rollproof-web:2.0.0
     container_name: rollproof_web
     restart: always
     environment:

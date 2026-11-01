@@ -1,0 +1,15 @@
+# Public demo on top of the production stack: one-click sign-in per role and
+# ALL data replaced with fictional sample data every day at 00:00 UTC.
+# Never use it on a server with real data.
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.demo.yml up -d
+#
+# The dashboard is at https://DOMAIN, the mobile app for browsers at
+# https://DOMAIN/app/ (see docs/DEPLOY.md).
+services:
+  backend:
+    environment:
+      DEMO_MODE: "true"
+      DEMO_MOBILE_URL: https://${DOMAIN:?set DOMAIN in .env}/app/
+      # Generous per address: a demo visitor clicks around more than an employee
+      RATE_LIMIT_LOGIN: 20/minute

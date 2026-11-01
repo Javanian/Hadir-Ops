@@ -1,0 +1,111 @@
+name: Release
+
+# Pushing a tag vX.Y.Z publishes the backend and web images to GitHub
+# Container Registry with SLSA provenance and an SBOM, attests them, and
+# creates the GitHub release from the matching CHANGELOG.md section.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish images and the release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # the GitHub release
+      packages: write        # ghcr.io
+      id-token: write        # signing the attestations
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the tag matches the version in the code
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          code=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' backend/app/__init__.py)
+          app=$(python3 -c "import json; print(json.load(open('mobile/app.json'))['expo']['version'])")
+          if [ "$version" != "$code" ] || [ "$version" != "$app" ]; then
+            echo "::error::tag $TAG, backend $code, mobile $app: bump the versions before tagging"
+            exit 1
+          fi
+          grep -q "^## \[$version\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no [$version] section"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "registry=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the backend image
+        id: backend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ steps.version.outputs.registry }}/rollproof-backend:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.registry }}/rollproof-backend:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.licenses=NOASSERTION
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.version.outputs.registry }}/rollproof-backend
+          subject-digest: ${{ steps.backend.outputs.digest }}
+          push-to-registry: true
+
+      - name: Build and push the web image
+        id: web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: web
+          build-contexts: mobile=./mobile
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ steps.version.outputs.registry }}/rollproof-web:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.registry }}/rollproof-web:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.licenses=NOASSERTION
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.version.outputs.registry }}/rollproof-web
+          subject-digest: ${{ steps.web.outputs.digest }}
+          push-to-registry: true
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REGISTRY: ${{ steps.version.outputs.registry }}
+          BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "### Images"
+            echo
+            echo "- \`$REGISTRY/rollproof-backend:$VERSION\` (\`$BACKEND_DIGEST\`)"
+            echo "- \`$REGISTRY/rollproof-web:$VERSION\` (\`$WEB_DIGEST\`)"
+            echo
+            echo "Verify: \`gh attestation verify oci://$REGISTRY/rollproof-backend:$VERSION --repo $GITHUB_REPOSITORY\`"
+          } >> notes.md
+          gh release create "$TAG" --verify-tag --title "Rollproof $VERSION" --notes-file notes.md
