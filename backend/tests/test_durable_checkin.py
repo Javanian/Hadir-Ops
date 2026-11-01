@@ -8,9 +8,8 @@ no trace for the supervisor.
 """
 
 import asyncio
-import math
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 import pytest
 
@@ -18,7 +17,7 @@ from conftest import SITE_LAT, SITE_LON
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-UTC = timezone.utc
+UTC = UTC
 
 
 def _offset_point(metres_north: float):

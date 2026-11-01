@@ -1,5 +1,4 @@
-from datetime import date, datetime, time, timezone
-from typing import List, Optional
+from datetime import date, datetime, time, UTC
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -20,11 +19,11 @@ class ShiftRepository:
 
     # ── Shifts ────────────────────────────────────────────────────────────────
 
-    async def get_all(self, site_id: Optional[int] = None) -> List[Shift]:
+    async def get_all(self, site_id: int | None = None) -> list[Shift]:
         query = {} if site_id is None else {"site_id": site_id}
         return [Shift.from_doc(d) async for d in self.db.shifts.find(query).sort("_id", 1)]
 
-    async def get_by_id(self, shift_id: int) -> Optional[Shift]:
+    async def get_by_id(self, shift_id: int) -> Shift | None:
         doc = await self.db.shifts.find_one({"_id": shift_id})
         return Shift.from_doc(doc) if doc else None
 
@@ -36,7 +35,7 @@ class ShiftRepository:
         end_time: time,
         is_cross_midnight: bool,
         work_hours_standard: int,
-        schedules: Optional[list] = None,
+        schedules: list | None = None,
     ) -> Shift:
         """Insert a shift together with its day schedules."""
         shift_id = await next_id(self.db, "shifts")
@@ -56,7 +55,7 @@ class ShiftRepository:
             "end_time": end_time,
             "is_cross_midnight": is_cross_midnight,
             "work_hours_standard": work_hours_standard,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "work_schedules": embedded,
         })
         await self.db.shifts.insert_one(doc)
@@ -101,7 +100,7 @@ class ShiftRepository:
         )
         return ws
 
-    async def get_schedule(self, schedule_id: int) -> Optional[WorkSchedule]:
+    async def get_schedule(self, schedule_id: int) -> WorkSchedule | None:
         doc = await self.db.shifts.find_one({"work_schedules.id": schedule_id})
         if doc is None:
             return None
@@ -112,14 +111,14 @@ class ShiftRepository:
 
     # ── Holidays ──────────────────────────────────────────────────────────────
 
-    async def get_all_holidays(self) -> List[Holiday]:
+    async def get_all_holidays(self) -> list[Holiday]:
         return [Holiday.from_doc(d) async for d in self.db.holidays.find().sort("holiday_date", 1)]
 
-    async def get_holiday_by_id(self, holiday_id: int) -> Optional[Holiday]:
+    async def get_holiday_by_id(self, holiday_id: int) -> Holiday | None:
         doc = await self.db.holidays.find_one({"_id": holiday_id})
         return Holiday.from_doc(doc) if doc else None
 
-    async def get_holiday_by_date(self, holiday_date: date) -> Optional[Holiday]:
+    async def get_holiday_by_date(self, holiday_date: date) -> Holiday | None:
         doc = await self.db.holidays.find_one({"holiday_date": holiday_date.isoformat()})
         return Holiday.from_doc(doc) if doc else None
 
@@ -130,7 +129,7 @@ class ShiftRepository:
         return {date.fromisoformat(d["holiday_date"]) async for d in cursor}
 
     async def create_holiday(
-        self, holiday_date: date, description: Optional[str], is_national: bool
+        self, holiday_date: date, description: str | None, is_national: bool
     ) -> Holiday:
         doc = encode({
             "_id": await next_id(self.db, "holidays"),

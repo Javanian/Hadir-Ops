@@ -16,7 +16,7 @@ Requires MONGODB_URL (and MONGODB_DB) in .env; indexes are created here too.
 """
 
 import asyncio
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, UTC
 from zoneinfo import ZoneInfo
 
 from app.core.database import client, get_database
@@ -25,7 +25,7 @@ from app.db.documents import encode
 from app.db.ids import next_id
 from app.db.schema import ensure_schema
 
-UTC = timezone.utc
+UTC = UTC
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +371,7 @@ async def seed():
             (1, 1, "SICK", "PENDING", "Kontrol ke dokter gigi"),
             (-6, 1, "PERMIT", "CANCELLED", "Urusan bank"),
         ]
-        for emp, (offset, days, kind, status_, reason) in zip(emps, plan):
+        for emp, (offset, days, kind, status_, reason) in zip(emps, plan, strict=False):  # fewer employees: fewer requests
             start = today + timedelta(days=offset)
             decided = status_ in ("APPROVED", "REJECTED")
             await db.leave_requests.insert_one(encode({

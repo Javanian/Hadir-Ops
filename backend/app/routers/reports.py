@@ -7,7 +7,6 @@ Endpoints:
 """
 
 from datetime import date
-from typing import List
 
 from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.database import AsyncDatabase
@@ -22,7 +21,7 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 
 @router.get(
     "/recap",
-    response_model=List[RecapRow],
+    response_model=list[RecapRow],
     summary="Attendance recap per employee: present, late, leave, absent without notice",
 )
 async def attendance_recap(

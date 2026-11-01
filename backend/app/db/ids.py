@@ -10,7 +10,6 @@ dropped when a process restarts) and are only roughly ordered across processes.
 """
 
 import asyncio
-from typing import Dict, Optional, Tuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -19,11 +18,11 @@ from pymongo.asynchronous.database import AsyncDatabase
 BLOCK_SIZE = 50
 
 # (database name, sequence) -> [next id to hand out, last id of the block]
-_blocks: Dict[Tuple[str, str], list] = {}
-_locks: Dict[Tuple[str, str], asyncio.Lock] = {}
+_blocks: dict[tuple[str, str], list] = {}
+_locks: dict[tuple[str, str], asyncio.Lock] = {}
 
 
-async def next_id(db: AsyncDatabase, sequence: str, session: Optional[AsyncClientSession] = None) -> int:
+async def next_id(db: AsyncDatabase, sequence: str, session: AsyncClientSession | None = None) -> int:
     """Return a new id for `sequence`.
 
     `session` is accepted for call sites inside a transaction but not used:

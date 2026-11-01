@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -15,9 +13,9 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("", response_model=UserListResponse, summary="List all users (ADMIN only)")
 async def list_users(
-    search: Optional[str] = Query(None, description="Search by name, employee_id, or email"),
-    role: Optional[str] = Query(None, description="Filter by role: ADMIN | SUPERVISOR | EMPLOYEE"),
-    site_id: Optional[int] = Query(None, description="Filter by site ID"),
+    search: str | None = Query(None, description="Search by name, employee_id, or email"),
+    role: str | None = Query(None, description="Filter by role: ADMIN | SUPERVISOR | EMPLOYEE"),
+    site_id: int | None = Query(None, description="Filter by site ID"),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db: AsyncDatabase = Depends(get_db),

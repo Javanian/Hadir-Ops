@@ -19,10 +19,10 @@ async def read_image_upload(file: UploadFile) -> bytes:
         size += len(chunk)
         if size > limit:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail=f"Image is larger than {limit // (1024 * 1024)} MB.",
             )
         chunks.append(chunk)
     if size == 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Empty image.")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Empty image.")
     return b"".join(chunks)

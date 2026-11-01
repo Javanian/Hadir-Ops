@@ -1,5 +1,4 @@
 import json
-from typing import List
 from pydantic_settings import BaseSettings
 
 
@@ -42,6 +41,8 @@ class Settings(BaseSettings):
     # Face Recognition (Phase 3)
     FACE_ENABLED: bool = True
     FACE_MODEL_NAME: str = "buffalo_s"
+    # Where the model pack is downloaded on first start; keep it on a volume.
+    FACE_MODEL_DIR: str = "~/.insightface"
     FACE_SIMILARITY_THRESHOLD: float = 0.3
     FACE_MAX_WIDTH: int = 640
     MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024  # face photos; phones send well under 1 MB
@@ -66,7 +67,7 @@ class Settings(BaseSettings):
     AUTO_CHECKOUT_INTERVAL_SECONDS: int = 60
 
     @property
-    def cors_origins_list(self) -> List[str]:
+    def cors_origins_list(self) -> list[str]:
         try:
             return json.loads(self.CORS_ORIGINS)
         except Exception:

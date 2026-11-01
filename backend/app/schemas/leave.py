@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
@@ -34,7 +34,7 @@ class LeaveRequestCreate(BaseModel):
 
 class LeaveDecision(BaseModel):
     decision: Literal["APPROVED", "REJECTED"]
-    note: Optional[str] = Field(None, max_length=500)
+    note: str | None = Field(None, max_length=500)
 
 
 class LeaveRequestResponse(BaseModel):
@@ -45,14 +45,14 @@ class LeaveRequestResponse(BaseModel):
     end_date: date
     reason: str
     status: LeaveStatus
-    reviewed_by: Optional[int]
-    reviewed_at: Optional[datetime]
-    review_note: Optional[str]
+    reviewed_by: int | None
+    reviewed_at: datetime | None
+    review_note: str | None
     created_at: datetime
 
-    employee_id: Optional[str] = None
-    employee_name: Optional[str] = None
-    reviewer_name: Optional[str] = None
+    employee_id: str | None = None
+    employee_name: str | None = None
+    reviewer_name: str | None = None
 
     @computed_field
     @property

@@ -21,7 +21,7 @@ import hashlib
 import os
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
-from datetime import timezone as dt_tz
+from datetime import UTC
 
 from app.core.database import client, get_database
 from app.db.ids import next_id
@@ -39,7 +39,7 @@ SHIFT_START_H, SHIFT_START_M = 7, 0    # 07:00 local
 SHIFT_END_H,   SHIFT_END_M   = 17, 0   # 17:00 local
 LATE_TOLERANCE_MIN = 15                 # 15 min grace → late threshold 07:15
 
-UTC = dt_tz.utc
+UTC = UTC
 
 # ---------------------------------------------------------------------------
 # Deterministic "random" from a seed string — no random module needed

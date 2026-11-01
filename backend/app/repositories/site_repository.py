@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import datetime, UTC
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -12,14 +11,14 @@ class SiteRepository:
     def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    async def get_all(self) -> List[Site]:
+    async def get_all(self) -> list[Site]:
         return [Site.from_doc(d) async for d in self.db.sites.find().sort("_id", 1)]
 
-    async def get_by_id(self, site_id: int) -> Optional[Site]:
+    async def get_by_id(self, site_id: int) -> Site | None:
         doc = await self.db.sites.find_one({"_id": site_id})
         return Site.from_doc(doc) if doc else None
 
-    async def get_by_name(self, name: str) -> Optional[Site]:
+    async def get_by_name(self, name: str) -> Site | None:
         doc = await self.db.sites.find_one({"name": name})
         return Site.from_doc(doc) if doc else None
 
@@ -38,7 +37,7 @@ class SiteRepository:
             "longitude": longitude,
             "radius_meter": radius_meter,
             "timezone": timezone_name,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
         await self.db.sites.insert_one(doc)
         return Site.from_doc(doc)

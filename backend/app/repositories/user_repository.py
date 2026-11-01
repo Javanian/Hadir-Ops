@@ -1,6 +1,5 @@
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, UTC
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
@@ -15,7 +14,7 @@ class UserRepository:
     def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    async def _one(self, query: dict) -> Optional[User]:
+    async def _one(self, query: dict) -> User | None:
         doc = await self.db.users.find_one(query)
         if doc is None:
             return None
@@ -25,25 +24,25 @@ class UserRepository:
 
     # ── Lookups ───────────────────────────────────────────────────────────────
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> User | None:
         return await self._one({"email": email})
 
-    async def get_by_employee_id(self, employee_id: str) -> Optional[User]:
+    async def get_by_employee_id(self, employee_id: str) -> User | None:
         return await self._one({"employee_id": employee_id})
 
-    async def get_by_id(self, user_id: int) -> Optional[User]:
+    async def get_by_id(self, user_id: int) -> User | None:
         return await self._one({"_id": user_id})
 
     async def get_subordinate_ids(self, supervisor_id: int) -> list[int]:
         """Return IDs of all users directly supervised by supervisor_id."""
         return [d["_id"] async for d in self.db.users.find({"supervisor_id": supervisor_id}, {"_id": 1})]
 
-    async def get_role_by_name(self, name: str) -> Optional[Role]:
+    async def get_role_by_name(self, name: str) -> Role | None:
         return Role(name) if name in ROLES else None
 
     # ── Login state ───────────────────────────────────────────────────────────
 
-    async def increment_failed_attempts(self, user: User, lock_until: Optional[datetime] = None) -> None:
+    async def increment_failed_attempts(self, user: User, lock_until: datetime | None = None) -> None:
         update: dict = {"$inc": {"failed_login_attempts": 1}}
         if lock_until is not None:
             update["$set"] = {"locked_until": lock_until}
@@ -75,7 +74,7 @@ class UserRepository:
 
     async def log_audit(
         self,
-        user_id: Optional[int],
+        user_id: int | None,
         action: str,
         ip_address: str,
         user_agent: str,
@@ -88,16 +87,16 @@ class UserRepository:
             "ip_address": ip_address[:50] if ip_address else None,
             "user_agent": user_agent,
             "status": status,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         })
 
     # ── User management ───────────────────────────────────────────────────────
 
     async def list_with_filters(
         self,
-        search: Optional[str],
-        role: Optional[str],
-        site_id: Optional[int],
+        search: str | None,
+        role: str | None,
+        site_id: int | None,
         skip: int,
         limit: int,
     ) -> tuple[list[User], int]:
@@ -124,8 +123,8 @@ class UserRepository:
         email: str,
         password_hash: str,
         role: str,
-        site_id: Optional[int],
-        supervisor_id: Optional[int],
+        site_id: int | None,
+        supervisor_id: int | None,
     ) -> User:
         user_id = await next_id(self.db, "users")
         await self.db.users.insert_one({
@@ -142,7 +141,7 @@ class UserRepository:
             "failed_login_attempts": 0,
             "locked_until": None,
             "password_changed_at": None,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         })
         return await self.get_by_id(user_id)
 

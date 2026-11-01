@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -11,7 +9,7 @@ from app.services.site_service import SiteService
 router = APIRouter(prefix="/sites", tags=["Sites"])
 
 
-@router.get("", response_model=List[SiteResponse], summary="List all sites")
+@router.get("", response_model=list[SiteResponse], summary="List all sites")
 async def list_sites(
     db: AsyncDatabase = Depends(get_db),
     _=Depends(get_current_user),  # any authenticated user can list

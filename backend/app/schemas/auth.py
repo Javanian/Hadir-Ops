@@ -1,6 +1,7 @@
-from typing import Optional
 
 from pydantic import BaseModel, field_validator
+
+from app.core.security import validate_new_password
 
 
 class LoginRequest(BaseModel):
@@ -38,9 +39,7 @@ class ChangePasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def min_length(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+        return validate_new_password(v)
 
 
 class TokenResponse(BaseModel):
@@ -59,9 +58,9 @@ class UserInfo(BaseModel):
     name: str
     email: str
     role: str
-    site_id: Optional[int] = None
-    site_name: Optional[str] = None
-    site_timezone: Optional[str] = None
+    site_id: int | None = None
+    site_name: str | None = None
+    site_timezone: str | None = None
     is_active: bool
 
     model_config = {"from_attributes": True}

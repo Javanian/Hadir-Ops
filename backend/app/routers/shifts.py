@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -22,9 +20,9 @@ router = APIRouter(tags=["Shifts & Schedules"])
 
 # ── Shifts ─────────────────────────────────────────────────────────────────────
 
-@router.get("/shifts", response_model=List[ShiftResponse], summary="List shifts")
+@router.get("/shifts", response_model=list[ShiftResponse], summary="List shifts")
 async def list_shifts(
-    site_id: Optional[int] = Query(None, description="Filter by site"),
+    site_id: int | None = Query(None, description="Filter by site"),
     db: AsyncDatabase = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -113,7 +111,7 @@ async def delete_schedule(
 
 # ── Holidays ───────────────────────────────────────────────────────────────────
 
-@router.get("/holidays", response_model=List[HolidayResponse], summary="List holidays")
+@router.get("/holidays", response_model=list[HolidayResponse], summary="List holidays")
 async def list_holidays(
     db: AsyncDatabase = Depends(get_db),
     _=Depends(get_current_user),

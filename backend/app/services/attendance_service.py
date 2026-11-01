@@ -12,9 +12,7 @@ via ZoneInfo(site.timezone).  day_of_week mapping: DB 0=Sunday, 1=Monday ... 6=S
 """
 
 import math
-from datetime import date, datetime, time, timedelta, timezone
-utc = timezone.utc  # singleton instance — astimezone() requires an instance, not the class
-from typing import List, Optional
+from datetime import date, datetime, time, timedelta, UTC
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -31,12 +29,13 @@ from app.repositories.shift_repository import ShiftRepository
 from app.repositories.site_repository import SiteRepository
 from app.schemas.attendance import (
     AttendanceResponse,
-    AutoCheckoutResult,
     CheckinRequest,
     CheckoutRequest,
     TeamAttendanceRecord,
 )
 from app.services import checkin_rules as rules
+
+utc = UTC  # singleton instance — astimezone() requires an instance, not the class
 
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
@@ -169,7 +168,7 @@ def _work_duration(checkin: datetime, checkout: datetime) -> int:
     return max(0, int((checkout - checkin).total_seconds() / 60))
 
 
-def _attendance_response(att, site_tz: Optional[str] = None) -> AttendanceResponse:
+def _attendance_response(att, site_tz: str | None = None) -> AttendanceResponse:
     """Build AttendanceResponse and set site_timezone from site relationship or fallback."""
     r = AttendanceResponse.model_validate(att)
     r.site_timezone = site_tz or (att.site.timezone if att.site else "Asia/Jakarta")
@@ -209,10 +208,10 @@ class AttendanceService:
                 clock_tolerance_s=settings.CLOCK_SKEW_TOLERANCE_SECONDS,
             )
         except rules.EventTimeError as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
 
     @staticmethod
-    def _check_face_token(token: Optional[str], user_id: int, event_at: datetime):
+    def _check_face_token(token: str | None, user_id: int, event_at: datetime):
         """Return (similarity, flags). A missing or stale token is flagged, never refused."""
         if not settings.FACE_ENABLED:
             return None, []
@@ -263,7 +262,7 @@ class AttendanceService:
         # 1. User must belong to a site
         if not current_user.site_id:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="User is not assigned to any site. Contact ADMIN.",
             )
 
@@ -354,7 +353,7 @@ class AttendanceService:
             )
             if active_ot is None:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="No active shift found for the current time. Check shift schedules.",
                 )
             # Overtime check-in: no shift, status is ONTIME/OUT_OF_RADIUS only
@@ -405,7 +404,7 @@ class AttendanceService:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Already checked in today.",
-            )
+            ) from None
         att = await self.repo.get_by_id(att.id)
         return _attendance_response(att, site.timezone), True
 
@@ -513,7 +512,7 @@ class AttendanceService:
                 existing = await self.repo.get_by_checkout_event(event_id)
                 if existing is not None and existing.user_id == current_user.id:
                     return _attendance_response(existing), False
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Check-out conflict.")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Check-out conflict.") from None
         # Re-fetch with full relationships (including overtime_requests)
         att = await self.repo.get_by_id(att.id)
         return _attendance_response(att, site_tz), True
@@ -642,7 +641,7 @@ class AttendanceService:
 
     # ── Review queue ──────────────────────────────────────────────────────────
 
-    async def _scope_user_ids(self, current_user) -> Optional[List[int]]:
+    async def _scope_user_ids(self, current_user) -> list[int] | None:
         """None = no restriction (ADMIN); otherwise the supervisor's direct reports."""
         if current_user.role.name == "ADMIN":
             return None
@@ -651,12 +650,12 @@ class AttendanceService:
 
     async def list_review_queue(
         self, current_user, pending_only: bool = True, limit: int = 200, offset: int = 0
-    ) -> List[TeamAttendanceRecord]:
+    ) -> list[TeamAttendanceRecord]:
         user_ids = await self._scope_user_ids(current_user)
         records = await self.repo.get_review_queue(user_ids, pending_only, limit, offset)
         return [TeamAttendanceRecord.from_attendance(r) for r in records]
 
-    async def review(self, attendance_id: int, current_user, decision: str, note: Optional[str]):
+    async def review(self, attendance_id: int, current_user, decision: str, note: str | None):
         att = await self.repo.get_by_id(attendance_id)
         if not att:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found.")
@@ -665,7 +664,7 @@ class AttendanceService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your team member.")
         if decision == "REJECTED" and not note:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="A note is required when rejecting, so the employee knows why.",
             )
         await self.repo.update(att.id, {
@@ -728,8 +727,8 @@ class AttendanceService:
     async def list_attempts(
         self,
         current_user,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
         limit: int = 200,
         offset: int = 0,
     ):
@@ -771,13 +770,13 @@ class AttendanceService:
     async def list_attendance(
         self,
         current_user,
-        user_id: Optional[int] = None,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
-        att_status: Optional[str] = None,
+        user_id: int | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        att_status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[AttendanceResponse]:
+    ) -> list[AttendanceResponse]:
         records = await self.repo.get_all(
             user_id=user_id,
             from_date=from_date,
@@ -792,12 +791,12 @@ class AttendanceService:
     async def list_my_attendance(
         self,
         user_id: int,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
         site_timezone: str = "UTC",
         limit: int = 50,
         offset: int = 0,
-    ) -> List[AttendanceResponse]:
+    ) -> list[AttendanceResponse]:
         records = await self.repo.get_by_user(
             user_id=user_id,
             from_date=from_date,
@@ -811,12 +810,12 @@ class AttendanceService:
     async def list_team_attendance(
         self,
         current_user,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
         site_timezone: str = "UTC",
         limit: int = 500,
         offset: int = 0,
-    ) -> List[TeamAttendanceRecord]:
+    ) -> list[TeamAttendanceRecord]:
         """Return attendance records for the supervisor's direct subordinates.
         ADMIN receives all records without restriction."""
         from app.repositories.user_repository import UserRepository

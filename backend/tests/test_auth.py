@@ -2,7 +2,7 @@
 Login lockout and token invalidation after a password change.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 import jwt
 import pytest
@@ -10,16 +10,16 @@ import pytest_asyncio
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-UTC = timezone.utc
+UTC = UTC
 EMP_EMAIL = "emp1@example.test"
 PASSWORD = "Password1!"
 
 
 @pytest_asyncio.fixture(loop_scope="session", autouse=True)
 async def _reset_rate_limits():
-    from app.routers.auth import limiter
+    from app.core import ratelimit
 
-    limiter.reset()
+    await ratelimit.reset()
     yield
 
 
@@ -114,3 +114,27 @@ async def test_password_change_invalidates_older_tokens(client, seed):
     assert r.status_code == 200
     r = await client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert r.status_code == 200, r.text
+
+
+async def test_login_is_rate_limited_per_client(client, seed):
+    from app.core.config import settings
+
+    allowed = int(settings.RATE_LIMIT_LOGIN.split("/")[0])
+    body = {"identifier": "nobody@example.test", "password": "wrong-password"}
+    for _ in range(allowed):
+        assert (await client.post("/auth/login", json=body)).status_code == 401
+    r = await client.post("/auth/login", json=body)
+    assert r.status_code == 429 and int(r.headers["Retry-After"]) >= 1
+
+
+async def test_passwords_written_by_passlib_still_verify():
+    """Hashes created before the switch from passlib to bcrypt keep working."""
+    from app.core.security import get_password_hash, validate_new_password, verify_password
+
+    passlib_hash = "$2b$12$I/oKsIM4XZ/gXCQNNEbHqeFkriEbMNktRSLB9D5iqUf3NXzaaHdNO"  # passlib, "Admin@123"
+    assert verify_password("Admin@123", passlib_hash)
+    assert not verify_password("admin@123", passlib_hash)
+    assert verify_password("x" * 80, get_password_hash("x" * 72))  # passlib cut at 72 bytes
+    assert not verify_password("anything", "not-a-hash")
+    with pytest.raises(ValueError):
+        validate_new_password("é" * 40)  # 80 bytes

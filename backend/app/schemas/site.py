@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -52,15 +51,15 @@ class SiteCreate(BaseModel):
 
 
 class SiteUpdate(BaseModel):
-    name: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    radius_meter: Optional[int] = None
-    timezone: Optional[str] = None
+    name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    radius_meter: int | None = None
+    timezone: str | None = None
 
     @field_validator("timezone")
     @classmethod
-    def valid_timezone(cls, v: Optional[str]) -> Optional[str]:
+    def valid_timezone(cls, v: str | None) -> str | None:
         if v is not None and v not in _VALID_TIMEZONES:
             raise ValueError(f"timezone must be one of: {', '.join(sorted(_VALID_TIMEZONES))}")
         return v
@@ -73,6 +72,6 @@ class SiteResponse(BaseModel):
     longitude: float
     radius_meter: int
     timezone: str = "Asia/Jakarta"
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}

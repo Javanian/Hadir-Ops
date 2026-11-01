@@ -1,5 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
-from typing import List, Optional
+from datetime import date, datetime, timedelta, UTC
 from zoneinfo import ZoneInfo
 
 from pymongo import DESCENDING
@@ -9,7 +8,7 @@ from app.db.documents import Attendance, encode
 from app.db.ids import next_id
 from app.db.relations import attach_attendance
 
-utc = timezone.utc  # singleton instance — datetime() and astimezone() require an instance, not the class
+utc = UTC  # singleton instance — datetime() and astimezone() require an instance, not the class
 
 
 def _date_to_utc(d: date, site_timezone: str = "UTC") -> datetime:
@@ -24,7 +23,7 @@ def _date_to_utc(d: date, site_timezone: str = "UTC") -> datetime:
     return local_midnight.astimezone(utc)
 
 
-def _checkin_range(from_date: Optional[date], to_date: Optional[date], site_timezone: str = "UTC") -> dict:
+def _checkin_range(from_date: date | None, to_date: date | None, site_timezone: str = "UTC") -> dict:
     rng: dict = {}
     if from_date is not None:
         rng["$gte"] = _date_to_utc(from_date, site_timezone)
@@ -49,14 +48,14 @@ class AttendanceRepository:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    async def _many(self, query: dict, limit: int = 0, offset: int = 0) -> List[Attendance]:
+    async def _many(self, query: dict, limit: int = 0, offset: int = 0) -> list[Attendance]:
         cursor = self.db.attendance.find(query).sort("checkin_time", DESCENDING).skip(offset)
         if limit:
             cursor = cursor.limit(limit)
         records = [Attendance.from_doc(d) async for d in cursor]
         return await attach_attendance(self.db, records)
 
-    async def _one(self, query: dict, latest: bool = False) -> Optional[Attendance]:
+    async def _one(self, query: dict, latest: bool = False) -> Attendance | None:
         if latest:
             found = await self._many(query, limit=1)
             return found[0] if found else None
@@ -69,7 +68,7 @@ class AttendanceRepository:
 
     async def get_today_checkin(
         self, user_id: int, today_local: date, site_timezone: str
-    ) -> Optional[Attendance]:
+    ) -> Attendance | None:
         """Return the check-in record for a user on the given site-local calendar date (or None).
 
         Uses a UTC range spanning [midnight_local, midnight_local+1day) so a
@@ -78,27 +77,27 @@ class AttendanceRepository:
         query = {"user_id": user_id, **_checkin_range(today_local, today_local, site_timezone)}
         return await self._one(query, latest=True)
 
-    async def get_open_for_user(self, user_id: int) -> Optional[Attendance]:
+    async def get_open_for_user(self, user_id: int) -> Attendance | None:
         """Return the most-recent open check-in (no checkout) for a user."""
         return await self._one({"user_id": user_id, "checkout_time": None}, latest=True)
 
-    async def get_open_attendances(self) -> List[Attendance]:
+    async def get_open_attendances(self) -> list[Attendance]:
         """Return all records without a checkout (for auto-checkout worker)."""
         return await self._many({"checkout_time": None})
 
-    async def get_by_id(self, attendance_id: int) -> Optional[Attendance]:
+    async def get_by_id(self, attendance_id: int) -> Attendance | None:
         return await self._one({"_id": attendance_id})
 
     async def get_all(
         self,
-        user_id: Optional[int] = None,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
-        status: Optional[str] = None,
+        user_id: int | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-        user_ids: Optional[List[int]] = None,
-    ) -> List[Attendance]:
+        user_ids: list[int] | None = None,
+    ) -> list[Attendance]:
         """`user_ids=None` means no restriction; an empty list matches nothing."""
         query: dict = {**_checkin_range(from_date, to_date)}
         if user_id is not None:
@@ -114,24 +113,24 @@ class AttendanceRepository:
     async def get_by_user(
         self,
         user_id: int,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
         site_timezone: str = "UTC",
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Attendance]:
+    ) -> list[Attendance]:
         query = {"user_id": user_id, **_checkin_range(from_date, to_date, site_timezone)}
         return await self._many(query, limit, offset)
 
     async def get_team_attendance(
         self,
-        user_ids: Optional[list] = None,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
+        user_ids: list | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
         site_timezone: str = "UTC",
         limit: int = 500,
         offset: int = 0,
-    ) -> List[Attendance]:
+    ) -> list[Attendance]:
         """Return attendance records for a set of users (team/subordinate view).
         user_ids=None means no filter — ADMIN sees all."""
         query: dict = {**_checkin_range(from_date, to_date, site_timezone)}
@@ -139,15 +138,15 @@ class AttendanceRepository:
             query["user_id"] = {"$in": list(user_ids)}
         return await self._many(query, limit, offset)
 
-    async def get_by_client_event(self, client_event_id: str) -> Optional[Attendance]:
+    async def get_by_client_event(self, client_event_id: str) -> Attendance | None:
         return await self._one({"client_event_id": _indexed_str(client_event_id)})
 
-    async def get_by_checkout_event(self, checkout_event_id: str) -> Optional[Attendance]:
+    async def get_by_checkout_event(self, checkout_event_id: str) -> Attendance | None:
         return await self._one({"checkout_event_id": _indexed_str(checkout_event_id)})
 
     async def get_auto_closed_before(
         self, user_id: int, event_utc: datetime, window_hours: int = 24
-    ) -> Optional[Attendance]:
+    ) -> Attendance | None:
         """Latest record closed by the auto-checkout worker that a late (offline)
         manual check-out at `event_utc` could belong to."""
         query = {
@@ -159,11 +158,11 @@ class AttendanceRepository:
 
     async def get_review_queue(
         self,
-        user_ids: Optional[List[int]],
+        user_ids: list[int] | None,
         pending_only: bool = True,
         limit: int = 200,
         offset: int = 0,
-    ) -> List[Attendance]:
+    ) -> list[Attendance]:
         if pending_only:
             query: dict = {"needs_review": True}
         else:
@@ -174,7 +173,7 @@ class AttendanceRepository:
             query["user_id"] = {"$in": user_ids}
         return await self._many(query, limit, offset)
 
-    async def get_open_with_approved_overtime_due(self, now_utc: datetime) -> List[Attendance]:
+    async def get_open_with_approved_overtime_due(self, now_utc: datetime) -> list[Attendance]:
         """Open records whose APPROVED overtime has ended (closes overtime sessions)."""
         att_ids = await self.db.overtime_requests.distinct(
             "attendance_id",
@@ -189,11 +188,11 @@ class AttendanceRepository:
     async def create(
         self,
         user_id: int,
-        site_id: Optional[int],
-        shift_id: Optional[int],
+        site_id: int | None,
+        shift_id: int | None,
         checkin_time: datetime,
-        latitude: Optional[float],
-        longitude: Optional[float],
+        latitude: float | None,
+        longitude: float | None,
         status: str,
         is_weekend: bool,
         is_holiday: bool,

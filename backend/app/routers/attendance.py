@@ -20,7 +20,6 @@ same client_event_id was already processed (safe retry).
 """
 
 from datetime import date
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from pymongo.asynchronous.database import AsyncDatabase
@@ -107,12 +106,12 @@ async def report_attempts(
 
 @router.get(
     "/attempts",
-    response_model=List[AttemptOut],
+    response_model=list[AttemptOut],
     summary="Failed attempts — SUPERVISOR sees own team; ADMIN sees all",
 )
 async def list_attempts(
-    from_date: Optional[date] = Query(None),
-    to_date: Optional[date] = Query(None),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: AsyncDatabase = Depends(get_db),
@@ -127,7 +126,7 @@ async def list_attempts(
 
 @router.get(
     "/review",
-    response_model=List[TeamAttendanceRecord],
+    response_model=list[TeamAttendanceRecord],
     summary="Records flagged for review — SUPERVISOR sees own team; ADMIN sees all",
 )
 async def review_queue(
@@ -181,12 +180,12 @@ async def attach_face(
 
 @router.get(
     "/me",
-    response_model=List[AttendanceResponse],
+    response_model=list[AttendanceResponse],
     summary="My attendance records",
 )
 async def my_attendance(
-    from_date: Optional[date] = Query(None, description="Start date filter (YYYY-MM-DD)"),
-    to_date: Optional[date] = Query(None, description="End date filter (YYYY-MM-DD)"),
+    from_date: date | None = Query(None, description="Start date filter (YYYY-MM-DD)"),
+    to_date: date | None = Query(None, description="End date filter (YYYY-MM-DD)"),
     timezone: str = Query("UTC", description="Site timezone for date boundary conversion, e.g. Asia/Jakarta"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -205,14 +204,14 @@ async def my_attendance(
 
 @router.get(
     "",
-    response_model=List[AttendanceResponse],
+    response_model=list[AttendanceResponse],
     summary="List attendance records — SUPERVISOR sees own team; ADMIN sees all",
 )
 async def list_attendance(
-    user_id: Optional[int] = Query(None, description="Filter by user ID"),
-    from_date: Optional[date] = Query(None),
-    to_date: Optional[date] = Query(None),
-    att_status: Optional[str] = Query(None, alias="status", description="ONTIME | LATE | OUT_OF_RADIUS"),
+    user_id: int | None = Query(None, description="Filter by user ID"),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    att_status: str | None = Query(None, alias="status", description="ONTIME | LATE | OUT_OF_RADIUS"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncDatabase = Depends(get_db),
@@ -231,12 +230,12 @@ async def list_attendance(
 
 @router.get(
     "/team",
-    response_model=List[TeamAttendanceRecord],
+    response_model=list[TeamAttendanceRecord],
     summary="Subordinates' attendance records — SUPERVISOR sees own team; ADMIN sees all (F6)",
 )
 async def team_attendance(
-    from_date: Optional[date] = Query(None, description="Start date filter (YYYY-MM-DD)"),
-    to_date: Optional[date] = Query(None, description="End date filter (YYYY-MM-DD)"),
+    from_date: date | None = Query(None, description="Start date filter (YYYY-MM-DD)"),
+    to_date: date | None = Query(None, description="End date filter (YYYY-MM-DD)"),
     limit: int = Query(500, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: AsyncDatabase = Depends(get_db),

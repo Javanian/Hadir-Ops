@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from fastapi import HTTPException, Request, status
 from pymongo.asynchronous.database import AsyncDatabase
@@ -23,7 +23,7 @@ class AuthService:
 
     def _utcnow(self) -> datetime:
         """Return aware UTC datetime (locked_until is TIMESTAMPTZ)."""
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     async def login(self, request: Request, data: LoginRequest) -> TokenResponse:
         ip = request.client.host if request.client else "unknown"
@@ -108,11 +108,11 @@ class AuthService:
             user_id: str = payload.get("sub")
             if not user_id:
                 raise ValueError("Missing subject claim")
-        except (ValueError, Exception):
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired refresh token",
-            )
+            ) from None
 
         user = await self.repo.get_by_id(int(user_id))
         if not user or not user.is_active:
@@ -147,5 +147,5 @@ class AuthService:
             )
         # 3. Hash and persist
         new_hash = get_password_hash(data.new_password)
-        changed_at = datetime.now(timezone.utc)
+        changed_at = datetime.now(UTC)
         await self.repo.update_password(user, new_hash, changed_at)

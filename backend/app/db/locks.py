@@ -5,7 +5,7 @@ A lease expires on its own, so a worker that crashes mid-pass cannot block the
 next one forever (the old Postgres advisory lock was tied to a connection).
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
@@ -13,7 +13,7 @@ from pymongo.errors import DuplicateKeyError
 
 
 async def acquire(db: AsyncDatabase, name: str, owner: str, ttl_seconds: int) -> bool:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     try:
         doc = await db.locks.find_one_and_update(
             {"_id": name, "$or": [{"expires_at": {"$lte": now}}, {"owner": owner}]},

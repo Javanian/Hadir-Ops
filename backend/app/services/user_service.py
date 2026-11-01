@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, UTC
 
 from fastapi import HTTPException, status
 from pymongo.asynchronous.database import AsyncDatabase
@@ -17,7 +16,7 @@ from app.schemas.users import (
 
 def _to_item(user: User) -> UserListItem:
     """Convert a User document (with its site attached) to UserListItem."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return UserListItem(
         id=user.id,
         employee_id=user.employee_id,
@@ -43,9 +42,9 @@ class UserService:
 
     async def list_users(
         self,
-        search: Optional[str],
-        role: Optional[str],
-        site_id: Optional[int],
+        search: str | None,
+        role: str | None,
+        site_id: int | None,
         page: int,
         page_size: int,
     ) -> UserListResponse:
@@ -76,19 +75,19 @@ class UserService:
         # Uniqueness checks
         if await self.repo.get_by_employee_id(data.employee_id):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Employee ID already exists",
             )
         if await self.repo.get_by_email(data.email):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Email already in use",
             )
 
         role = await self.repo.get_role_by_name(data.role)
         if role is None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Role '{data.role}' not found in database",
             )
 
@@ -120,7 +119,7 @@ class UserService:
                 existing = await self.repo.get_by_email(new_email)
                 if existing and existing.id != user_id:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail="Email already in use by another user",
                     )
             fields["email"] = new_email
@@ -132,7 +131,7 @@ class UserService:
             role = await self.repo.get_role_by_name(data.role)
             if role is None:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=f"Role '{data.role}' not found",
                 )
             fields["role"] = role.name
@@ -149,7 +148,7 @@ class UserService:
         if "password" in changed and data.password is not None:
             fields["password_hash"] = get_password_hash(data.password)
             # Tokens issued before the reset stop working (see get_current_user)
-            fields["password_changed_at"] = datetime.now(timezone.utc)
+            fields["password_changed_at"] = datetime.now(UTC)
 
         await self.repo.update(user_id, fields)
 

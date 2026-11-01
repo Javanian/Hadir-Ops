@@ -16,8 +16,7 @@ Rules:
      applies to a PENDING request, so two reviewers cannot both decide.
 """
 
-from datetime import date, datetime, timedelta, timezone
-from typing import List, Optional
+from datetime import date, datetime, timedelta, UTC
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -41,7 +40,7 @@ class LeaveService:
         self.db = db
         self.repo = LeaveRepository(db)
 
-    async def _scope_user_ids(self, current_user) -> Optional[List[int]]:
+    async def _scope_user_ids(self, current_user) -> list[int] | None:
         """None = everyone (ADMIN); otherwise the supervisor's direct reports."""
         if current_user.role.name == "ADMIN":
             return None
@@ -59,12 +58,12 @@ class LeaveService:
         today = _site_today(current_user)
         if data.start_date < today - timedelta(days=MAX_BACKDATE_DAYS):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Leave can start at most {MAX_BACKDATE_DAYS} days in the past.",
             )
         if data.start_date > today + timedelta(days=MAX_ADVANCE_DAYS):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Leave can be requested at most {MAX_ADVANCE_DAYS} days ahead.",
             )
 
@@ -106,8 +105,8 @@ class LeaveService:
         return await self._response(leave_id)
 
     async def list_mine(
-        self, current_user, leave_status: Optional[str], limit: int, offset: int
-    ) -> List[LeaveRequestResponse]:
+        self, current_user, leave_status: str | None, limit: int, offset: int
+    ) -> list[LeaveRequestResponse]:
         rows = await self.repo.list(
             user_ids=[current_user.id], status=leave_status, limit=limit, offset=offset
         )
@@ -129,12 +128,12 @@ class LeaveService:
     async def list_team(
         self,
         current_user,
-        leave_status: Optional[str],
-        from_date: Optional[date],
-        to_date: Optional[date],
+        leave_status: str | None,
+        from_date: date | None,
+        to_date: date | None,
         limit: int,
         offset: int,
-    ) -> List[LeaveRequestResponse]:
+    ) -> list[LeaveRequestResponse]:
         user_ids = await self._scope_user_ids(current_user)
         rows = await self.repo.list(
             user_ids=user_ids,
@@ -162,7 +161,7 @@ class LeaveService:
         note = (data.note or "").strip() or None
         if data.decision == "REJECTED" and not note:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="A note is required when rejecting, so the employee knows why.",
             )
 
@@ -170,7 +169,7 @@ class LeaveService:
             leave_id,
             data.decision,
             reviewed_by=current_user.id,
-            reviewed_at=datetime.now(timezone.utc),
+            reviewed_at=datetime.now(UTC),
             review_note=note,
         )
         if not decided:

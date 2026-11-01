@@ -26,7 +26,7 @@ async def get_current_user(
         if user_id is None:
             raise credentials_exception
     except ValueError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     # Import here to avoid circular imports
     from app.repositories.user_repository import UserRepository

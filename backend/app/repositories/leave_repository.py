@@ -1,5 +1,4 @@
-from datetime import date, datetime, timezone
-from typing import List, Optional
+from datetime import date, datetime, UTC
 
 from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -8,6 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.db.documents import LeaveRequest, encode
 from app.db.ids import next_id
 from app.db.relations import attach_leave
+import builtins
 
 ACTIVE_STATUSES = ["PENDING", "APPROVED"]
 
@@ -16,7 +16,7 @@ class LeaveRepository:
     def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    async def get_by_id(self, leave_id: int) -> Optional[LeaveRequest]:
+    async def get_by_id(self, leave_id: int) -> LeaveRequest | None:
         doc = await self.db.leave_requests.find_one({"_id": leave_id})
         if doc is None:
             return None
@@ -31,8 +31,8 @@ class LeaveRepository:
         )
 
     async def find_overlapping_active(
-        self, user_id: int, start: date, end: date, session: Optional[AsyncClientSession] = None
-    ) -> Optional[LeaveRequest]:
+        self, user_id: int, start: date, end: date, session: AsyncClientSession | None = None
+    ) -> LeaveRequest | None:
         doc = await self.db.leave_requests.find_one(
             {
                 "user_id": user_id,
@@ -47,13 +47,13 @@ class LeaveRepository:
 
     async def list(
         self,
-        user_ids: Optional[List[int]] = None,
-        status: Optional[str] = None,
-        from_date: Optional[date] = None,
-        to_date: Optional[date] = None,
+        user_ids: list[int] | None = None,
+        status: str | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
         limit: int = 200,
         offset: int = 0,
-    ) -> List[LeaveRequest]:
+    ) -> list[LeaveRequest]:
         """`user_ids=None` means no restriction; an empty list matches nothing."""
         query: dict = {}
         if user_ids is not None:
@@ -74,7 +74,7 @@ class LeaveRepository:
         )
         return await attach_leave(self.db, [LeaveRequest.from_doc(d) async for d in cursor])
 
-    async def approved_between(self, user_ids: List[int], start: date, end: date) -> List[LeaveRequest]:
+    async def approved_between(self, user_ids: builtins.list[int], start: date, end: date) -> builtins.list[LeaveRequest]:
         cursor = self.db.leave_requests.find({
             "user_id": {"$in": user_ids},
             "status": "APPROVED",
@@ -83,10 +83,10 @@ class LeaveRepository:
         })
         return [LeaveRequest.from_doc(d) async for d in cursor]
 
-    async def insert(self, fields: dict, session: Optional[AsyncClientSession] = None) -> int:
+    async def insert(self, fields: dict, session: AsyncClientSession | None = None) -> int:
         leave_id = await next_id(self.db, "leave_requests", session=session)
         await self.db.leave_requests.insert_one(
-            encode({"_id": leave_id, "created_at": datetime.now(timezone.utc), **fields}), session=session
+            encode({"_id": leave_id, "created_at": datetime.now(UTC), **fields}), session=session
         )
         return leave_id
 
@@ -94,9 +94,9 @@ class LeaveRepository:
         self,
         leave_id: int,
         new_status: str,
-        reviewed_by: Optional[int] = None,
-        reviewed_at: Optional[datetime] = None,
-        review_note: Optional[str] = None,
+        reviewed_by: int | None = None,
+        reviewed_at: datetime | None = None,
+        review_note: str | None = None,
     ) -> bool:
         """Move a PENDING request to `new_status`. Returns False if it was no
         longer PENDING (someone else decided first)."""

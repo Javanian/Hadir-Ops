@@ -11,7 +11,6 @@ Endpoints:
   GET    /overtime/attendance/{att_id}      — All requests for one attendance (IDOR)
 """
 
-from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.database import AsyncDatabase
@@ -28,11 +27,11 @@ router = APIRouter(prefix="/overtime", tags=["Overtime"])
 
 @router.get(
     "/me",
-    response_model=List[OvertimeRequestResponse],
+    response_model=list[OvertimeRequestResponse],
     summary="Current user's own overtime requests (all roles)",
 )
 async def list_my_overtime(
-    ot_status: Optional[str] = Query(None, alias="status", description="PENDING | APPROVED | REJECTED"),
+    ot_status: str | None = Query(None, alias="status", description="PENDING | APPROVED | REJECTED"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncDatabase = Depends(get_db),
@@ -48,7 +47,7 @@ async def list_my_overtime(
 
 @router.get(
     "/attendance/{attendance_id}",
-    response_model=List[OvertimeRequestResponse],
+    response_model=list[OvertimeRequestResponse],
     summary="All overtime requests for a given attendance record (IDOR protected)",
 )
 async def list_by_attendance(
@@ -81,11 +80,11 @@ async def create_overtime_request(
 
 @router.get(
     "",
-    response_model=List[OvertimeRequestResponse],
+    response_model=list[OvertimeRequestResponse],
     summary="List overtime requests (role-scoped: EMPLOYEE=own, SUPERVISOR=team, ADMIN=all)",
 )
 async def list_overtime(
-    ot_status: Optional[str] = Query(None, alias="status", description="PENDING | APPROVED | REJECTED"),
+    ot_status: str | None = Query(None, alias="status", description="PENDING | APPROVED | REJECTED"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncDatabase = Depends(get_db),

@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 import pytest
 
 from app.services import checkin_rules as rules
 
-NOW = datetime(2026, 10, 14, 1, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 14, 1, 0, tzinfo=UTC)
 KW = dict(offline_threshold_s=120, max_age_hours=72, clock_tolerance_s=300)
 
 

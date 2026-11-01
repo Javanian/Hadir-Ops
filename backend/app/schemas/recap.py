@@ -1,5 +1,4 @@
 from datetime import date
-from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -9,7 +8,7 @@ class RecapRow(BaseModel):
     employee_id: str
     name: str
     role: str
-    site_name: Optional[str]
+    site_name: str | None
     workdays: int          # scheduled workdays up to today
     present: int           # days with a check-in (any day, incl. weekends)
     ontime: int
@@ -19,7 +18,7 @@ class RecapRow(BaseModel):
     permit: int
     annual: int
     absent: int            # past workdays with no check-in and no approved leave
-    absent_dates: List[date]
+    absent_dates: list[date]
     work_minutes: int
     overtime_minutes: int
     needs_review: int      # check-ins still waiting in the review queue

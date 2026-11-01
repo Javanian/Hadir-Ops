@@ -6,7 +6,7 @@ fetches every referenced collection once with `$in` (no per-row queries),
 then attaches the results as attributes (`att.site`, `req.submitter`, ...).
 """
 
-from typing import Dict, Iterable, List, Optional
+from collections.abc import Iterable
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -22,18 +22,18 @@ from app.db.documents import (
 )
 
 
-def _ids(values: Iterable[Optional[int]]) -> List[int]:
+def _ids(values: Iterable[int | None]) -> list[int]:
     return sorted({v for v in values if v is not None})
 
 
-async def sites_by_id(db: AsyncDatabase, ids: Iterable[Optional[int]]) -> Dict[int, Site]:
+async def sites_by_id(db: AsyncDatabase, ids: Iterable[int | None]) -> dict[int, Site]:
     wanted = _ids(ids)
     if not wanted:
         return {}
     return {d["_id"]: Site.from_doc(d) async for d in db.sites.find({"_id": {"$in": wanted}})}
 
 
-async def shifts_by_id(db: AsyncDatabase, ids: Iterable[Optional[int]]) -> Dict[int, Shift]:
+async def shifts_by_id(db: AsyncDatabase, ids: Iterable[int | None]) -> dict[int, Shift]:
     wanted = _ids(ids)
     if not wanted:
         return {}
@@ -41,8 +41,8 @@ async def shifts_by_id(db: AsyncDatabase, ids: Iterable[Optional[int]]) -> Dict[
 
 
 async def users_by_id(
-    db: AsyncDatabase, ids: Iterable[Optional[int]], with_site: bool = False
-) -> Dict[int, User]:
+    db: AsyncDatabase, ids: Iterable[int | None], with_site: bool = False
+) -> dict[int, User]:
     wanted = _ids(ids)
     if not wanted:
         return {}
@@ -60,14 +60,14 @@ async def attach_user_sites(db: AsyncDatabase, users: Iterable[User]) -> None:
 
 
 async def attach_attendance(
-    db: AsyncDatabase, records: List[Attendance], with_overtime: bool = True
-) -> List[Attendance]:
+    db: AsyncDatabase, records: list[Attendance], with_overtime: bool = True
+) -> list[Attendance]:
     if not records:
         return records
     users = await users_by_id(db, (r.user_id for r in records))
     sites = await sites_by_id(db, (r.site_id for r in records))
     shifts = await shifts_by_id(db, (r.shift_id for r in records))
-    overtime: Dict[int, List[OvertimeRequest]] = {}
+    overtime: dict[int, list[OvertimeRequest]] = {}
     if with_overtime:
         async for d in db.overtime_requests.find({"attendance_id": {"$in": [r.id for r in records]}}):
             overtime.setdefault(d["attendance_id"], []).append(OvertimeRequest.from_doc(d))
@@ -79,7 +79,7 @@ async def attach_attendance(
     return records
 
 
-async def attach_overtime(db: AsyncDatabase, requests: List[OvertimeRequest]) -> List[OvertimeRequest]:
+async def attach_overtime(db: AsyncDatabase, requests: list[OvertimeRequest]) -> list[OvertimeRequest]:
     if not requests:
         return requests
     users = await users_by_id(db, [r.user_id for r in requests] + [r.approved_by for r in requests])
@@ -97,7 +97,7 @@ async def attach_overtime(db: AsyncDatabase, requests: List[OvertimeRequest]) ->
     return requests
 
 
-async def attach_leave(db: AsyncDatabase, leaves: List[LeaveRequest]) -> List[LeaveRequest]:
+async def attach_leave(db: AsyncDatabase, leaves: list[LeaveRequest]) -> list[LeaveRequest]:
     users = await users_by_id(db, [x.user_id for x in leaves] + [x.reviewed_by for x in leaves])
     for x in leaves:
         x.user = users.get(x.user_id)
@@ -106,8 +106,8 @@ async def attach_leave(db: AsyncDatabase, leaves: List[LeaveRequest]) -> List[Le
 
 
 async def attach_assignments(
-    db: AsyncDatabase, items: List[TemporaryAssignment]
-) -> List[TemporaryAssignment]:
+    db: AsyncDatabase, items: list[TemporaryAssignment]
+) -> list[TemporaryAssignment]:
     users = await users_by_id(db, [a.user_id for a in items] + [a.created_by for a in items])
     sites = await sites_by_id(db, (a.site_id for a in items))
     shifts = await shifts_by_id(db, (a.shift_id for a in items))
@@ -119,7 +119,7 @@ async def attach_assignments(
     return items
 
 
-async def attach_attempts(db: AsyncDatabase, items: List[CheckinAttempt]) -> List[CheckinAttempt]:
+async def attach_attempts(db: AsyncDatabase, items: list[CheckinAttempt]) -> list[CheckinAttempt]:
     users = await users_by_id(db, (a.user_id for a in items), with_site=True)
     for a in items:
         a.user = users.get(a.user_id)

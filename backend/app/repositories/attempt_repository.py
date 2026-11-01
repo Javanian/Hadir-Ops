@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import datetime, UTC
 
 from pymongo import DESCENDING
 from pymongo.asynchronous.database import AsyncDatabase
@@ -16,11 +15,11 @@ class AttemptRepository:
     def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    async def insert_many(self, user_id: int, rows: List[dict]) -> int:
+    async def insert_many(self, user_id: int, rows: list[dict]) -> int:
         """Insert attempts, ignoring event ids already stored. Returns how many were new."""
         if not rows:
             return 0
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         docs = [
             {"_id": await next_id(self.db, "checkin_attempts"), **row, "user_id": user_id, "received_at": now}
             for row in rows
@@ -36,12 +35,12 @@ class AttemptRepository:
 
     async def list(
         self,
-        user_ids: Optional[List[int]],
-        from_utc: Optional[datetime] = None,
-        to_utc: Optional[datetime] = None,
+        user_ids: list[int] | None,
+        from_utc: datetime | None = None,
+        to_utc: datetime | None = None,
         limit: int = 200,
         offset: int = 0,
-    ) -> List[CheckinAttempt]:
+    ) -> list[CheckinAttempt]:
         query: dict = {}
         if user_ids is not None:
             if not user_ids:

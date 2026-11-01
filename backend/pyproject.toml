@@ -1,0 +1,80 @@
+[project]
+name = "hadirops-backend"
+version = "1.1.0"
+description = "HadirOps attendance API: FastAPI, MongoDB, InsightFace."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.161,<1",
+    "uvicorn[standard]>=0.54,<1",
+    "pymongo>=4.17,<5",
+    "pyjwt>=2.15,<3",
+    # Direct bcrypt instead of passlib, which is unmaintained and breaks on Python 3.13+
+    # (it needs the removed `crypt` module and bcrypt < 4.1).
+    "bcrypt>=5.0,<6",
+    "pydantic-settings>=2.15,<3",
+    "python-dotenv>=1.2,<2",
+    "python-multipart>=0.0.30",
+    "limits>=5.8,<6",
+    # IANA time zones for per-site time (Windows and slim images ship none)
+    "tzdata>=2026.1",
+    "numpy>=2.3,<3",
+    "opencv-python-headless>=5.0,<6",
+]
+
+[project.optional-dependencies]
+# The face model. CI and tests replace it with a stub, so they skip this extra.
+face = [
+    "insightface>=2.1,<3",
+    "onnxruntime>=1.30,<2",
+    # insightface 2.1 calls SimilarityTransform.estimate(), which scikit-image 2.2
+    # removes. Lift this cap once deepinsight/insightface#2901 is released.
+    "scikit-image>=0.26,<2.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "pytest-asyncio>=1.3",
+    # httpx2: the maintained continuation of httpx (Pydantic), with the same API
+    "httpx2>=2.16",
+    "ruff>=0.17",
+]
+
+[tool.uv]
+package = false
+# Supply-chain cooldown: only releases that have been public for 7 days.
+exclude-newer = "7 days"
+# insightface depends on the GUI build of OpenCV. A server needs the headless build,
+# and installing both breaks `import cv2`, so the GUI build is never installed.
+override-dependencies = ["opencv-python; sys_platform == 'never'"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+# A deprecation in our code or a dependency fails the run, so upgrades surface them.
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::PendingDeprecationWarning",
+    "error::ResourceWarning",
+    # Inside insightface 2.1 (deepinsight/insightface#2901); scikit-image is capped below 2.2.
+    "ignore:`estimate` is deprecated:FutureWarning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP"]
+ignore = [
+    "B008",  # FastAPI's Depends() in argument defaults is the documented pattern
+    "E501",  # long lines are left to review
+]
+
+[tool.ruff.lint.per-file-ignores]
+# These put backend/ on sys.path or set env vars before importing the app
+"tests/conftest.py" = ["E402"]
+"scripts/*" = ["E402"]
+"seed*.py" = ["E402"]

@@ -1,5 +1,4 @@
 from datetime import date, datetime, time
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -37,7 +36,7 @@ class AssignmentCreate(BaseModel):
     shift_id:   int
     start_date: date
     end_date:   date
-    notes:      Optional[str] = None
+    notes:      str | None = None
 
     @model_validator(mode="after")
     def validate_dates(self) -> "AssignmentCreate":
@@ -57,11 +56,11 @@ class AssignmentResponse(BaseModel):
     shift_id:   int
     start_date: date
     end_date:   date
-    notes:      Optional[str]
-    created_by: Optional[int]
+    notes:      str | None
+    created_by: int | None
     created_at: datetime
 
     user:    UserMinimal
     site:    SiteMinimal
     shift:   ShiftMinimal
-    creator: Optional[UserMinimal]
+    creator: UserMinimal | None

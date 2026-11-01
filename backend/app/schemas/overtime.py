@@ -1,14 +1,13 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, computed_field, model_validator
 
 
 class OvertimeRequestCreate(BaseModel):
-    attendance_id: Optional[int] = None   # Optional for standalone (future-date) overtime
+    attendance_id: int | None = None   # Optional for standalone (future-date) overtime
     requested_start: datetime
     requested_end: datetime
-    notes: Optional[str] = None
+    notes: str | None = None
 
     @model_validator(mode="after")
     def validate_times(self):
@@ -24,9 +23,9 @@ class ApproveBody(BaseModel):
     requested window before overtime_minutes are calculated and written to
     the attendance record.  Both must be provided together.
     """
-    supervisor_notes: Optional[str] = None
-    approved_start: Optional[datetime] = None
-    approved_end: Optional[datetime] = None
+    supervisor_notes: str | None = None
+    approved_start: datetime | None = None
+    approved_end: datetime | None = None
 
     @model_validator(mode="after")
     def both_or_neither(self):
@@ -41,24 +40,24 @@ class ApproveBody(BaseModel):
 
 class RejectBody(BaseModel):
     """Optional body for PATCH /overtime/{id}/reject."""
-    supervisor_notes: Optional[str] = None
+    supervisor_notes: str | None = None
 
 
 class OvertimeRequestResponse(BaseModel):
     id: int
-    user_id: Optional[int]
-    attendance_id: Optional[int]
+    user_id: int | None
+    attendance_id: int | None
     requested_start: datetime
     requested_end: datetime
-    approved_by: Optional[int]
+    approved_by: int | None
     status: str          # PENDING | APPROVED | REJECTED
-    notes: Optional[str]
-    supervisor_notes: Optional[str]
+    notes: str | None
+    supervisor_notes: str | None
     created_at: datetime
 
     # Denormalised from submitter relationship (always loaded via selectinload)
-    employee_id: Optional[str] = None
-    employee_name: Optional[str] = None
+    employee_id: str | None = None
+    employee_name: str | None = None
 
     @computed_field
     @property

@@ -1,5 +1,4 @@
 from datetime import datetime, time
-from typing import List, Optional
 
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -38,7 +37,7 @@ class ShiftCreate(BaseModel):
     end_time: time
     is_cross_midnight: bool = False
     work_hours_standard: int = 8
-    schedules: Optional[List[WorkScheduleCreate]] = None
+    schedules: list[WorkScheduleCreate] | None = None
 
     @field_validator("name")
     @classmethod
@@ -66,30 +65,30 @@ class ShiftCreate(BaseModel):
 
 
 class ShiftUpdate(BaseModel):
-    name: Optional[str] = None
-    start_time: Optional[time] = None
-    end_time: Optional[time] = None
-    is_cross_midnight: Optional[bool] = None
-    work_hours_standard: Optional[int] = None
+    name: str | None = None
+    start_time: time | None = None
+    end_time: time | None = None
+    is_cross_midnight: bool | None = None
+    work_hours_standard: int | None = None
 
 
 class ShiftResponse(BaseModel):
     id: int
     site_id: int
-    name: Optional[str]
+    name: str | None
     start_time: time
     end_time: time
     is_cross_midnight: bool
     work_hours_standard: int
-    created_at: Optional[datetime] = None
-    schedules: List[WorkScheduleResponse] = []
+    created_at: datetime | None = None
+    schedules: list[WorkScheduleResponse] = []
 
     model_config = {"from_attributes": True}
 
 
 class HolidayCreate(BaseModel):
     holiday_date: str  # "YYYY-MM-DD"
-    description: Optional[str] = None
+    description: str | None = None
     is_national: bool = True
 
     @field_validator("holiday_date")
@@ -98,20 +97,20 @@ class HolidayCreate(BaseModel):
         from datetime import date
         try:
             date.fromisoformat(v)
-        except ValueError:
-            raise ValueError("holiday_date must be in YYYY-MM-DD format")
+        except ValueError as exc:
+            raise ValueError("holiday_date must be in YYYY-MM-DD format") from exc
         return v
 
 
 class HolidayUpdate(BaseModel):
-    description: Optional[str] = None
-    is_national: Optional[bool] = None
+    description: str | None = None
+    is_national: bool | None = None
 
 
 class HolidayResponse(BaseModel):
     id: int
     holiday_date: str
-    description: Optional[str] = None
+    description: str | None = None
     is_national: bool
 
     model_config = {"from_attributes": True}

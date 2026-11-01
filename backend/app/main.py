@@ -4,14 +4,11 @@ import os
 import socket
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.core.config import settings
 from app.routers import assignments, attendance, auth, face, leave, overtime, reports, shifts, sites, users
@@ -21,8 +18,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 log = logging.getLogger("hadirops")
-
-limiter = Limiter(key_func=get_remote_address)
 
 # Lease shared by every API process; only the holder runs a pass.
 AUTO_CHECKOUT_LOCK = "auto_checkout"
@@ -66,7 +61,7 @@ async def _auto_checkout_worker():
     while True:
         try:
             result = await run_auto_checkout_once()
-            _worker_state["last_run"] = datetime.now(timezone.utc)
+            _worker_state["last_run"] = datetime.now(UTC)
             _worker_state["last_error"] = None
             if result and any(result):
                 log.info("auto-checkout closed %d at shift end, %d at overtime end", *result)
@@ -77,12 +72,24 @@ async def _auto_checkout_worker():
 
 
 def _load_face_model():
-    # Imported here so the API can start (and be tested) without the model
-    # when FACE_ENABLED is false.
+    # insightface is imported lazily so the API can start (and be tested)
+    # without the model when FACE_ENABLED is false.
+    return build_face_model(settings.FACE_MODEL_NAME, root=settings.FACE_MODEL_DIR)
+
+
+def build_face_model(name: str, root: str | None = None):
+    """Detection and recognition only: the pack also ships age/gender and two
+    landmark models that verification never reads, which cost memory and time."""
     from insightface.app import FaceAnalysis
 
-    model = FaceAnalysis(name=settings.FACE_MODEL_NAME, providers=["CPUExecutionProvider"])
-    model.prepare(ctx_id=0, det_size=(640, 640))
+    kwargs = {"root": os.path.expanduser(root)} if root else {}
+    model = FaceAnalysis(
+        name=name,
+        providers=["CPUExecutionProvider"],
+        allowed_modules=["detection", "recognition"],
+        **kwargs,
+    )
+    model.prepare(ctx_id=-1, det_size=(640, 640))  # -1: CPU
     return model
 
 
@@ -132,10 +139,6 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
-
-# ── Rate limiter ──────────────────────────────────────────────────────────────
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(

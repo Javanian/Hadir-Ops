@@ -18,7 +18,7 @@ Day rules (all dates are site-local calendar dates):
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Set
+from collections.abc import Iterable
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -41,9 +41,9 @@ def db_dow(d: date) -> int:
 
 @dataclass
 class DayInputs:
-    workdays: Set[date]
-    attended: Dict[date, Optional[str]]  # date -> attendance status
-    leave: Dict[date, str]               # date -> leave type (approved only)
+    workdays: set[date]
+    attended: dict[date, str | None]  # date -> attendance status
+    leave: dict[date, str]               # date -> leave type (approved only)
     today: date
 
 
@@ -58,7 +58,7 @@ class DayCounts:
     permit: int = 0
     annual: int = 0
     absent: int = 0
-    absent_dates: List[date] = field(default_factory=list)
+    absent_dates: list[date] = field(default_factory=list)
 
 
 def count_days(days: Iterable[date], inp: DayInputs) -> DayCounts:
@@ -92,7 +92,7 @@ def count_days(days: Iterable[date], inp: DayInputs) -> DayCounts:
     return c
 
 
-def _date_range(start: date, end: date) -> List[date]:
+def _date_range(start: date, end: date) -> list[date]:
     return [start + timedelta(days=i) for i in range((end - start).days + 1)]
 
 
@@ -100,7 +100,7 @@ class RecapService:
     def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    async def _users_in_scope(self, current_user) -> List[User]:
+    async def _users_in_scope(self, current_user) -> list[User]:
         query: dict = {"is_active": True, "role": {"$ne": "ADMIN"}}
         if current_user.role.name == "SUPERVISOR":
             query["supervisor_id"] = current_user.id
@@ -108,12 +108,12 @@ class RecapService:
         await attach_user_sites(self.db, users)
         return users
 
-    async def recap(self, current_user, from_date: date, to_date: date) -> List[RecapRow]:
+    async def recap(self, current_user, from_date: date, to_date: date) -> list[RecapRow]:
         if to_date < from_date:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "to_date must be on or after from_date.")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "to_date must be on or after from_date.")
         if (to_date - from_date).days + 1 > MAX_RANGE_DAYS:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
                 f"A recap covers at most {MAX_RANGE_DAYS} days.",
             )
 
@@ -127,7 +127,7 @@ class RecapService:
         shift_repo = ShiftRepository(self.db)
         shifts = await shift_repo.get_all()
         shift_dows = {s.id: {ws.day_of_week for ws in s.work_schedules} for s in shifts}
-        site_dows: Dict[int, Set[int]] = {}
+        site_dows: dict[int, set[int]] = {}
         for s in shifts:
             site_dows.setdefault(s.site_id, set()).update(shift_dows[s.id])
 
@@ -146,8 +146,8 @@ class RecapService:
              "overtime_minutes": 1, "needs_review": 1},
         )
 
-        attended: Dict[int, Dict[date, Optional[str]]] = {uid: {} for uid in user_ids}
-        minutes: Dict[int, List[int]] = {uid: [0, 0, 0] for uid in user_ids}  # work, overtime, review
+        attended: dict[int, dict[date, str | None]] = {uid: {} for uid in user_ids}
+        minutes: dict[int, list[int]] = {uid: [0, 0, 0] for uid in user_ids}  # work, overtime, review
         async for r in att_rows:
             attended[r["user_id"]][date.fromisoformat(r["work_date"])] = r.get("status")
             m = minutes[r["user_id"]]
@@ -155,21 +155,21 @@ class RecapService:
             m[1] += r.get("overtime_minutes") or 0
             m[2] += 1 if r.get("needs_review") else 0
 
-        leave_days: Dict[int, Dict[date, str]] = {uid: {} for uid in user_ids}
+        leave_days: dict[int, dict[date, str]] = {uid: {} for uid in user_ids}
         for lv in leaves:
             d = max(lv.start_date, from_date)
             while d <= min(lv.end_date, to_date):
                 leave_days[lv.user_id][d] = lv.leave_type
                 d += timedelta(days=1)
 
-        rows: List[RecapRow] = []
+        rows: list[RecapRow] = []
         for u in users:
             tz = u.site.timezone if u.site else "Asia/Jakarta"
             today = datetime.now(ZoneInfo(tz)).date()
             base_dows = site_dows.get(u.site_id, set())
             user_assignments = [a for a in assignments if a.user_id == u.id]
 
-            workdays: Set[date] = set()
+            workdays: set[date] = set()
             for d in days:
                 if d in holidays:
                     continue

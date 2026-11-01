@@ -22,7 +22,7 @@ import time
 import uuid
 from pathlib import Path
 
-import httpx
+import httpx2 as httpx
 from pymongo import MongoClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -61,7 +61,7 @@ def seed(n: int) -> list[int]:
         "work_hours_standard": 8,
         "work_schedules": [
             {"id": i, "day_of_week": d, "toleransi_telat_menit": 15}
-            for i, d in zip(_next_ids(db, "work_schedules", 7), range(7))
+            for i, d in zip(_next_ids(db, "work_schedules", 7), range(7), strict=True)
         ],
     })
     ids = _next_ids(db, "users", n)

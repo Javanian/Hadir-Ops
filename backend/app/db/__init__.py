@@ -1,13 +1,11 @@
 """MongoDB data layer: document shapes, ids, schema, relations and locks."""
 
-from typing import Awaitable, Callable, TypeVar
+from collections.abc import Awaitable, Callable
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-T = TypeVar("T")
 
-
-async def in_transaction(callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
+async def in_transaction[T](callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
     """Run `callback(session)` in a multi-document transaction.
 
     `with_transaction` retries on transient errors such as a write conflict,

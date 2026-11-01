@@ -12,7 +12,6 @@ with a flag for a person to judge, not a rejected check-in.
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Optional
 
 # ── Risk flags ─────────────────────────────────────────────────────────────────
 
@@ -37,7 +36,7 @@ REVIEW_FLAGS = {
 }
 
 
-def review_needed(flags: List[str], status: Optional[str] = None) -> bool:
+def review_needed(flags: list[str], status: str | None = None) -> bool:
     if status == "OUT_OF_RADIUS":
         return True
     for flag in flags:
@@ -57,13 +56,13 @@ class EventTimeError(ValueError):
 class EventTime:
     at: datetime                 # the moment used for attendance logic (UTC, aware)
     is_offline: bool
-    flags: List[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
 
 
 def resolve_event_time(
     received_at: datetime,
-    captured_at: Optional[datetime],
-    capture_age_ms: Optional[int],
+    captured_at: datetime | None,
+    capture_age_ms: int | None,
     *,
     offline_threshold_s: int,
     max_age_hours: int,
@@ -83,7 +82,7 @@ def resolve_event_time(
     (Android's does). The two cannot be told apart here, so the time the phone
     recorded is kept and the record goes to review with CLOCK_MISMATCH.
     """
-    flags: List[str] = []
+    flags: list[str] = []
 
     if captured_at is None and capture_age_ms is None:
         return EventTime(at=received_at, is_offline=False)
@@ -126,13 +125,13 @@ def resolve_event_time(
 class GeofenceResult:
     in_radius: bool
     distance_m: float
-    flags: List[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
 
 
 def evaluate_geofence(
     distance_m: float,
     radius_m: float,
-    accuracy_m: Optional[float],
+    accuracy_m: float | None,
     *,
     accuracy_cap_m: float,
 ) -> GeofenceResult:
@@ -141,7 +140,7 @@ def evaluate_geofence(
     Uncertain (accepted, flagged) if the accuracy circle reaches the radius.
     Accuracy is capped so a 3 km reading cannot validate any location.
     """
-    flags: List[str] = []
+    flags: list[str] = []
     if accuracy_m is None:
         flags.append(GPS_ACCURACY_UNKNOWN)
         return GeofenceResult(in_radius=distance_m <= radius_m, distance_m=distance_m, flags=flags)

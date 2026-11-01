@@ -10,7 +10,7 @@ Endpoints:
 """
 
 from datetime import date
-from typing import List, Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.database import AsyncDatabase
@@ -22,7 +22,7 @@ from app.services.leave_service import LeaveService
 
 router = APIRouter(prefix="/leave", tags=["Leave"])
 
-StatusFilter = Optional[Literal["PENDING", "APPROVED", "REJECTED", "CANCELLED"]]
+StatusFilter = Literal["PENDING", "APPROVED", "REJECTED", "CANCELLED"] | None
 
 
 @router.post(
@@ -40,7 +40,7 @@ async def create_leave(
     return await LeaveService(db).create(current_user, data)
 
 
-@router.get("/me", response_model=List[LeaveRequestResponse], summary="Your own leave requests")
+@router.get("/me", response_model=list[LeaveRequestResponse], summary="Your own leave requests")
 async def list_my_leave(
     leave_status: StatusFilter = Query(None, alias="status"),
     limit: int = Query(100, ge=1, le=500),
@@ -66,13 +66,13 @@ async def cancel_leave(
 
 @router.get(
     "",
-    response_model=List[LeaveRequestResponse],
+    response_model=list[LeaveRequestResponse],
     summary="Team leave requests — SUPERVISOR sees direct reports; ADMIN sees all",
 )
 async def list_team_leave(
     leave_status: StatusFilter = Query(None, alias="status"),
-    from_date: Optional[date] = Query(None, description="Requests that end on or after this date"),
-    to_date: Optional[date] = Query(None, description="Requests that start on or before this date"),
+    from_date: date | None = Query(None, description="Requests that end on or after this date"),
+    to_date: date | None = Query(None, description="Requests that start on or before this date"),
     limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncDatabase = Depends(get_db),

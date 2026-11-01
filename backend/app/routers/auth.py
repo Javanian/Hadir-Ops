@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.ratelimit import rate_limit
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -15,15 +15,14 @@ from app.schemas.auth import (
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post(
     "/login",
     response_model=TokenResponse,
     summary="Login with email/employee_id and password",
+    dependencies=[rate_limit(settings.RATE_LIMIT_LOGIN, "login")],
 )
-@limiter.limit("10/minute")
 async def login(
     request: Request,
     data: LoginRequest,
@@ -69,8 +68,8 @@ async def get_me(current_user=Depends(get_current_user)):
     "/change-password",
     status_code=204,
     summary="Change own password (invalidates all existing tokens)",
+    dependencies=[rate_limit("5/minute", "change-password")],
 )
-@limiter.limit("5/minute")
 async def change_password(
     request: Request,
     data: ChangePasswordRequest,

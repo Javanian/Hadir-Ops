@@ -17,7 +17,6 @@ IDOR:
   - ADMIN: unrestricted
 """
 
-from typing import List, Optional
 
 from fastapi import HTTPException, status
 from pymongo.asynchronous.database import AsyncDatabase
@@ -39,7 +38,7 @@ class OvertimeService:
     def _to_response(self, req) -> OvertimeRequestResponse:
         return OvertimeRequestResponse.model_validate(req)
 
-    def _req_user_id(self, req) -> Optional[int]:
+    def _req_user_id(self, req) -> int | None:
         """Resolve the owning user_id from a request (direct or via attendance)."""
         if req.user_id is not None:
             return req.user_id
@@ -71,17 +70,17 @@ class OvertimeService:
             await require_user_access(self.db, current_user, att.user_id)
             if att.checkout_time is None:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="Cannot submit overtime request before check-out.",
                 )
             if att.auto_checkout and not (att.is_weekend or att.is_holiday):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="Auto-checked-out records on regular days are not eligible for overtime.",
                 )
             if att.is_weekend or att.is_holiday:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=(
                         "Overtime for weekends and holidays is calculated automatically. "
                         "No manual request is required."
@@ -95,12 +94,12 @@ class OvertimeService:
                 )
             if data.requested_start < att.checkin_time:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="requested_start cannot be before check-in time.",
                 )
             if data.requested_end > att.checkout_time:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="requested_end cannot be after check-out time.",
                 )
             owner_user_id = att.user_id
@@ -157,12 +156,12 @@ class OvertimeService:
             if att is not None:
                 if eff_start < att.checkin_time:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail="approved_start cannot be before check-in time.",
                     )
                 if att.checkout_time and eff_end > att.checkout_time:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail="approved_end cannot be after check-out time.",
                     )
             changes["requested_start"] = eff_start
@@ -222,10 +221,10 @@ class OvertimeService:
     async def list_my_requests(
         self,
         current_user,
-        ot_status: Optional[str] = None,
+        ot_status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[OvertimeRequestResponse]:
+    ) -> list[OvertimeRequestResponse]:
         """Returns only the current user's own overtime requests (all roles)."""
         records = await self.repo.get_all(
             user_id=current_user.id,
@@ -238,10 +237,10 @@ class OvertimeService:
     async def list_requests(
         self,
         current_user,
-        ot_status: Optional[str] = None,
+        ot_status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[OvertimeRequestResponse]:
+    ) -> list[OvertimeRequestResponse]:
         """Role-scoped list: SUPERVISOR=team, ADMIN=all, everyone else=own."""
         role = current_user.role.name
         if role not in ("ADMIN", "SUPERVISOR"):
@@ -281,7 +280,7 @@ class OvertimeService:
 
     async def list_by_attendance(
         self, attendance_id: int, current_user
-    ) -> List[OvertimeRequestResponse]:
+    ) -> list[OvertimeRequestResponse]:
         att = await self.att_repo.get_by_id(attendance_id)
         if not att:
             raise HTTPException(

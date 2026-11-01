@@ -1,5 +1,4 @@
-from datetime import date, datetime, timezone
-from typing import List, Optional
+from datetime import date, datetime, UTC
 
 from pymongo import DESCENDING
 from pymongo.asynchronous.database import AsyncDatabase
@@ -13,7 +12,7 @@ class AssignmentRepository:
     def __init__(self, db: AsyncDatabase):
         self.db = db
 
-    async def _many(self, query: dict, skip: int = 0, limit: int = 0) -> List[TemporaryAssignment]:
+    async def _many(self, query: dict, skip: int = 0, limit: int = 0) -> list[TemporaryAssignment]:
         cursor = self.db.temporary_assignments.find(query).sort("start_date", DESCENDING).skip(skip)
         if limit:
             cursor = cursor.limit(limit)
@@ -24,10 +23,10 @@ class AssignmentRepository:
         self,
         skip: int = 0,
         limit: int = 100,
-        user_id: Optional[int] = None,
-        site_id: Optional[int] = None,
+        user_id: int | None = None,
+        site_id: int | None = None,
         active_only: bool = False,
-    ) -> List[TemporaryAssignment]:
+    ) -> list[TemporaryAssignment]:
         query: dict = {}
         if user_id is not None:
             query["user_id"] = user_id
@@ -39,11 +38,11 @@ class AssignmentRepository:
             query["end_date"] = {"$gte": today}
         return await self._many(query, skip, limit)
 
-    async def get_by_id(self, assignment_id: int) -> Optional[TemporaryAssignment]:
+    async def get_by_id(self, assignment_id: int) -> TemporaryAssignment | None:
         found = await self._many({"_id": assignment_id})
         return found[0] if found else None
 
-    async def get_active_for_user(self, user_id: int, target_date: date) -> Optional[TemporaryAssignment]:
+    async def get_active_for_user(self, user_id: int, target_date: date) -> TemporaryAssignment | None:
         """Return the first active assignment for a user on the given date."""
         day = target_date.isoformat()
         found = await self._many(
@@ -51,7 +50,7 @@ class AssignmentRepository:
         )
         return found[0] if found else None
 
-    async def active_between(self, user_ids: List[int], start: date, end: date) -> List[TemporaryAssignment]:
+    async def active_between(self, user_ids: list[int], start: date, end: date) -> list[TemporaryAssignment]:
         cursor = self.db.temporary_assignments.find({
             "user_id": {"$in": user_ids},
             "start_date": {"$lte": end.isoformat()},
@@ -64,7 +63,7 @@ class AssignmentRepository:
         user_id: int,
         start_date: date,
         end_date: date,
-        exclude_id: Optional[int] = None,
+        exclude_id: int | None = None,
     ) -> bool:
         """Return True if an overlapping assignment exists for the user."""
         query: dict = {
@@ -76,7 +75,7 @@ class AssignmentRepository:
             query["_id"] = {"$ne": exclude_id}
         return await self.db.temporary_assignments.count_documents(query, limit=1) > 0
 
-    async def create(self, data, created_by: Optional[int]) -> TemporaryAssignment:
+    async def create(self, data, created_by: int | None) -> TemporaryAssignment:
         assignment_id = await next_id(self.db, "temporary_assignments")
         await self.db.temporary_assignments.insert_one(encode({
             "_id": assignment_id,
@@ -87,7 +86,7 @@ class AssignmentRepository:
             "end_date": data.end_date,
             "notes": data.notes,
             "created_by": created_by,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }))
         return await self.get_by_id(assignment_id)
 

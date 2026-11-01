@@ -1,4 +1,3 @@
-from typing import List
 
 from fastapi import HTTPException, status
 from pymongo.asynchronous.database import AsyncDatabase
@@ -11,7 +10,7 @@ class SiteService:
     def __init__(self, db: AsyncDatabase):
         self.repo = SiteRepository(db)
 
-    async def list_sites(self) -> List[SiteResponse]:
+    async def list_sites(self) -> list[SiteResponse]:
         sites = await self.repo.get_all()
         return [SiteResponse.model_validate(s) for s in sites]
 

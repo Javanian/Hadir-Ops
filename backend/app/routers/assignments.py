@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.database import AsyncDatabase
@@ -11,16 +10,16 @@ from app.services.assignment_service import AssignmentService
 router = APIRouter(prefix="/assignments", tags=["Assignments"])
 
 
-@router.get("", response_model=List[AssignmentResponse], summary="List assignments (ADMIN only)")
+@router.get("", response_model=list[AssignmentResponse], summary="List assignments (ADMIN only)")
 async def list_assignments(
-    user_id:     Optional[int]  = Query(None, description="Filter by user ID"),
-    site_id:     Optional[int]  = Query(None, description="Filter by site ID"),
+    user_id:     int | None  = Query(None, description="Filter by user ID"),
+    site_id:     int | None  = Query(None, description="Filter by site ID"),
     active_only: bool           = Query(False, description="Return only currently active assignments"),
     skip:        int            = Query(0,   ge=0),
     limit:       int            = Query(100, ge=1, le=500),
     db: AsyncDatabase = Depends(get_db),
     _=Depends(require_role("ADMIN")),
-) -> List[AssignmentResponse]:
+) -> list[AssignmentResponse]:
     return await AssignmentService(db).list_assignments(
         user_id=user_id, site_id=site_id,
         active_only=active_only, skip=skip, limit=limit,
@@ -45,9 +44,9 @@ async def delete_assignment(
     await AssignmentService(db).delete_assignment(assignment_id, current_user)
 
 
-@router.get("/active", response_model=Optional[AssignmentResponse], summary="Get active assignment for current user today")
+@router.get("/active", response_model=AssignmentResponse | None, summary="Get active assignment for current user today")
 async def get_active_assignment(
     db: AsyncDatabase = Depends(get_db),
     current_user=Depends(get_current_user),
-) -> Optional[AssignmentResponse]:
+) -> AssignmentResponse | None:
     return await AssignmentService(db).get_active_assignment(current_user)

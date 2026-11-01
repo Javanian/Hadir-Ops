@@ -1,5 +1,4 @@
 from datetime import date
-from typing import List, Optional
 
 from fastapi import HTTPException, status
 from pymongo.asynchronous.database import AsyncDatabase
@@ -59,19 +58,19 @@ class ShiftService:
         """Validate that shift time makes sense."""
         if start_time == end_time:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="start_time and end_time cannot be equal",
             )
         # Cross-midnight shifts: end_time < start_time is expected
         if not is_cross_midnight and end_time < start_time:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="end_time is before start_time. Set is_cross_midnight=true for overnight shifts.",
             )
 
     # ── Shifts ────────────────────────────────────────────────────────────────
 
-    async def list_shifts(self, site_id: Optional[int] = None) -> List[ShiftResponse]:
+    async def list_shifts(self, site_id: int | None = None) -> list[ShiftResponse]:
         shifts = await self.repo.get_all(site_id=site_id)
         return [_shift_to_response(s) for s in shifts]
 
@@ -101,7 +100,7 @@ class ShiftService:
         duplicate = next((d for d in days if days.count(d) > 1), None)
         if duplicate is not None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Duplicate day_of_week={duplicate} in schedules",
             )
 
@@ -183,7 +182,7 @@ class ShiftService:
 
     # ── Holidays ──────────────────────────────────────────────────────────────
 
-    async def list_holidays(self) -> List[HolidayResponse]:
+    async def list_holidays(self) -> list[HolidayResponse]:
         holidays = await self.repo.get_all_holidays()
         return [
             HolidayResponse(

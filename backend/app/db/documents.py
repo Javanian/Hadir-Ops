@@ -18,7 +18,7 @@ Storage conventions:
 
 from dataclasses import dataclass, field, fields
 from datetime import date, datetime, time
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 ROLES = ("ADMIN", "SUPERVISOR", "EMPLOYEE", "SALES")
 
@@ -40,11 +40,11 @@ def encode(value: Any) -> Any:
     return value
 
 
-def _date(value: Any) -> Optional[date]:
+def _date(value: Any) -> date | None:
     return date.fromisoformat(value) if isinstance(value, str) else value
 
 
-def _time(value: Any) -> Optional[time]:
+def _time(value: Any) -> time | None:
     return time.fromisoformat(value) if isinstance(value, str) else value
 
 
@@ -72,7 +72,7 @@ class Site:
     longitude: float
     radius_meter: int
     timezone: str = "Asia/Jakarta"
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     @classmethod
     def from_doc(cls, doc: dict) -> "Site":
@@ -87,15 +87,15 @@ class User:
     email: str
     password_hash: str
     role: Role
-    site_id: Optional[int] = None
-    face_embedding: Optional[List[float]] = None
+    site_id: int | None = None
+    face_embedding: list[float] | None = None
     is_active: bool = True
     failed_login_attempts: int = 0
-    locked_until: Optional[datetime] = None
-    supervisor_id: Optional[int] = None
-    password_changed_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    site: Optional[Site] = None
+    locked_until: datetime | None = None
+    supervisor_id: int | None = None
+    password_changed_at: datetime | None = None
+    created_at: datetime | None = None
+    site: Site | None = None
 
     @classmethod
     def from_doc(cls, doc: dict) -> "User":
@@ -114,13 +114,13 @@ class WorkSchedule:
 class Shift:
     id: int
     site_id: int
-    name: Optional[str]
+    name: str | None
     start_time: time
     end_time: time
     is_cross_midnight: bool = False
     work_hours_standard: int = 8
-    created_at: Optional[datetime] = None
-    work_schedules: List[WorkSchedule] = field(default_factory=list)
+    created_at: datetime | None = None
+    work_schedules: list[WorkSchedule] = field(default_factory=list)
 
     @classmethod
     def from_doc(cls, doc: dict) -> "Shift":
@@ -145,7 +145,7 @@ class Shift:
 class Holiday:
     id: int
     holiday_date: date
-    description: Optional[str] = None
+    description: str | None = None
     is_national: bool = True
 
     @classmethod
@@ -156,18 +156,18 @@ class Holiday:
 @dataclass
 class OvertimeRequest:
     id: int
-    user_id: Optional[int]
+    user_id: int | None
     requested_start: datetime
     requested_end: datetime
-    attendance_id: Optional[int] = None
-    approved_by: Optional[int] = None
+    attendance_id: int | None = None
+    approved_by: int | None = None
     status: str = "PENDING"
-    notes: Optional[str] = None
-    supervisor_notes: Optional[str] = None
-    created_at: Optional[datetime] = None
+    notes: str | None = None
+    supervisor_notes: str | None = None
+    created_at: datetime | None = None
     attendance: Optional["Attendance"] = None
-    submitter: Optional[User] = None
-    approver: Optional[User] = None
+    submitter: User | None = None
+    approver: User | None = None
 
     @classmethod
     def from_doc(cls, doc: dict) -> "OvertimeRequest":
@@ -179,36 +179,36 @@ class Attendance:
     id: int
     user_id: int
     checkin_time: datetime
-    site_id: Optional[int] = None
-    shift_id: Optional[int] = None
-    checkout_time: Optional[datetime] = None
+    site_id: int | None = None
+    shift_id: int | None = None
+    checkout_time: datetime | None = None
     auto_checkout: bool = False
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: float | None = None
+    longitude: float | None = None
     work_duration_minutes: int = 0
     overtime_minutes: int = 0
     is_weekend: bool = False
     is_holiday: bool = False
-    status: Optional[str] = None
-    created_at: Optional[datetime] = None
-    work_date: Optional[date] = None
-    client_event_id: Optional[str] = None
-    checkout_event_id: Optional[str] = None
-    captured_at: Optional[datetime] = None
-    received_at: Optional[datetime] = None
-    gps_accuracy_m: Optional[float] = None
+    status: str | None = None
+    created_at: datetime | None = None
+    work_date: date | None = None
+    client_event_id: str | None = None
+    checkout_event_id: str | None = None
+    captured_at: datetime | None = None
+    received_at: datetime | None = None
+    gps_accuracy_m: float | None = None
     is_offline: bool = False
-    face_similarity: Optional[float] = None
-    risk_flags: List[str] = field(default_factory=list)
+    face_similarity: float | None = None
+    risk_flags: list[str] = field(default_factory=list)
     needs_review: bool = False
-    review_status: Optional[str] = None
-    reviewed_by: Optional[int] = None
-    reviewed_at: Optional[datetime] = None
-    review_note: Optional[str] = None
-    user: Optional[User] = None
-    site: Optional[Site] = None
-    shift: Optional[Shift] = None
-    overtime_requests: List[OvertimeRequest] = field(default_factory=list)
+    review_status: str | None = None
+    reviewed_by: int | None = None
+    reviewed_at: datetime | None = None
+    review_note: str | None = None
+    user: User | None = None
+    site: Site | None = None
+    shift: Shift | None = None
+    overtime_requests: list[OvertimeRequest] = field(default_factory=list)
 
     @classmethod
     def from_doc(cls, doc: dict) -> "Attendance":
@@ -224,12 +224,12 @@ class LeaveRequest:
     end_date: date
     reason: str
     status: str = "PENDING"
-    reviewed_by: Optional[int] = None
-    reviewed_at: Optional[datetime] = None
-    review_note: Optional[str] = None
-    created_at: Optional[datetime] = None
-    user: Optional[User] = None
-    reviewer: Optional[User] = None
+    reviewed_by: int | None = None
+    reviewed_at: datetime | None = None
+    review_note: str | None = None
+    created_at: datetime | None = None
+    user: User | None = None
+    reviewer: User | None = None
 
     @classmethod
     def from_doc(cls, doc: dict) -> "LeaveRequest":
@@ -244,13 +244,13 @@ class TemporaryAssignment:
     shift_id: int
     start_date: date
     end_date: date
-    notes: Optional[str] = None
-    created_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    user: Optional[User] = None
-    site: Optional[Site] = None
-    shift: Optional[Shift] = None
-    creator: Optional[User] = None
+    notes: str | None = None
+    created_by: int | None = None
+    created_at: datetime | None = None
+    user: User | None = None
+    site: Site | None = None
+    shift: Shift | None = None
+    creator: User | None = None
 
     @classmethod
     def from_doc(cls, doc: dict) -> "TemporaryAssignment":
@@ -265,13 +265,13 @@ class CheckinAttempt:
     kind: str
     reason: str
     captured_at: datetime
-    detail: Optional[str] = None
-    received_at: Optional[datetime] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    gps_accuracy_m: Optional[float] = None
-    app_version: Optional[str] = None
-    user: Optional[User] = None
+    detail: str | None = None
+    received_at: datetime | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    gps_accuracy_m: float | None = None
+    app_version: str | None = None
+    user: User | None = None
 
     @classmethod
     def from_doc(cls, doc: dict) -> "CheckinAttempt":

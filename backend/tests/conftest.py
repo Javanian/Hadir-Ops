@@ -10,7 +10,7 @@ database is dropped at the start of the run and emptied before each test.
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 import pytest
@@ -30,13 +30,14 @@ sys.path.insert(0, str(ROOT / "backend"))
 # Start from an empty database (a synchronous client, before any event loop).
 from pymongo import MongoClient  # noqa: E402
 
-MongoClient(TEST_URL, serverSelectionTimeoutMS=10000).drop_database(TEST_DB)
+with MongoClient(TEST_URL, serverSelectionTimeoutMS=10000) as _sync:
+    _sync.drop_database(TEST_DB)
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 import pytest_asyncio  # noqa: E402
-from httpx import ASGITransport, AsyncClient  # noqa: E402
+from httpx2 import ASGITransport, AsyncClient  # noqa: E402
 
 SITE_LAT, SITE_LON, SITE_RADIUS = -6.200000, 106.816666, 100
 COLLECTIONS = (
@@ -104,7 +105,7 @@ async def seed(mongo):
         await mongo[name].delete_many({})
     forget_blocks()  # counters were wiped with the rest
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     site_id = await next_id(mongo, "sites")
     await mongo.sites.insert_one({
         "_id": site_id, "name": "Plant A", "latitude": SITE_LAT, "longitude": SITE_LON,

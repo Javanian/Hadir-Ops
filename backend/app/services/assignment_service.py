@@ -1,5 +1,3 @@
-from datetime import date
-from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -22,12 +20,12 @@ class AssignmentService:
 
     async def list_assignments(
         self,
-        user_id: Optional[int] = None,
-        site_id: Optional[int] = None,
+        user_id: int | None = None,
+        site_id: int | None = None,
         active_only: bool = False,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[AssignmentResponse]:
+    ) -> list[AssignmentResponse]:
         records = await self.repo.get_all(
             skip=skip, limit=limit,
             user_id=user_id, site_id=site_id,
@@ -59,7 +57,7 @@ class AssignmentService:
         shift_ids = {s.id for s in all_shifts}
         if data.shift_id not in shift_ids:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Shift tidak ditemukan pada lokasi yang dipilih.",
             )
 
@@ -89,7 +87,7 @@ class AssignmentService:
 
     async def get_active_assignment(
         self, current_user
-    ) -> Optional[AssignmentResponse]:
+    ) -> AssignmentResponse | None:
         """Return the active assignment for the current user today (if any)."""
         # Use user's site timezone to determine "today"
         if current_user.site_id:

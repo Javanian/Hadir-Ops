@@ -32,7 +32,7 @@ class FaceService:
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Cannot decode image. Provide a valid JPEG or PNG file.",
             )
         h, w = img.shape[:2]
@@ -56,12 +56,12 @@ class FaceService:
 
         if len(faces) == 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="No face detected in the image.",
             )
         if len(faces) > 1:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
                     f"Multiple faces detected ({len(faces)}). "
                     "Provide an image with exactly one face."
