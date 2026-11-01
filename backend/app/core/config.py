@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     # Database (MongoDB). Transactions need a replica set; a single-node set is
     # enough for development (see docker-compose.yml).
     MONGODB_URL: str = "mongodb://localhost:27017/?replicaSet=rs0"
-    MONGODB_DB: str = "hadirops"
+    MONGODB_DB: str = "rollproof"
 
     # JWT
     SECRET_KEY: str = "change-this-secret-key-in-production-min-32-chars"

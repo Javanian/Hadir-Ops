@@ -20,8 +20,8 @@ const storage = {
 };
 
 export const TOKEN_KEYS = {
-  ACCESS: 'hadirops_access_token',
-  REFRESH: 'hadirops_refresh_token',
+  ACCESS: 'rollproof_access_token',
+  REFRESH: 'rollproof_refresh_token',
 } as const;
 
 interface AuthState {

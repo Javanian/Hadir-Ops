@@ -17,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
-log = logging.getLogger("hadirops")
+log = logging.getLogger("rollproof")
 
 # Lease shared by every API process; only the holder runs a pass.
 AUTO_CHECKOUT_LOCK = "auto_checkout"
@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="HadirOps API",
+    title="Rollproof API",
     description="API manajemen presensi, shift, penugasan, dan lembur.",
     version="1.1.0",
     # The interactive docs list every endpoint; production does not publish them.
@@ -202,5 +202,5 @@ async def readiness(request: Request):
         "last_error": _worker_state["last_error"],
     }
 
-    body = {"status": "ok" if healthy else "degraded", "service": "HadirOps", "checks": checks}
+    body = {"status": "ok" if healthy else "degraded", "service": "Rollproof", "checks": checks}
     return JSONResponse(body, status_code=200 if healthy else 503)

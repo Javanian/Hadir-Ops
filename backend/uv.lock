@@ -174,7 +174,7 @@ wheels = [
 ]
 
 [[package]]
-name = "hadirops-backend"
+name = "rollproof-backend"
 version = "1.1.0"
 source = { virtual = "." }
 dependencies = [

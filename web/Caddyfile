@@ -1,4 +1,4 @@
-# HadirOps edge: HTTPS (certificates obtained and renewed automatically for
+# Rollproof edge: HTTPS (certificates obtained and renewed automatically for
 # DOMAIN), the web dashboard, and the API under /api for the dashboard and the
 # mobile app. Caddy sets X-Forwarded-For, which the backend trusts so that
 # login rate limits apply per employee rather than to the proxy.

@@ -127,14 +127,14 @@ jobs:
           context: backend
           push: false
           load: true
-          tags: hadirops-backend:ci
+          tags: rollproof-backend:ci
       # The image loads both face models from /opt/face-models without a network.
       - name: Smoke test the backend image
         run: |
-          docker run --rm --network none hadirops-backend:ci python -c \
+          docker run --rm --network none rollproof-backend:ci python -c \
             "from app.services.face_engine import FaceEngine; FaceEngine('/opt/face-models', download=False); print('face engine ok')"
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: web
           push: false
-          tags: hadirops-web:ci
+          tags: rollproof-web:ci

@@ -1,9 +1,9 @@
 """
-One-off copy of an existing PostgreSQL HadirOps database into MongoDB.
+One-off copy of an existing PostgreSQL Rollproof database into MongoDB.
 
     pip install asyncpg   # only needed for this script
-    PG_URL=postgresql://hadirops:pass@host:5432/hadirops PG_SCHEMA=hadirops \\
-    MONGODB_URL="mongodb://host:27017/?replicaSet=rs0" MONGODB_DB=hadirops \\
+    PG_URL=postgresql://rollproof:pass@host:5432/rollproof PG_SCHEMA=rollproof \\
+    MONGODB_URL="mongodb://host:27017/?replicaSet=rs0" MONGODB_DB=rollproof \\
         python scripts/migrate_from_postgres.py [--drop]
 
 Every row keeps its id, so links, exports and the mobile apps' cached ids stay
@@ -63,7 +63,7 @@ async def _rows(conn, table):
 
 async def migrate(drop: bool) -> None:
     conn = await asyncpg.connect(os.environ["PG_URL"])
-    await conn.execute(f"SET search_path TO {os.environ.get('PG_SCHEMA', 'hadirops')}, public")
+    await conn.execute(f"SET search_path TO {os.environ.get('PG_SCHEMA', 'rollproof')}, public")
     db = get_database()
 
     if drop:

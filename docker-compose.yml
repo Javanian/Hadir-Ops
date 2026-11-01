@@ -2,7 +2,7 @@ services:
   db:
     # Single-node replica set: MongoDB transactions need one.
     image: mongo:9.0.4@sha256:452bdaf2127b8ff851e31410a267809b9829eded219979f2210e7c7efb85a058
-    container_name: hadirops_db
+    container_name: rollproof_db
     restart: unless-stopped
     command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
@@ -20,7 +20,7 @@ services:
 
   backend:
     build: ./backend
-    container_name: hadirops_backend
+    container_name: rollproof_backend
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -28,7 +28,7 @@ services:
       - ./backend/.env
     environment:
       - MONGODB_URL=mongodb://db:27017/?replicaSet=rs0
-      - MONGODB_DB=${DB_NAME:-hadirops}
+      - MONGODB_DB=${DB_NAME:-rollproof}
     depends_on:
       db:
         condition: service_healthy
@@ -38,7 +38,7 @@ services:
 
   web:
     image: node:26.13.0-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94
-    container_name: hadirops_web
+    container_name: rollproof_web
     restart: unless-stopped
     working_dir: /app
     command: sh -c "npm ci && npm run dev -- --host"
@@ -47,7 +47,7 @@ services:
     environment:
       - VITE_API_BASE_URL=${WEB_API_BASE_URL:-/api}
       - VITE_API_PROXY_TARGET=${WEB_API_PROXY_TARGET:-http://backend:8000}
-      - VITE_APP_NAME=HadirOps
+      - VITE_APP_NAME=Rollproof
     volumes:
       - ./web:/app
       - /app/node_modules
@@ -56,7 +56,7 @@ services:
 
   expo:
     build: ./mobile
-    container_name: hadirops_expo
+    container_name: rollproof_expo
     restart: unless-stopped
     network_mode: host     # share host network — Metro detects Tailscale IP directly
     command: npx expo start --lan

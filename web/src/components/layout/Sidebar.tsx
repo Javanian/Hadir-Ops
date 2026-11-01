@@ -59,10 +59,10 @@ export function Sidebar({ onClose }: SidebarProps) {
     <nav aria-label="Navigasi utama" className="flex flex-col h-full w-[248px] bg-chrome text-slate-300">
       {/* Brand header */}
       <div className="h-16 flex items-center px-4 gap-3 border-b border-white/5 shrink-0">
-        <img src="/hadirops-logo.svg" alt="" className="h-9 w-9 shrink-0 rounded-xl shadow-glow" />
+        <img src="/rollproof-logo.svg" alt="" className="h-9 w-9 shrink-0 rounded-xl shadow-glow" />
         <div className="flex-1 min-w-0">
           <p className="text-white font-bold text-base tracking-tight leading-tight truncate">
-            HadirOps
+            Rollproof
           </p>
           <p className="text-slate-400 text-xs leading-tight mt-0.5">Manajemen presensi</p>
         </div>

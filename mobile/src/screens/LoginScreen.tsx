@@ -99,7 +99,7 @@ export default function LoginScreen() {
               style={styles.logo}
               accessibilityIgnoresInvertColors
             />
-            <Text style={styles.eyebrow}>HadirOps</Text>
+            <Text style={styles.eyebrow}>Rollproof</Text>
             <Text style={styles.appName}>Masuk ke akunmu</Text>
             <Text style={styles.subtitle}>Presensi dan operasional karyawan</Text>
           </View>
@@ -170,7 +170,7 @@ export default function LoginScreen() {
               {login.isPending ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.buttonText}>Masuk ke HadirOps</Text>
+                <Text style={styles.buttonText}>Masuk ke Rollproof</Text>
               )}
             </Pressable>
           </View>

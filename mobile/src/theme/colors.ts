@@ -1,6 +1,6 @@
 /**
- * Color tokens for the HadirOps mobile app. Same palette as the web admin and IEMS
- * (industrial slate, one blue action color); see design-system/hadirops/MASTER.md.
+ * Color tokens for the Rollproof mobile app. Same palette as the web admin and IEMS
+ * (industrial slate, one blue action color); see design-system/rollproof/MASTER.md.
  * Screens import these names instead of writing hex values.
  */
 export const colors = {

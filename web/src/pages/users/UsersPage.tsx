@@ -268,7 +268,7 @@ export function UsersPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Pengguna</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Kelola semua pengguna sistem HadirOps
+            Kelola semua pengguna sistem Rollproof
           </p>
         </div>
         {isAdmin && (

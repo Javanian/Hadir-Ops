@@ -17,7 +17,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 TEST_URL = os.environ.get("TEST_MONGODB_URL", "mongodb://localhost:27017/?replicaSet=rs0")
-TEST_DB = os.environ.get("TEST_MONGODB_DB", "hadirops_test")
+TEST_DB = os.environ.get("TEST_MONGODB_DB", "rollproof_test")
 
 os.environ["MONGODB_URL"] = TEST_URL
 os.environ["MONGODB_DB"] = TEST_DB

@@ -32,7 +32,7 @@ LAT, LON = -6.2, 106.816666
 
 
 def _db():
-    return MongoClient(os.environ["MONGODB_URL"])[os.environ.get("MONGODB_DB", "hadirops")]
+    return MongoClient(os.environ["MONGODB_URL"])[os.environ.get("MONGODB_DB", "rollproof")]
 
 
 def _next_ids(db, sequence: str, count: int) -> list[int]:

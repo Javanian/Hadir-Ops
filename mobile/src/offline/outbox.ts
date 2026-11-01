@@ -28,8 +28,8 @@ export interface OutboxItem {
   lastError?: string;
 }
 
-const FILE_NAME = 'hadirops-outbox.json';
-const WEB_KEY = 'hadirops_outbox';
+const FILE_NAME = 'rollproof-outbox.json';
+const WEB_KEY = 'rollproof_outbox';
 
 let items: OutboxItem[] = [];
 let loaded = false;

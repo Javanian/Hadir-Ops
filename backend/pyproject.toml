@@ -1,7 +1,7 @@
 [project]
-name = "hadirops-backend"
+name = "rollproof-backend"
 version = "1.1.0"
-description = "HadirOps attendance API: FastAPI, MongoDB, OpenCV face recognition."
+description = "Rollproof attendance API: FastAPI, MongoDB, OpenCV face recognition."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.161,<1",

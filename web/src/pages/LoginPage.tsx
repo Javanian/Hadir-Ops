@@ -64,9 +64,9 @@ export function LoginPage() {
           className="absolute -right-32 -top-32 h-112 w-md rounded-full bg-brand/30 blur-3xl"
         />
         <div className="relative flex items-center gap-3 px-12 pt-10">
-          <img src="/hadirops-logo.svg" alt="" className="h-10 w-10 rounded-xl shadow-glow" />
+          <img src="/rollproof-logo.svg" alt="" className="h-10 w-10 rounded-xl shadow-glow" />
           <div className="leading-tight">
-            <p className="text-base font-bold tracking-tight">HadirOps</p>
+            <p className="text-base font-bold tracking-tight">Rollproof</p>
             <p className="text-xs text-slate-400">Manajemen presensi</p>
           </div>
         </div>
@@ -94,15 +94,15 @@ export function LoginPage() {
       {/* Form panel */}
       <div className="flex min-h-screen flex-col px-5 py-8 sm:px-10">
         <div className="flex items-center gap-3 lg:hidden">
-          <img src="/hadirops-logo.svg" alt="" className="h-9 w-9 rounded-xl" />
-          <p className="text-base font-bold tracking-tight text-text-primary">HadirOps</p>
+          <img src="/rollproof-logo.svg" alt="" className="h-9 w-9 rounded-xl" />
+          <p className="text-base font-bold tracking-tight text-text-primary">Rollproof</p>
         </div>
 
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10 animate-rise">
           <p className="text-sm font-semibold text-brand">Portal admin dan supervisor</p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-text-primary">Masuk ke ruang kerja</h2>
           <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-            Gunakan akun karyawan yang terdaftar untuk mengakses HadirOps.
+            Gunakan akun karyawan yang terdaftar untuk mengakses Rollproof.
           </p>
 
           {/* Form */}
@@ -196,7 +196,7 @@ export function LoginPage() {
                          transition"
             >
               {isPending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} aria-hidden="true" />}
-              {isPending ? 'Memproses...' : 'Masuk ke HadirOps'}
+              {isPending ? 'Memproses...' : 'Masuk ke Rollproof'}
             </button>
           </form>
 
@@ -205,7 +205,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-text-secondary lg:text-left">HadirOps · Presensi dan operasional karyawan</p>
+        <p className="text-center text-xs text-text-secondary lg:text-left">Rollproof · Presensi dan operasional karyawan</p>
       </div>
     </div>
   )

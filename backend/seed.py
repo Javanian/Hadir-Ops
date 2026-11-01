@@ -202,10 +202,10 @@ async def seed():
 
     # ── 3. Users ──────────────────────────────────────────────────────────────
     print("\n[3] Seeding test users...")
-    await _user(db, "ADM001", "Administrator", "admin@hadirops.local", "Admin@123", "ADMIN", None)
-    spv001 = await _user(db, "SPV001", "Supervisor Satu", "supervisor@hadirops.local", "Supervisor@123",
+    await _user(db, "ADM001", "Administrator", "admin@rollproof.local", "Admin@123", "ADMIN", None)
+    spv001 = await _user(db, "SPV001", "Supervisor Satu", "supervisor@rollproof.local", "Supervisor@123",
                          "SUPERVISOR", orig_site["_id"])
-    await _user(db, "EMP001", "Karyawan Satu", "karyawan@hadirops.local", "Karyawan@123",
+    await _user(db, "EMP001", "Karyawan Satu", "karyawan@rollproof.local", "Karyawan@123",
                 "EMPLOYEE", orig_site["_id"], supervisor_id=spv001["_id"])
 
     print("\n[4] Seeding @example.com supervisors...")
@@ -389,9 +389,9 @@ async def seed():
     print("✅ Seed complete!")
     print("=" * 60)
     print("\nOriginal test credentials:")
-    print("  Admin      : admin@hadirops.local      / Admin@123")
-    print("  Supervisor : supervisor@hadirops.local  / Supervisor@123")
-    print("  Employee   : karyawan@hadirops.local    / Karyawan@123")
+    print("  Admin      : admin@rollproof.local      / Admin@123")
+    print("  Supervisor : supervisor@rollproof.local  / Supervisor@123")
+    print("  Employee   : karyawan@rollproof.local    / Karyawan@123")
     print("\n@example.com credentials (password: 12345):")
     print("  Supervisors: spv101 … spv105 @example.com")
     print("  Employees  : emp101 … emp140 @example.com (8 per supervisor)")
