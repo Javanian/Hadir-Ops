@@ -19,17 +19,18 @@ import { sitesApi } from '@/api/sites.api'
 import { isAxiosError } from '@/api/axios'
 import { showSuccess, showError } from '@/utils/toast'
 import type { ShiftResponse } from '@/types/shifts'
+import { t } from '@/i18n'
 
 const shiftSchema = z.object({
-  site_id: z.number({ error: 'Lokasi wajib dipilih' }),
-  name: z.string().min(1, 'Nama shift wajib diisi'),
-  start_time: z.string().min(1, 'Jam mulai wajib diisi'),
-  end_time: z.string().min(1, 'Jam selesai wajib diisi'),
+  site_id: z.number({ error: t('shiftForm.selectASite2') }),
+  name: z.string().min(1, t('shiftForm.shiftNameIsRequired')),
+  start_time: z.string().min(1, t('shiftForm.startTimeIsRequired')),
+  end_time: z.string().min(1, t('shiftForm.endTimeIsRequired')),
   work_hours_standard: z
-    .number({ error: 'Jam kerja harus berupa angka' })
+    .number({ error: t('shiftForm.workHoursMustBeA') })
     .int()
-    .min(1, 'Minimal 1 jam')
-    .max(24, 'Maksimal 24 jam'),
+    .min(1, t('shiftForm.atLeast1Hour'))
+    .max(24, t('shiftForm.atMost24Hours')),
 })
 
 type FormData = z.infer<typeof shiftSchema>
@@ -99,14 +100,14 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
         : shiftsApi.create(payload)
     },
     onSuccess: () => {
-      showSuccess(isEdit ? 'Shift berhasil diperbarui' : 'Shift berhasil ditambahkan')
+      showSuccess(isEdit ? t('shiftForm.shiftUpdated') : t('shiftForm.shiftAdded'))
       void qc.invalidateQueries({ queryKey: ['shifts'] })
       onClose()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 422) {
         const detail = (err.response.data as { detail?: string })?.detail
-        showError(detail ?? 'Data tidak valid')
+        showError(detail ?? t('common.invalidData'))
       }
     },
   })
@@ -118,14 +119,14 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? `Edit Shift: ${editingShift?.name}` : 'Tambah Shift Baru'}
+            {isEdit ? t('shiftForm.editShift', { name: editingShift?.name }) : t('shiftForm.addANewShift')}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
           {/* Site */}
           <Field error={errors.site_id?.message}>
-            <Label>Lokasi Kerja *</Label>
+            <Label>{t('shiftForm.workSite')}</Label>
             <Controller
               control={control}
               name="site_id"
@@ -136,10 +137,10 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
                   disabled={isEdit}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Pilih lokasi" />
+                    <SelectValue placeholder={t('common.selectASite')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— Pilih Lokasi —</SelectItem>
+                    <SelectItem value="__none__">{t('shiftForm.selectASite')}</SelectItem>
                     {sites.map((s) => (
                       <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
                     ))}
@@ -148,24 +149,24 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
               )}
             />
             {isEdit && (
-              <p className="text-xs text-text-secondary">Lokasi tidak dapat diubah setelah shift dibuat.</p>
+              <p className="text-xs text-text-secondary">{t('shiftForm.theSiteCannotBeChanged')}</p>
             )}
           </Field>
 
           {/* Name */}
           <Field error={errors.name?.message}>
-            <Label>Nama Shift *</Label>
-            <Input placeholder="cth. Pagi, Siang, Malam" {...register('name')} />
+            <Label>{t('shiftForm.shiftName')}</Label>
+            <Input placeholder={t('shiftForm.eGMorningAfternoonNight')} {...register('name')} />
           </Field>
 
           {/* Times */}
           <div className="grid grid-cols-2 gap-3">
             <Field error={errors.start_time?.message}>
-              <Label>Jam Mulai *</Label>
+              <Label>{t('shiftForm.startTime')}</Label>
               <Input type="time" {...register('start_time')} />
             </Field>
             <Field error={errors.end_time?.message}>
-              <Label>Jam Selesai *</Label>
+              <Label>{t('shiftForm.endTime')}</Label>
               <Input type="time" {...register('end_time')} />
             </Field>
           </div>
@@ -173,16 +174,16 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
           {/* Cross-midnight warning */}
           {crossMidnight && (
             <div className="flex items-center gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2">
-              <Badge variant="warning">Lintas Tengah Malam</Badge>
+              <Badge variant="warning">{t('shiftForm.crossesMidnight')}</Badge>
               <p className="text-xs text-yellow-700">
-                Jam selesai lebih awal dari jam mulai — shift ini melewati tengah malam.
+                {t('shiftForm.theEndTimeIsBefore')}
               </p>
             </div>
           )}
 
           {/* Work hours */}
           <Field error={errors.work_hours_standard?.message}>
-            <Label>Jam Kerja Standar (jam) *</Label>
+            <Label>{t('shiftForm.standardWorkHours')}</Label>
             <Input
               type="number"
               placeholder="8"
@@ -193,11 +194,11 @@ export function ShiftFormModal({ open, onClose, editingShift }: Props) {
           </Field>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose}>Batal</Button>
+            <Button type="button" variant="outline" onClick={handleClose}>{t('common.cancel')}</Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending
-                ? 'Menyimpan...'
-                : isEdit ? 'Simpan Perubahan' : 'Tambah Shift'}
+                ? t('common.saving')
+                : isEdit ? t('common.saveChanges') : t('common.addShift')}
             </Button>
           </DialogFooter>
         </form>

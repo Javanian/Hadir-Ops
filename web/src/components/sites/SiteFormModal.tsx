@@ -16,25 +16,26 @@ import {
 import { sitesApi } from '@/api/sites.api'
 import { isAxiosError } from '@/api/axios'
 import { showSuccess, showError } from '@/utils/toast'
-import { TIMEZONE_OPTIONS } from '@/types/sites'
+import { browserTimezone, isKnownTimezone, TIMEZONE_OPTIONS } from '@/types/sites'
 import type { SiteResponse } from '@/types/sites'
 import { SiteMapPicker } from './SiteMapPicker'
+import { t } from '@/i18n'
 
 const siteSchema = z.object({
-  name: z.string().min(1, 'Nama lokasi wajib diisi'),
+  name: z.string().min(1, t('siteForm.siteNameIsRequired')),
   latitude: z
-    .number({ error: 'Latitude harus berupa angka' })
-    .min(-90, 'Latitude minimum -90')
-    .max(90, 'Latitude maksimum 90'),
+    .number({ error: t('siteForm.latitudeMustBeANumber') })
+    .min(-90, t('siteForm.latitudeMustBeAtLeast'))
+    .max(90, t('siteForm.latitudeMustBeAtMost')),
   longitude: z
-    .number({ error: 'Longitude harus berupa angka' })
-    .min(-180, 'Longitude minimum -180')
-    .max(180, 'Longitude maksimum 180'),
+    .number({ error: t('siteForm.longitudeMustBeANumber') })
+    .min(-180, t('siteForm.longitudeMustBeAtLeast'))
+    .max(180, t('siteForm.longitudeMustBeAtMost')),
   radius_meter: z
-    .number({ error: 'Radius harus berupa angka' })
-    .int('Radius harus bilangan bulat')
-    .positive('Radius harus lebih dari 0'),
-  timezone: z.enum(['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura']),
+    .number({ error: t('siteForm.radiusMustBeANumber') })
+    .int(t('siteForm.radiusMustBeAWhole'))
+    .positive(t('siteForm.radiusMustBeGreaterThan')),
+  timezone: z.string().refine(isKnownTimezone, t('sites.timezoneInvalid')),
 })
 
 type FormData = z.infer<typeof siteSchema>
@@ -58,7 +59,7 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
       latitude: undefined,
       longitude: undefined,
       radius_meter: 100,
-      timezone: 'Asia/Jakarta',
+      timezone: browserTimezone(),
     },
   })
 
@@ -69,10 +70,10 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
         latitude: editingSite.latitude,
         longitude: editingSite.longitude,
         radius_meter: editingSite.radius_meter,
-        timezone: editingSite.timezone as 'Asia/Jakarta' | 'Asia/Makassar' | 'Asia/Jayapura',
+        timezone: editingSite.timezone,
       })
     } else {
-      reset({ name: '', latitude: undefined, longitude: undefined, radius_meter: 100, timezone: 'Asia/Jakarta' })
+      reset({ name: '', latitude: undefined, longitude: undefined, radius_meter: 100, timezone: browserTimezone() })
     }
   }, [editingSite, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -89,14 +90,14 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
     mutationFn: (data: FormData) =>
       isEdit ? sitesApi.update(editingSite!.id, data) : sitesApi.create(data),
     onSuccess: () => {
-      showSuccess(isEdit ? 'Lokasi berhasil diperbarui' : 'Lokasi berhasil ditambahkan')
+      showSuccess(isEdit ? t('siteForm.siteUpdated') : t('siteForm.siteAdded'))
       void qc.invalidateQueries({ queryKey: ['sites'] })
       onClose()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 422) {
         const detail = (err.response.data as { detail?: string })?.detail
-        showError(detail ?? 'Data tidak valid')
+        showError(detail ?? t('common.invalidData'))
       }
     },
   })
@@ -110,7 +111,7 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border">
           <DialogTitle>
-            {isEdit ? `Edit: ${editingSite?.name}` : 'Tambah Lokasi Baru'}
+            {isEdit ? t('siteForm.edit', { name: editingSite?.name }) : t('siteForm.addANewSite')}
           </DialogTitle>
         </DialogHeader>
 
@@ -124,8 +125,8 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
           >
             {/* Nama Lokasi */}
             <Field error={errors.name?.message}>
-              <Label>Nama Lokasi *</Label>
-              <Input placeholder="cth. Site Jakarta" {...register('name')} />
+              <Label>{t('siteForm.siteName')}</Label>
+              <Input placeholder={t('siteForm.eGRotterdamPortTerminal')} {...register('name')} />
             </Field>
 
             {/* Latitude */}
@@ -152,7 +153,7 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
 
             {/* Radius */}
             <Field error={errors.radius_meter?.message}>
-              <Label>Radius Absensi (meter) *</Label>
+              <Label>{t('siteForm.checkInRadiusMetres')}</Label>
               <Input
                 type="number"
                 placeholder="100"
@@ -162,7 +163,7 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
 
             {/* Timezone */}
             <Field error={errors.timezone?.message}>
-              <Label>Zona Waktu *</Label>
+              <Label>{t('siteForm.timeZone')}</Label>
               <Controller
                 control={control}
                 name="timezone"
@@ -181,7 +182,7 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
 
             {/* Hint */}
             <p className="text-xs text-muted-foreground">
-              Klik peta atau seret marker untuk mengisi koordinat.
+              {t('siteForm.clickTheMapOrDrag')}
             </p>
 
             {/* Spacer pushes buttons to bottom */}
@@ -191,11 +192,11 @@ export function SiteFormModal({ open, onClose, editingSite }: Props) {
             <div className="flex flex-col gap-2 pt-2 border-t border-border">
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending
-                  ? 'Menyimpan...'
-                  : isEdit ? 'Simpan Perubahan' : 'Tambah Lokasi'}
+                  ? t('common.saving')
+                  : isEdit ? t('common.saveChanges') : t('common.addSite')}
               </Button>
               <Button type="button" variant="outline" onClick={handleClose}>
-                Batal
+                {t('common.cancel')}
               </Button>
             </div>
           </form>

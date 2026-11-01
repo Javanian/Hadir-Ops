@@ -17,20 +17,21 @@ import { usersApi } from '@/api/users.api'
 import { isAxiosError } from '@/api/axios'
 import { showSuccess, showError } from '@/utils/toast'
 import type { UserListItem } from '@/types/users'
+import { t } from '@/i18n'
 
 const createSchema = z.object({
-  employee_id: z.string().min(1, 'ID karyawan wajib diisi'),
-  name: z.string().min(1, 'Nama wajib diisi'),
-  email: z.email('Format email tidak valid'),
-  password: z.string().min(8, 'Password minimal 8 karakter'),
+  employee_id: z.string().min(1, t('userForm.employeeIdIsRequired')),
+  name: z.string().min(1, t('userForm.nameIsRequired')),
+  email: z.email(t('userForm.invalidEmailAddress')),
+  password: z.string().min(8, t('userForm.passwordMustBeAtLeast')),
   role: z.enum(['ADMIN', 'SUPERVISOR', 'EMPLOYEE', 'SALES']),
   site_id: z.number().nullable(),
   supervisor_id: z.number().nullable(),
 })
 
 const editSchema = z.object({
-  name: z.string().min(1, 'Nama wajib diisi'),
-  email: z.email('Format email tidak valid'),
+  name: z.string().min(1, t('userForm.nameIsRequired')),
+  email: z.email(t('userForm.invalidEmailAddress')),
   role: z.enum(['ADMIN', 'SUPERVISOR', 'EMPLOYEE', 'SALES']),
   site_id: z.number().nullable(),
   supervisor_id: z.number().nullable(),
@@ -80,13 +81,13 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
   const createMutation = useMutation({
     mutationFn: usersApi.create,
     onSuccess: () => {
-      showSuccess('Pengguna berhasil ditambahkan')
+      showSuccess(t('userForm.userAdded'))
       void qc.invalidateQueries({ queryKey: ['users'] })
       onClose()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 422) {
-        showError((err.response.data as { detail?: string })?.detail ?? 'Data tidak valid')
+        showError((err.response.data as { detail?: string })?.detail ?? t('common.invalidData'))
       }
     },
   })
@@ -94,13 +95,13 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
   const editMutation = useMutation({
     mutationFn: (data: EditFormData) => usersApi.update(editingUser!.id, data),
     onSuccess: () => {
-      showSuccess('Pengguna berhasil diperbarui')
+      showSuccess(t('userForm.userUpdated'))
       void qc.invalidateQueries({ queryKey: ['users'] })
       onClose()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 422) {
-        showError((err.response.data as { detail?: string })?.detail ?? 'Data tidak valid')
+        showError((err.response.data as { detail?: string })?.detail ?? t('common.invalidData'))
       }
     },
   })
@@ -112,15 +113,15 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? `Edit: ${editingUser?.name}` : 'Tambah Pengguna Baru'}
+            {isEdit ? t('userForm.edit', { name: editingUser?.name }) : t('userForm.addANewUser')}
           </DialogTitle>
         </DialogHeader>
 
         {isEdit ? (
           <form onSubmit={handleEdit((d) => editMutation.mutate(d))} className="space-y-4">
             <Field error={ee.name?.message}>
-              <Label>Nama Lengkap *</Label>
-              <Input placeholder="Nama lengkap" {...regEdit('name')} />
+              <Label>{t('userForm.fullName2')}</Label>
+              <Input placeholder={t('userForm.fullName')} {...regEdit('name')} />
             </Field>
             <Field error={ee.email?.message}>
               <Label>Email *</Label>
@@ -134,7 +135,7 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
                   <SelectContent>
                     <SelectItem value="ADMIN">Admin</SelectItem>
                     <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-                    <SelectItem value="EMPLOYEE">Karyawan</SelectItem>
+                    <SelectItem value="EMPLOYEE">{t('common.employee')}</SelectItem>
                     <SelectItem value="SALES">Sales</SelectItem>
                   </SelectContent>
                 </Select>
@@ -145,7 +146,7 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
               <Field>
                 <Label>Supervisor</Label>
                 <Input
-                  placeholder="ID supervisor (opsional)"
+                  placeholder={t('userForm.supervisorIdOptional')}
                   type="number"
                   onChange={(e) => setEditValue('supervisor_id', e.target.value ? parseInt(e.target.value) : null)}
                 />
@@ -153,24 +154,24 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
             )}
             <div className="flex items-center gap-3">
               <input type="checkbox" id="is_active_edit" {...regEdit('is_active')} className="h-4 w-4 accent-brand" />
-              <Label htmlFor="is_active_edit">Akun aktif</Label>
+              <Label htmlFor="is_active_edit">{t('userForm.activeAccount')}</Label>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>Batal</Button>
+              <Button type="button" variant="outline" onClick={handleClose}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={editMutation.isPending}>
-                {editMutation.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
+                {editMutation.isPending ? t('common.saving') : t('common.saveChanges')}
               </Button>
             </DialogFooter>
           </form>
         ) : (
           <form onSubmit={handleCreate((d) => createMutation.mutate(d))} className="space-y-4">
             <Field error={ce.employee_id?.message}>
-              <Label>ID Karyawan *</Label>
-              <Input placeholder="cth. EMP001" {...regCreate('employee_id')} />
+              <Label>{t('userForm.employeeId')}</Label>
+              <Input placeholder={t('userForm.eGEmp001')} {...regCreate('employee_id')} />
             </Field>
             <Field error={ce.name?.message}>
-              <Label>Nama Lengkap *</Label>
-              <Input placeholder="Nama lengkap" {...regCreate('name')} />
+              <Label>{t('userForm.fullName2')}</Label>
+              <Input placeholder={t('userForm.fullName')} {...regCreate('name')} />
             </Field>
             <Field error={ce.email?.message}>
               <Label>Email *</Label>
@@ -184,7 +185,7 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
                   <SelectContent>
                     <SelectItem value="ADMIN">Admin</SelectItem>
                     <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-                    <SelectItem value="EMPLOYEE">Karyawan</SelectItem>
+                    <SelectItem value="EMPLOYEE">{t('common.employee')}</SelectItem>
                     <SelectItem value="SALES">Sales</SelectItem>
                   </SelectContent>
                 </Select>
@@ -195,7 +196,7 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
               <Field>
                 <Label>Supervisor</Label>
                 <Input
-                  placeholder="ID supervisor (opsional)"
+                  placeholder={t('userForm.supervisorIdOptional')}
                   type="number"
                   onChange={(e) =>
                     regCreate('supervisor_id').onChange({ target: { value: e.target.value ? parseInt(e.target.value) : null } })
@@ -205,12 +206,12 @@ export function UserFormModal({ open, onClose, editingUser }: Props) {
             )}
             <Field error={ce.password?.message}>
               <Label>Password *</Label>
-              <Input type="password" placeholder="Minimal 8 karakter" {...regCreate('password')} />
+              <Input type="password" placeholder={t('userForm.atLeast8Characters')} {...regCreate('password')} />
             </Field>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>Batal</Button>
+              <Button type="button" variant="outline" onClick={handleClose}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Menyimpan...' : 'Tambah Pengguna'}
+                {createMutation.isPending ? t('common.saving') : t('common.addUser')}
               </Button>
             </DialogFooter>
           </form>

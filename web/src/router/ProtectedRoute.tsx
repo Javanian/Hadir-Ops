@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { useAuthStore } from '@/store/authStore'
 import type { UserRole } from '@/types/auth'
+import { t } from '@/i18n'
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[]
@@ -16,7 +17,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-3">
           <div className="h-9 w-9 animate-spin rounded-full border-4 border-brand border-t-transparent" />
-          <p className="text-sm text-text-secondary">Memuat...</p>
+          <p className="text-sm text-text-secondary">{t('common.loading')}</p>
         </div>
       </div>
     )

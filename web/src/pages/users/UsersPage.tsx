@@ -32,6 +32,8 @@ import { useHasRole } from '@/hooks/useAuth'
 import { showSuccess, showError } from '@/utils/toast'
 import type { UserListItem } from '@/types/users'
 import type { UserRole } from '@/types/auth'
+import { t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
 // The action column stays pinned to the right edge while the rest of the
 // table scrolls sideways on narrow screens.
@@ -42,7 +44,7 @@ const STICKY_ACTIONS_CELL =
 const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: 'Admin',
   SUPERVISOR: 'Supervisor',
-  EMPLOYEE: 'Karyawan',
+  EMPLOYEE: t('common.employee'),
   SALES: 'Sales',
 }
 
@@ -143,19 +145,19 @@ export function UsersPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => usersApi.delete(id),
     onSuccess: () => {
-      showSuccess('Pengguna berhasil dihapus')
+      showSuccess(t('users.userDeleted'))
       void qc.invalidateQueries({ queryKey: ['users'] })
       setDeletingUser(null)
     },
     onError: () => {
-      showError('Gagal menghapus pengguna')
+      showError(t('users.couldNotDeleteTheUser'))
     },
   })
 
   const columns: ColumnDef<typeof features, UserListItem>[] = [
     {
       accessorKey: 'employee_id',
-      header: 'ID Karyawan',
+      header: t('common.employeeId'),
       cell: ({ row }) => (
         <span className="font-mono text-sm font-medium text-text-primary">
           {row.original.employee_id}
@@ -164,7 +166,7 @@ export function UsersPage() {
     },
     {
       accessorKey: 'name',
-      header: 'Nama',
+      header: t('common.name'),
       cell: ({ row }) => (
         <div>
           <p className="font-medium text-text-primary">{row.original.name}</p>
@@ -183,7 +185,7 @@ export function UsersPage() {
     },
     {
       accessorKey: 'site_name',
-      header: 'Lokasi',
+      header: t('common.site'),
       cell: ({ row }) => (
         <span className="text-sm text-text-secondary">
           {row.original.site_name ?? '—'}
@@ -195,20 +197,20 @@ export function UsersPage() {
       header: 'Status',
       cell: ({ row }) => {
         if (row.original.is_locked) {
-          return <Badge variant="danger">Terkunci</Badge>
+          return <Badge variant="danger">{t('common.locked')}</Badge>
         }
         return row.original.is_active
-          ? <Badge variant="success">Aktif</Badge>
-          : <Badge variant="outline">Nonaktif</Badge>
+          ? <Badge variant="success">{t('common.active')}</Badge>
+          : <Badge variant="outline">{t('common.inactive')}</Badge>
       },
     },
     {
       id: 'face',
-      header: 'Wajah',
+      header: t('users.face'),
       cell: ({ row }) => (
         row.original.has_face
-          ? <Badge variant="success">Terdaftar</Badge>
-          : <Badge variant="outline">Belum</Badge>
+          ? <Badge variant="success">{t('common.enrolled')}</Badge>
+          : <Badge variant="outline">{t('users.notYet')}</Badge>
       ),
     },
     {
@@ -231,7 +233,7 @@ export function UsersPage() {
                 variant="ghost"
                 size="icon"
                 onClick={() => { setEditingUser(row.original); setModalOpen(true) }}
-                aria-label={`Ubah ${row.original.name}`}
+                aria-label={t('users.edit', { name: row.original.name })}
                 title="Edit"
               >
                 <Pencil className="h-4 w-4" />
@@ -241,8 +243,8 @@ export function UsersPage() {
                 size="icon"
                 className="text-red-500 hover:text-red-700 hover:bg-red-50"
                 onClick={() => setDeletingUser(row.original)}
-                aria-label={`Hapus ${row.original.name}`}
-                title="Hapus"
+                aria-label={t('users.delete', { name: row.original.name })}
+                title={t('common.delete')}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -266,9 +268,9 @@ export function UsersPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Pengguna</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('users.users')}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Kelola semua pengguna sistem Rollproof
+            {t('users.manageEveryoneWhoUsesRollproof')}
           </p>
         </div>
         {isAdmin && (
@@ -277,7 +279,7 @@ export function UsersPage() {
             onClick={() => { setEditingUser(null); setModalOpen(true) }}
           >
             <Plus className="h-4 w-4" />
-            Tambah Pengguna
+            {t('common.addUser')}
           </Button>
         )}
       </div>
@@ -287,8 +289,8 @@ export function UsersPage() {
         <div className="relative flex-1 max-w-sm">
           <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
           <Input
-            aria-label="Cari pengguna"
-            placeholder="Cari nama atau ID karyawan..."
+            aria-label={t('users.searchUsers')}
+            placeholder={t('common.searchByNameOrEmployee')}
             value={search}
             onChange={(e) => updateSearch(e.target.value)}
             className="pl-9"
@@ -299,13 +301,13 @@ export function UsersPage() {
           onValueChange={(v) => updateRoleFilter(v === '__all__' ? '' : v as UserRole)}
         >
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Semua Role" />
+            <SelectValue placeholder={t('users.allRoles')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">Semua Role</SelectItem>
+            <SelectItem value="__all__">{t('users.allRoles')}</SelectItem>
             <SelectItem value="ADMIN">Admin</SelectItem>
             <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-            <SelectItem value="EMPLOYEE">Karyawan</SelectItem>
+            <SelectItem value="EMPLOYEE">{t('common.employee')}</SelectItem>
             <SelectItem value="SALES">Sales</SelectItem>
           </SelectContent>
         </Select>
@@ -352,11 +354,11 @@ export function UsersPage() {
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
                       <p className="text-text-secondary text-sm">
-                        Gagal memuat data. Endpoint backend belum tersedia.
+                        {t('users.couldNotLoadTheData')}
                       </p>
                       <Button variant="outline" size="sm" onClick={() => void refetch()}>
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Coba Lagi
+                        {t('common.tryAgain')}
                       </Button>
                     </div>
                   </td>
@@ -364,7 +366,7 @@ export function UsersPage() {
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="px-4 py-12 text-center text-text-secondary text-sm">
-                    Tidak ada pengguna ditemukan.
+                    {t('users.noUsersFound')}
                   </td>
                 </tr>
               ) : (
@@ -389,7 +391,11 @@ export function UsersPage() {
         {data && totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-divider bg-surface">
             <p className="text-xs text-text-secondary">
-              Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, data.total)} dari {data.total} pengguna
+              {t('users.showingRange', {
+                from: (page - 1) * PAGE_SIZE + 1,
+                to: Math.min(page * PAGE_SIZE, data.total),
+                total: data.total,
+              })}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -427,20 +433,21 @@ export function UsersPage() {
       <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Pengguna</AlertDialogTitle>
+            <AlertDialogTitle>{t('users.deleteUser')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus pengguna{' '}
-              <strong>{deletingUser?.name}</strong> ({deletingUser?.employee_id})?
-              Tindakan ini tidak dapat dibatalkan.
+              {tRich('users.deleteConfirm', {
+                name: <strong>{deletingUser?.name}</strong>,
+                employeeId: deletingUser?.employee_id,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingUser && deleteMutation.mutate(deletingUser.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Menghapus...' : 'Hapus'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

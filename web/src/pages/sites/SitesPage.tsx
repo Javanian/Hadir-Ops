@@ -11,8 +11,10 @@ import {
 import { SiteFormModal } from '@/components/sites/SiteFormModal'
 import { sitesApi } from '@/api/sites.api'
 import { showSuccess, showError } from '@/utils/toast'
-import { TIMEZONE_SHORT } from '@/types/sites'
+import { timezoneOffset } from '@/types/sites'
 import type { SiteResponse } from '@/types/sites'
+import { t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
 export function SitesPage() {
   const qc = useQueryClient()
@@ -29,11 +31,11 @@ export function SitesPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => sitesApi.delete(id),
     onSuccess: () => {
-      showSuccess('Lokasi berhasil dihapus')
+      showSuccess(t('sites.siteDeleted'))
       void qc.invalidateQueries({ queryKey: ['sites'] })
       setDeletingSite(null)
     },
-    onError: () => showError('Gagal menghapus lokasi. Pastikan tidak ada data terkait.'),
+    onError: () => showError(t('sites.couldNotDeleteTheSite')),
   })
 
   const openAdd = () => { setEditingSite(null); setModalOpen(true) }
@@ -46,14 +48,14 @@ export function SitesPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Lokasi</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('sites.sites')}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Kelola lokasi kerja, koordinat GPS, dan radius absensi
+            {t('sites.manageWorkSitesGpsCoordinates')}
           </p>
         </div>
         <Button variant="accent" onClick={openAdd}>
           <Plus className="h-4 w-4" />
-          Tambah Lokasi
+          {t('common.addSite')}
         </Button>
       </div>
 
@@ -64,19 +66,19 @@ export function SitesPage() {
             <thead className="bg-slate-800 text-white">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                  Nama Lokasi
+                  {t('sites.siteName')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell">
-                  Koordinat
+                  {t('common.coordinates')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell">
                   Radius
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                  Zona Waktu
+                  {t('sites.timeZone')}
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">
-                  Aksi
+                  {t('common.actions')}
                 </th>
               </tr>
             </thead>
@@ -96,10 +98,10 @@ export function SitesPage() {
                   <td colSpan={COLUMNS} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
-                      <p className="text-text-secondary text-sm">Gagal memuat data lokasi</p>
+                      <p className="text-text-secondary text-sm">{t('sites.couldNotLoadSites')}</p>
                       <Button variant="outline" size="sm" onClick={() => void refetch()}>
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Coba Lagi
+                        {t('common.tryAgain')}
                       </Button>
                     </div>
                   </td>
@@ -110,11 +112,11 @@ export function SitesPage() {
                     <div className="flex flex-col items-center gap-3">
                       <MapPin className="h-8 w-8 text-text-secondary" />
                       <p className="text-text-secondary text-sm">
-                        Belum ada lokasi. Tambah lokasi untuk memulai.
+                        {t('sites.noSitesYetAddOne')}
                       </p>
                       <Button variant="outline" size="sm" onClick={openAdd}>
                         <Plus className="h-3.5 w-3.5" />
-                        Tambah Lokasi
+                        {t('common.addSite')}
                       </Button>
                     </div>
                   </td>
@@ -146,7 +148,7 @@ export function SitesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant="outline" className="whitespace-nowrap">
-                        {TIMEZONE_SHORT[site.timezone] ?? site.timezone}
+                        {site.timezone} ({timezoneOffset(site.timezone)})
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
@@ -155,7 +157,7 @@ export function SitesPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEdit(site)}
-                          aria-label={`Ubah lokasi ${site.name}`}
+                          aria-label={t('sites.editSite', { name: site.name })}
                           title="Edit"
                         >
                           <Pencil className="h-4 w-4" />
@@ -165,8 +167,8 @@ export function SitesPage() {
                           size="icon"
                           className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           onClick={() => setDeletingSite(site)}
-                          aria-label={`Hapus lokasi ${site.name}`}
-                          title="Hapus"
+                          aria-label={t('sites.deleteSite2', { name: site.name })}
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -194,21 +196,18 @@ export function SitesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Lokasi</AlertDialogTitle>
+            <AlertDialogTitle>{t('sites.deleteSite')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus lokasi{' '}
-              <strong>{deletingSite?.name}</strong>?{' '}
-              Semua shift yang terkait dengan lokasi ini juga akan dihapus.
-              Tindakan ini tidak dapat dibatalkan.
+              {tRich('sites.deleteConfirm', { name: <strong>{deletingSite?.name}</strong> })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingSite && deleteMutation.mutate(deletingSite.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Menghapus...' : 'Hapus'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

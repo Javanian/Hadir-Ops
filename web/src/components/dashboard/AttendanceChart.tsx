@@ -11,6 +11,7 @@ import {
 import type { TeamAttendanceRecord } from '@/types/attendance'
 import { Skeleton } from '@/components/ui/skeleton'
 import { daysAgoISO, localDateISO } from '@/utils/datetime'
+import { intlLocale, t } from '@/i18n'
 
 interface AttendanceChartProps {
   records: TeamAttendanceRecord[]
@@ -33,7 +34,7 @@ function buildChartData(records: TeamAttendanceRecord[]): DayData[] {
   const grouped: Record<string, DayData> = {}
   for (const day of days) {
     const date = new Date(day + 'T12:00:00Z')
-    const label = new Intl.DateTimeFormat('id-ID', {
+    const label = new Intl.DateTimeFormat(intlLocale, {
       weekday: 'short',
       day: 'numeric',
       month: 'short',
@@ -80,9 +81,9 @@ export function AttendanceChart({ records, loading = false }: AttendanceChartPro
           contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: '#E2E8F0' }}
           formatter={(value, name) => {
             const labels: Record<string, string> = {
-              ONTIME: 'Tepat Waktu',
-              LATE: 'Terlambat',
-              OUT_OF_RADIUS: 'Di Luar Radius',
+              ONTIME: t('common.onTime'),
+              LATE: t('common.late'),
+              OUT_OF_RADIUS: t('common.outOfRadius'),
             }
             const key = String(name)
             return [value, labels[key] ?? key]
@@ -91,9 +92,9 @@ export function AttendanceChart({ records, loading = false }: AttendanceChartPro
         <Legend
           formatter={(value: string) => {
             const labels: Record<string, string> = {
-              ONTIME: 'Tepat Waktu',
-              LATE: 'Terlambat',
-              OUT_OF_RADIUS: 'Di Luar Radius',
+              ONTIME: t('common.onTime'),
+              LATE: t('common.late'),
+              OUT_OF_RADIUS: t('common.outOfRadius'),
             }
             return <span style={{ fontSize: 11, color: '#475569' }}>{labels[value] ?? value}</span>
           }}

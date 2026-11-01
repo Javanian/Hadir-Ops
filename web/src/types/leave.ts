@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 export type LeaveType = 'SICK' | 'PERMIT' | 'ANNUAL'
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
@@ -20,14 +21,14 @@ export interface LeaveRequest {
 }
 
 export const LEAVE_TYPE_LABEL: Record<LeaveType, string> = {
-  SICK: 'Sakit',
-  PERMIT: 'Izin',
-  ANNUAL: 'Cuti tahunan',
+  SICK: t('common.sick'),
+  PERMIT: t('common.permit'),
+  ANNUAL: t('leave.annualLeave'),
 }
 
 export const LEAVE_STATUS_LABEL: Record<LeaveStatus, string> = {
-  PENDING: 'Menunggu',
-  APPROVED: 'Disetujui',
-  REJECTED: 'Ditolak',
-  CANCELLED: 'Dibatalkan',
+  PENDING: t('common.pending'),
+  APPROVED: t('common.approved'),
+  REJECTED: t('common.rejected'),
+  CANCELLED: t('leave.cancelled'),
 }

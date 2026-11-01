@@ -39,7 +39,7 @@ async def _sign_in(client, role):
 
 async def test_demo_is_off_unless_enabled(client, mongo):
     assert (await client.get("/demo")).json() == {
-        "enabled": False, "roles": [], "last_reset_at": None, "next_reset_at": None,
+        "enabled": False, "roles": [], "last_reset_at": None, "next_reset_at": None, "mobile_app_url": None,
     }
     assert (await client.post("/demo/login", json={"role": "ADMIN"})).status_code == 404
 

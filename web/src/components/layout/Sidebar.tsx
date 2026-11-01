@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n'
 
 interface NavItem {
   to: string
@@ -25,26 +26,26 @@ interface NavItem {
 
 const ADMIN_NAV: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/users', label: 'Pengguna', icon: Users },
-  { to: '/sites', label: 'Lokasi', icon: MapPin },
-  { to: '/assignments', label: 'Penugasan', icon: CalendarClock },
+  { to: '/users', label: t('common.users'), icon: Users },
+  { to: '/sites', label: t('common.site'), icon: MapPin },
+  { to: '/assignments', label: t('common.assignments'), icon: CalendarClock },
   { to: '/shifts', label: 'Shift', icon: Clock },
-  { to: '/holidays', label: 'Hari Libur', icon: CalendarDays },
-  { to: '/attendance', label: 'Absensi', icon: ClipboardList },
-  { to: '/review', label: 'Tinjauan', icon: ShieldCheck },
-  { to: '/leave', label: 'Izin & Cuti', icon: CalendarX },
-  { to: '/overtime', label: 'Lembur', icon: Timer },
-  { to: '/reports', label: 'Laporan', icon: BarChart2 },
+  { to: '/holidays', label: t('common.holiday'), icon: CalendarDays },
+  { to: '/attendance', label: t('sidebar.attendance'), icon: ClipboardList },
+  { to: '/review', label: t('sidebar.review'), icon: ShieldCheck },
+  { to: '/leave', label: t('sidebar.leave'), icon: CalendarX },
+  { to: '/overtime', label: t('common.overtime'), icon: Timer },
+  { to: '/reports', label: t('common.reports'), icon: BarChart2 },
 ]
 
 const SUPERVISOR_NAV: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/shifts', label: 'Shift', icon: Clock },
-  { to: '/attendance', label: 'Absensi', icon: ClipboardList },
-  { to: '/review', label: 'Tinjauan', icon: ShieldCheck },
-  { to: '/leave', label: 'Izin & Cuti', icon: CalendarX },
-  { to: '/overtime', label: 'Lembur', icon: Timer },
-  { to: '/reports', label: 'Laporan', icon: BarChart2 },
+  { to: '/attendance', label: t('sidebar.attendance'), icon: ClipboardList },
+  { to: '/review', label: t('sidebar.review'), icon: ShieldCheck },
+  { to: '/leave', label: t('sidebar.leave'), icon: CalendarX },
+  { to: '/overtime', label: t('common.overtime'), icon: Timer },
+  { to: '/reports', label: t('common.reports'), icon: BarChart2 },
 ]
 
 interface SidebarProps {
@@ -56,7 +57,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const navItems = user?.role === 'ADMIN' ? ADMIN_NAV : SUPERVISOR_NAV
 
   return (
-    <nav aria-label="Navigasi utama" className="flex flex-col h-full w-[248px] bg-chrome text-slate-300">
+    <nav aria-label={t('sidebar.mainNavigation')} className="flex flex-col h-full w-[248px] bg-chrome text-slate-300">
       {/* Brand header */}
       <div className="h-16 flex items-center px-4 gap-3 border-b border-white/5 shrink-0">
         <img src="/rollproof-logo.svg" alt="" className="h-9 w-9 shrink-0 rounded-xl shadow-glow" />
@@ -64,7 +65,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <p className="text-white font-bold text-base tracking-tight leading-tight truncate">
             Rollproof
           </p>
-          <p className="text-slate-400 text-xs leading-tight mt-0.5">Manajemen presensi</p>
+          <p className="text-slate-400 text-xs leading-tight mt-0.5">{t('common.attendanceWithProof')}</p>
         </div>
 
         {/* Close button — mobile only */}
@@ -72,7 +73,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={onClose}
             className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-colors lg:hidden"
-            aria-label="Tutup sidebar"
+            aria-label={t('sidebar.closeSidebar')}
           >
             <X size={18} />
           </button>

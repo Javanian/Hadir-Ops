@@ -26,6 +26,8 @@ import { useHasRole } from '@/hooks/useAuth'
 import { showSuccess, showError } from '@/utils/toast'
 import { DAY_LABELS } from '@/types/shifts'
 import type { ShiftResponse } from '@/types/shifts'
+import { t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
 // The action column stays pinned to the right edge while the rest of the
 // table scrolls sideways on narrow screens.
@@ -70,11 +72,11 @@ export function ShiftsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => shiftsApi.delete(id),
     onSuccess: () => {
-      showSuccess('Shift berhasil dihapus')
+      showSuccess(t('shifts.shiftDeleted'))
       void qc.invalidateQueries({ queryKey: ['shifts'] })
       setDeletingShift(null)
     },
-    onError: () => showError('Gagal menghapus shift'),
+    onError: () => showError(t('shifts.couldNotDeleteTheShift')),
   })
 
   const siteName = (siteId: number) =>
@@ -83,42 +85,42 @@ export function ShiftsPage() {
   const columns: ColumnDef<typeof features, ShiftResponse>[] = [
     {
       accessorKey: 'name',
-      header: 'Nama Shift',
+      header: t('shifts.shiftName'),
       cell: ({ row }) => (
         <span className="font-medium text-text-primary whitespace-nowrap">{row.original.name ?? '—'}</span>
       ),
     },
     {
       accessorKey: 'site_id',
-      header: 'Lokasi',
+      header: t('common.site'),
       cell: ({ row }) => (
         <span className="text-sm text-text-secondary whitespace-nowrap">{siteName(row.original.site_id)}</span>
       ),
     },
     {
       id: 'times',
-      header: 'Jam Kerja',
+      header: t('common.workHours'),
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-sm whitespace-nowrap">
             {formatTime(row.original.start_time)} – {formatTime(row.original.end_time)}
           </span>
           {row.original.is_cross_midnight && (
-            <Badge variant="outline" className="text-xs whitespace-nowrap">+1 hari</Badge>
+            <Badge variant="outline" className="text-xs whitespace-nowrap">{t('shifts.1Day')}</Badge>
           )}
         </div>
       ),
     },
     {
       accessorKey: 'work_hours_standard',
-      header: 'Std. Jam',
+      header: t('shifts.stdHours'),
       cell: ({ row }) => (
         <span className="text-sm text-text-secondary whitespace-nowrap">{row.original.work_hours_standard} jam</span>
       ),
     },
     {
       id: 'schedule',
-      header: 'Hari Kerja',
+      header: t('common.workdays'),
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-text-secondary whitespace-nowrap">{getScheduleSummary(row.original)}</span>
@@ -138,16 +140,16 @@ export function ShiftsPage() {
             size="sm"
             className="h-8 text-xs gap-1.5"
             onClick={() => setScheduleShift(row.original)}
-            title="Kelola Jadwal"
+            title={t('shifts.manageSchedule')}
           >
             <CalendarDays className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Jadwal</span>
+            <span className="hidden sm:inline">{t('shifts.schedule')}</span>
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => { setEditingShift(row.original); setModalOpen(true) }}
-            aria-label={`Ubah shift ${row.original.name ?? ''}`}
+            aria-label={t('shifts.editShift', { name: row.original.name ?? '' })}
             title="Edit"
           >
             <Pencil className="h-4 w-4" />
@@ -158,8 +160,8 @@ export function ShiftsPage() {
               size="icon"
               className="text-red-500 hover:text-red-700 hover:bg-red-50"
               onClick={() => setDeletingShift(row.original)}
-              aria-label={`Hapus shift ${row.original.name ?? ''}`}
-              title="Hapus"
+              aria-label={t('shifts.deleteShift2', { name: row.original.name ?? '' })}
+              title={t('common.delete')}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -182,14 +184,14 @@ export function ShiftsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Shift</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('shifts.shifts')}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Kelola jadwal shift dan toleransi keterlambatan per lokasi
+            {t('shifts.manageShiftSchedulesAndLate')}
           </p>
         </div>
         <Button variant="accent" onClick={() => { setEditingShift(null); setModalOpen(true) }}>
           <Plus className="h-4 w-4" />
-          Tambah Shift
+          {t('common.addShift')}
         </Button>
       </div>
 
@@ -200,10 +202,10 @@ export function ShiftsPage() {
           onValueChange={(v) => setSiteFilter(v === '__all__' ? null : parseInt(v))}
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Semua Lokasi" />
+            <SelectValue placeholder={t('common.allSites')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">Semua Lokasi</SelectItem>
+            <SelectItem value="__all__">{t('common.allSites')}</SelectItem>
             {sites.map((s) => (
               <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
             ))}
@@ -251,10 +253,10 @@ export function ShiftsPage() {
                   <td colSpan={COLUMN_COUNT} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
-                      <p className="text-text-secondary text-sm">Gagal memuat data shift</p>
+                      <p className="text-text-secondary text-sm">{t('shifts.couldNotLoadShifts')}</p>
                       <Button variant="outline" size="sm" onClick={() => void refetch()}>
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Coba Lagi
+                        {t('common.tryAgain')}
                       </Button>
                     </div>
                   </td>
@@ -262,8 +264,8 @@ export function ShiftsPage() {
               ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
                   <td colSpan={COLUMN_COUNT} className="px-4 py-12 text-center text-text-secondary text-sm">
-                    Tidak ada shift ditemukan.
-                    {siteFilter && ' Coba hilangkan filter lokasi.'}
+                    {t('shifts.noShiftsFound')}
+                    {siteFilter && t('shifts.tryRemovingTheSiteFilter')}
                   </td>
                 </tr>
               ) : (
@@ -306,21 +308,18 @@ export function ShiftsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Shift</AlertDialogTitle>
+            <AlertDialogTitle>{t('shifts.deleteShift')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus shift{' '}
-              <strong>{deletingShift?.name}</strong>?
-              Jadwal yang terkait juga akan dihapus.
-              Tindakan ini tidak dapat dibatalkan.
+              {tRich('shifts.deleteConfirm', { name: <strong>{deletingShift?.name}</strong> })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingShift && deleteMutation.mutate(deletingShift.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Menghapus...' : 'Hapus'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

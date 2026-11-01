@@ -4,6 +4,7 @@ import { useEffect, useEffectEvent, useRef, useState, useCallback } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { t } from '@/i18n'
 
 // Fix default marker icon paths broken by Vite bundling
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
@@ -187,8 +188,8 @@ export function SiteMapPicker({ latitude, longitude, radiusMeter, onChange }: Si
       {/* Search bar — NOT a <form> to avoid nested form inside SiteFormModal */}
       <div className="flex gap-2 p-2 border-b border-border shrink-0">
         <Input
-          aria-label="Cari lokasi di peta"
-          placeholder="Cari lokasi (cth. Jakarta, Bandung)…"
+          aria-label={t('siteMapPicker.searchForAPlaceOn')}
+          placeholder={t('siteMapPicker.searchForAPlaceE')}
           value={searchQuery}
           onChange={handleSearchChange}
           onKeyDown={handleSearchKeyDown}

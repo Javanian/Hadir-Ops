@@ -18,14 +18,28 @@ export interface SiteCreatePayload {
 
 export type SiteUpdatePayload = Partial<SiteCreatePayload>
 
-export const TIMEZONE_OPTIONS = [
-  { value: 'Asia/Jakarta', label: 'Asia/Jakarta — WIB (UTC+7)' },
-  { value: 'Asia/Makassar', label: 'Asia/Makassar — WITA (UTC+8)' },
-  { value: 'Asia/Jayapura', label: 'Asia/Jayapura — WIT (UTC+9)' },
-] as const
+/** Current UTC offset of an IANA time zone, e.g. "UTC+7" or "UTC-5:30". */
+export function timezoneOffset(timeZone: string): string {
+  try {
+    const part = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'shortOffset' })
+      .formatToParts(new Date())
+      .find((p) => p.type === 'timeZoneName')?.value
+    return (part ?? 'GMT').replace('GMT', 'UTC').replace(/^UTC$/, 'UTC+0')
+  } catch {
+    return ''
+  }
+}
 
-export const TIMEZONE_SHORT: Record<string, string> = {
-  'Asia/Jakarta': 'WIB (UTC+7)',
-  'Asia/Makassar': 'WITA (UTC+8)',
-  'Asia/Jayapura': 'WIT (UTC+9)',
+// Every IANA zone the browser knows; a site anywhere in the world gets its own.
+const ZONES = Array.from(new Set(['UTC', ...Intl.supportedValuesOf('timeZone')]))
+
+export const TIMEZONE_OPTIONS = ZONES.map((value) => ({ value, label: `${value} (${timezoneOffset(value)})` }))
+
+export function isKnownTimezone(value: string): boolean {
+  return ZONES.includes(value)
+}
+
+/** The browser's own zone, a sensible default for a new site. */
+export function browserTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 }

@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 export interface WorkScheduleResponse {
   id: number
   day_of_week: number // 0=Sun … 6=Sat
@@ -57,4 +58,4 @@ export interface HolidayUpdatePayload {
 }
 
 // day_of_week: 0=Sunday … 6=Saturday
-export const DAY_LABELS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as const
+export const DAY_LABELS = [t('shifts.sunday'), t('shifts.monday'), t('shifts.tuesday'), t('shifts.wednesday'), t('shifts.thursday'), t('shifts.friday'), t('shifts.saturday')] as const

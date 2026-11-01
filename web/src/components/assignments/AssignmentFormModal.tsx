@@ -21,16 +21,17 @@ import { isAxiosError } from '@/api/axios'
 import { showSuccess } from '@/utils/toast'
 import type { UserListItem } from '@/types/users'
 import { localDateISO } from '@/utils/datetime'
+import { t } from '@/i18n'
 
 const schema = z.object({
-  user_id:    z.number({ error: 'Pilih karyawan' }),
-  site_id:    z.number({ error: 'Pilih lokasi' }),
-  shift_id:   z.number({ error: 'Pilih shift' }),
-  start_date: z.string().min(1, 'Pilih tanggal mulai'),
-  end_date:   z.string().min(1, 'Pilih tanggal selesai'),
+  user_id:    z.number({ error: t('assignmentForm.selectAnEmployee') }),
+  site_id:    z.number({ error: t('common.selectASite') }),
+  shift_id:   z.number({ error: t('assignmentForm.selectAShift2') }),
+  start_date: z.string().min(1, t('assignmentForm.selectAStartDate')),
+  end_date:   z.string().min(1, t('assignmentForm.selectAnEndDate')),
   notes:      z.string().optional(),
 }).refine((d) => d.end_date >= d.start_date, {
-  error: 'Tanggal selesai harus setelah tanggal mulai',
+  error: t('assignmentForm.endDateMustBeAfter'),
   path: ['end_date'],
 })
 
@@ -121,14 +122,14 @@ export function AssignmentFormModal({ open, onClose }: Props) {
         notes: data.notes || undefined,
       }),
     onSuccess: () => {
-      showSuccess('Penugasan berhasil ditambahkan')
+      showSuccess(t('assignmentForm.assignmentAdded'))
       void qc.invalidateQueries({ queryKey: ['assignments'] })
       close()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 409) {
         const detail = (err.response.data as { detail?: string })?.detail
-        setOverlapError(detail ?? 'User sudah memiliki penugasan pada rentang tanggal tersebut.')
+        setOverlapError(detail ?? t('assignmentForm.thisEmployeeAlreadyHasAn'))
       }
     },
   })
@@ -151,18 +152,18 @@ export function AssignmentFormModal({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent className="max-w-lg w-full">
         <DialogHeader>
-          <DialogTitle>Tambah Penugasan</DialogTitle>
+          <DialogTitle>{t('common.addAssignment')}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-2">
 
           {/* Pilih Karyawan — searchable */}
           <Field error={errors.user_id?.message}>
-            <Label>Pilih Karyawan *</Label>
+            <Label>{t('assignmentForm.employee')}</Label>
             <div className="relative">
               <Input
                 ref={userInputRef}
-                placeholder="Cari nama atau NIP karyawan..."
+                placeholder={t('assignmentForm.searchByNameOrEmployee')}
                 value={userSearch}
                 onChange={(e) => {
                   setUserSearch(e.target.value)
@@ -202,7 +203,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
 
           {/* Pilih Lokasi */}
           <Field error={errors.site_id?.message}>
-            <Label>Pilih Lokasi *</Label>
+            <Label>{t('assignmentForm.site')}</Label>
             <Controller
               control={control}
               name="site_id"
@@ -212,7 +213,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
                   onValueChange={(v) => field.onChange(parseInt(v))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Pilih lokasi..." />
+                    <SelectValue placeholder={t('assignmentForm.selectASite')} />
                   </SelectTrigger>
                   <SelectContent>
                     {sites.map((s) => (
@@ -228,7 +229,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
 
           {/* Pilih Shift */}
           <Field error={errors.shift_id?.message}>
-            <Label>Pilih Shift *</Label>
+            <Label>{t('assignmentForm.shift')}</Label>
             <Controller
               control={control}
               name="shift_id"
@@ -239,7 +240,7 @@ export function AssignmentFormModal({ open, onClose }: Props) {
                   disabled={!watchedSiteId}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={watchedSiteId ? 'Pilih shift...' : 'Pilih lokasi terlebih dahulu'} />
+                    <SelectValue placeholder={watchedSiteId ? t('assignmentForm.selectAShift') : t('assignmentForm.selectASiteFirst')} />
                   </SelectTrigger>
                   <SelectContent>
                     {shifts.map((sh) => (
@@ -256,23 +257,23 @@ export function AssignmentFormModal({ open, onClose }: Props) {
           {/* Tanggal Mulai & Selesai */}
           <div className="grid grid-cols-2 gap-3">
             <Field error={errors.start_date?.message}>
-              <Label>Tanggal Mulai *</Label>
+              <Label>{t('assignmentForm.startDate')}</Label>
               <Input type="date" min={today} {...register('start_date')} />
             </Field>
             <Field error={errors.end_date?.message}>
-              <Label>Tanggal Selesai *</Label>
+              <Label>{t('assignmentForm.endDate')}</Label>
               <Input type="date" min={today} {...register('end_date')} />
             </Field>
           </div>
 
           {/* Catatan */}
           <div className="space-y-1.5">
-            <Label htmlFor="assignment-notes">Catatan (opsional)</Label>
+            <Label htmlFor="assignment-notes">{t('assignmentForm.notesOptional')}</Label>
             <textarea
               id="assignment-notes"
               className="w-full px-3 py-2 text-sm border border-divider rounded-md bg-white text-text-primary placeholder:text-text-secondary focus:outline-hidden focus:ring-2 focus:ring-brand/30 resize-none"
               rows={2}
-              placeholder="Alasan penugasan, instruksi khusus, dll."
+              placeholder={t('assignmentForm.reasonForTheAssignmentSpecial')}
               {...register('notes')}
             />
           </div>
@@ -287,10 +288,10 @@ export function AssignmentFormModal({ open, onClose }: Props) {
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-divider">
             <Button type="button" variant="outline" onClick={close}>
-              Batal
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Menyimpan...' : 'Simpan'}
+              {mutation.isPending ? t('common.saving') : t('assignmentForm.save')}
             </Button>
           </div>
         </form>

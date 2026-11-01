@@ -16,11 +16,13 @@ import { usersApi } from '@/api/users.api'
 import { useHasRole } from '@/hooks/useAuth'
 import { showSuccess, showError } from '@/utils/toast'
 import type { UserRole } from '@/types/auth'
+import { t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
 const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: 'Admin',
   SUPERVISOR: 'Supervisor',
-  EMPLOYEE: 'Karyawan',
+  EMPLOYEE: t('common.employee'),
   SALES: 'Sales',
 }
 
@@ -67,11 +69,11 @@ export function UserDetailPage() {
   const deleteFaceMutation = useMutation({
     mutationFn: () => usersApi.deleteFace(userId),
     onSuccess: () => {
-      showSuccess('Wajah berhasil dihapus')
+      showSuccess(t('userDetail.faceDataDeleted'))
       void qc.invalidateQueries({ queryKey: ['face-status', userId] })
     },
     onError: () => {
-      showError('Gagal menghapus data wajah')
+      showError(t('userDetail.couldNotDeleteTheFace'))
     },
   })
 
@@ -93,14 +95,14 @@ export function UserDetailPage() {
       <div className="space-y-6">
         <Button variant="ghost" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Kembali
+          {t('userDetail.back')}
         </Button>
         <div className="flex flex-col items-center gap-4 py-16">
           <AlertCircle className="h-10 w-10 text-red-400" />
-          <p className="text-text-secondary">Gagal memuat detail pengguna. Endpoint backend belum tersedia.</p>
+          <p className="text-text-secondary">{t('userDetail.couldNotLoadTheUser')}</p>
           <Button variant="outline" onClick={() => void refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            Coba Lagi
+            {t('common.tryAgain')}
           </Button>
         </div>
       </div>
@@ -116,7 +118,7 @@ export function UserDetailPage() {
       {/* Back button */}
       <Button variant="ghost" onClick={() => navigate(-1)}>
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Kembali ke Daftar Pengguna
+        {t('userDetail.backToUsers')}
       </Button>
 
       {/* User info card */}
@@ -151,18 +153,18 @@ export function UserDetailPage() {
           />
           <InfoRow
             icon={<MapPin className="h-4 w-4" />}
-            label="Lokasi Kerja"
-            value={user.site_name ?? <span className="text-text-secondary italic">Tidak ada lokasi</span>}
+            label={t('userDetail.workSite')}
+            value={user.site_name ?? <span className="text-text-secondary italic">{t('userDetail.noSite')}</span>}
           />
           <InfoRow
             icon={<CheckCircle className="h-4 w-4" />}
-            label="Status Akun"
+            label={t('userDetail.accountStatus')}
             value={
               user.is_locked
-                ? <Badge variant="danger">Terkunci</Badge>
+                ? <Badge variant="danger">{t('common.locked')}</Badge>
                 : user.is_active
-                  ? <Badge variant="success">Aktif</Badge>
-                  : <Badge variant="outline">Nonaktif</Badge>
+                  ? <Badge variant="success">{t('common.active')}</Badge>
+                  : <Badge variant="outline">{t('common.inactive')}</Badge>
             }
           />
         </div>
@@ -171,12 +173,12 @@ export function UserDetailPage() {
       {/* Face embedding card */}
       <div className="rounded-lg border border-divider bg-white p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-text-primary">Data Wajah</h3>
+          <h3 className="font-semibold text-text-primary">{t('userDetail.faceData')}</h3>
           {hasFace
-            ? <Badge variant="success">Terdaftar</Badge>
+            ? <Badge variant="success">{t('common.enrolled')}</Badge>
             : needsReregister
-              ? <Badge variant="warning">Perlu Daftar Ulang</Badge>
-              : <Badge variant="outline">Belum Terdaftar</Badge>
+              ? <Badge variant="warning">{t('userDetail.reEnrolmentNeeded')}</Badge>
+              : <Badge variant="outline">{t('userDetail.notEnrolled')}</Badge>
           }
         </div>
 
@@ -184,7 +186,7 @@ export function UserDetailPage() {
           <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
             <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
             <p className="text-sm text-green-700">
-              Data wajah pengguna ini sudah terdaftar dan dapat digunakan untuk absensi.
+              {t('userDetail.thisUserSFaceIs')}
             </p>
           </div>
         ) : (
@@ -192,8 +194,8 @@ export function UserDetailPage() {
             <XCircle className="h-5 w-5 text-text-secondary shrink-0" />
             <p className="text-sm text-text-secondary">
               {needsReregister
-                ? 'Data wajah pengguna ini dibuat dengan model pengenalan versi lama dan tidak bisa dipakai lagi. Pengguna perlu mendaftarkan ulang wajah melalui aplikasi mobile.'
-                : 'Pengguna belum mendaftarkan wajah. Mereka perlu mendaftar wajah melalui aplikasi mobile.'}
+                ? t('userDetail.thisUserSFaceWas')
+                : t('userDetail.thisUserHasNotEnrolled')}
             </p>
           </div>
         )}
@@ -204,25 +206,23 @@ export function UserDetailPage() {
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm">
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Hapus Data Wajah
+                  {t('userDetail.deleteFaceData')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Hapus Data Wajah</AlertDialogTitle>
+                  <AlertDialogTitle>{t('userDetail.deleteFaceData')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Apakah Anda yakin ingin menghapus data wajah milik{' '}
-                    <strong>{user.name}</strong>? Pengguna tidak akan bisa absen
-                    sampai mendaftarkan wajah kembali melalui aplikasi mobile.
+                    {tRich('userDetail.deleteFaceConfirm', { name: <strong>{user.name}</strong> })}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => deleteFaceMutation.mutate()}
                     disabled={deleteFaceMutation.isPending}
                   >
-                    {deleteFaceMutation.isPending ? 'Menghapus...' : 'Hapus Data Wajah'}
+                    {deleteFaceMutation.isPending ? t('common.deleting') : t('userDetail.deleteFaceData')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

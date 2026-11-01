@@ -29,6 +29,7 @@ class DemoInfo(BaseModel):
     roles: list[DemoRole] = []
     last_reset_at: str | None = None
     next_reset_at: str | None = None
+    mobile_app_url: str | None = None
 
 
 class DemoLoginRequest(BaseModel):
@@ -45,6 +46,7 @@ async def demo_info(db: AsyncDatabase = Depends(get_db)) -> DemoInfo:
         roles=["ADMIN", "SUPERVISOR", "EMPLOYEE"],
         last_reset_at=last.isoformat() if last else None,
         next_reset_at=demo_service.next_reset_after(last).isoformat() if last else None,
+        mobile_app_url=settings.DEMO_MOBILE_URL or None,
     )
 
 

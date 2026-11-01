@@ -17,12 +17,14 @@ import { useHasRole } from '@/hooks/useAuth'
 import { showSuccess, showError } from '@/utils/toast'
 import { formatDate, formatDuration, formatTime, localDateISO } from '@/utils/datetime'
 import type { TeamAttendanceRecord, AttendanceStatus } from '@/types/attendance'
+import { t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Returns today as YYYY-MM-DD using Asia/Jakarta as reference (multi-site default) */
+/** Today as YYYY-MM-DD in the viewer's own time zone; each record shows its site's time. */
 function todayString(): string {
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Jakarta' }).format(new Date())
+  return localDateISO()
 }
 
 function statusBadgeVariant(status: AttendanceStatus | null) {
@@ -33,16 +35,16 @@ function statusBadgeVariant(status: AttendanceStatus | null) {
 }
 
 function statusLabel(status: AttendanceStatus | null): string {
-  if (status === 'ONTIME') return 'Tepat Waktu'
-  if (status === 'LATE') return 'Terlambat'
-  if (status === 'OUT_OF_RADIUS') return 'Di Luar Radius'
+  if (status === 'ONTIME') return t('common.onTime')
+  if (status === 'LATE') return t('common.late')
+  if (status === 'OUT_OF_RADIUS') return t('common.outOfRadius')
   return '—'
 }
 
 function exportCSV(records: TeamAttendanceRecord[]) {
   const headers = [
-    'ID', 'ID Karyawan', 'Nama', 'Site', 'Check-in', 'Check-out',
-    'Jam Kerja (menit)', 'Lembur (menit)', 'Status', 'Akhir Pekan', 'Hari Libur', 'Timezone',
+    'ID', t('common.employeeId'), t('common.name'), 'Site', 'Check-in', 'Check-out',
+    t('common.workTimeMinutes'), t('common.overtimeMinutes'), 'Status', t('common.weekend'), t('common.holiday'), 'Timezone',
   ]
   const rows = records.map((r) => [
     r.id,
@@ -54,8 +56,8 @@ function exportCSV(records: TeamAttendanceRecord[]) {
     r.work_duration_minutes,
     r.overtime_minutes,
     r.status ?? '',
-    r.is_weekend ? 'Ya' : 'Tidak',
-    r.is_holiday ? 'Ya' : 'Tidak',
+    r.is_weekend ? 'Ya' : t('attendance.no'),
+    r.is_holiday ? 'Ya' : t('attendance.no'),
     r.site_timezone,
   ])
   const csv = [headers, ...rows]
@@ -149,12 +151,12 @@ export function AttendancePage() {
   const autoCheckoutMutation = useMutation({
     mutationFn: attendanceApi.triggerAutoCheckout,
     onSuccess: (result) => {
-      showSuccess(`Auto-checkout selesai: ${result.processed} record diproses.`)
+      showSuccess(t('attendance.autoCheckOutFinishedRecords', { processed: result.processed }))
       setShowAutoCheckoutConfirm(false)
       void qc.invalidateQueries({ queryKey: ['attendance-team'] })
     },
     onError: () => {
-      showError('Gagal menjalankan auto-checkout.')
+      showError(t('attendance.couldNotRunTheAuto'))
       setShowAutoCheckoutConfirm(false)
     },
   })
@@ -176,11 +178,11 @@ export function AttendancePage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Monitoring Absensi</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('attendance.attendanceMonitoring')}</h1>
           <p className="text-sm text-text-secondary mt-1">
             {isAdmin
-              ? 'Pantau seluruh data absensi karyawan di semua lokasi'
-              : 'Pantau data absensi bawahan Anda'}
+              ? t('attendance.monitorAttendanceOfEveryEmployee')
+              : t('attendance.monitorYourTeamSAttendance')}
           </p>
         </div>
         {isAdmin && (
@@ -190,7 +192,7 @@ export function AttendancePage() {
             disabled={autoCheckoutMutation.isPending}
           >
             <Clock className="h-4 w-4" />
-            Jalankan Auto-Checkout
+            {t('attendance.runAutoCheckOut')}
           </Button>
         )}
       </div>
@@ -201,7 +203,7 @@ export function AttendancePage() {
           {/* Date range */}
           <div className="col-span-2 flex items-center gap-2 sm:col-auto">
             <label htmlFor="attendance-from" className="w-14 text-xs font-medium text-text-secondary whitespace-nowrap sm:w-auto">
-              Dari:
+              {t('attendance.from')}
             </label>
             <input
               id="attendance-from"
@@ -213,7 +215,7 @@ export function AttendancePage() {
           </div>
           <div className="col-span-2 flex items-center gap-2 sm:col-auto">
             <label htmlFor="attendance-to" className="w-14 text-xs font-medium text-text-secondary whitespace-nowrap sm:w-auto">
-              Sampai:
+              {t('attendance.to')}
             </label>
             <input
               id="attendance-to"
@@ -232,19 +234,19 @@ export function AttendancePage() {
             onChange={(e) => { setStatusFilter(e.target.value as AttendanceStatus | ''); setPage(0) }}
             className="col-span-2 h-9 rounded-md border border-divider bg-white px-3 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40 sm:col-auto"
           >
-            <option value="">Semua Status</option>
-            <option value="ONTIME">Tepat Waktu</option>
-            <option value="LATE">Terlambat</option>
-            <option value="OUT_OF_RADIUS">Di Luar Radius</option>
+            <option value="">{t('common.allStatuses')}</option>
+            <option value="ONTIME">{t('common.onTime')}</option>
+            <option value="LATE">{t('common.late')}</option>
+            <option value="OUT_OF_RADIUS">{t('common.outOfRadius')}</option>
           </select>
 
           {/* Search */}
           <div className="relative col-span-2 min-w-[180px] flex-1 sm:col-auto">
             <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-secondary" />
             <input
-              aria-label="Cari karyawan"
+              aria-label={t('attendance.searchEmployees')}
               type="text"
-              placeholder="Cari nama atau ID karyawan..."
+              placeholder={t('common.searchByNameOrEmployee')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-9 w-full rounded-md border border-divider bg-white pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary focus:outline-hidden focus:ring-2 focus:ring-brand/40"
@@ -273,19 +275,19 @@ export function AttendancePage() {
           />
           <StatsCard
             icon={<CheckCircle className="h-4 w-4 text-green-600" />}
-            label="Tepat Waktu"
+            label={t('common.onTime')}
             value={stats.ontime}
             colorClass="bg-green-50"
           />
           <StatsCard
             icon={<AlertTriangle className="h-4 w-4 text-yellow-600" />}
-            label="Terlambat"
+            label={t('common.late')}
             value={stats.late}
             colorClass="bg-yellow-50"
           />
           <StatsCard
             icon={<XCircle className="h-4 w-4 text-red-500" />}
-            label="Di Luar Radius"
+            label={t('common.outOfRadius')}
             value={stats.outOfRadius}
             colorClass="bg-red-50"
           />
@@ -296,9 +298,11 @@ export function AttendancePage() {
       {!isLoading && !isError && filteredRecords.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-text-secondary">
-            Menampilkan <strong>{filteredRecords.length}</strong> dari{' '}
-            <strong>{records.length}</strong> record
-            {records.length === LIMIT && ' (batas maksimum halaman ini)'}
+            {tRich('attendance.showingCount', {
+              shown: <strong>{filteredRecords.length}</strong>,
+              total: <strong>{records.length}</strong>,
+            })}
+            {records.length === LIMIT && t('attendance.theMostThisPageShows')}
           </p>
           <Button
             variant="outline"
@@ -318,10 +322,10 @@ export function AttendancePage() {
             <thead className="bg-slate-800 text-white">
               <tr>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                  ID Karyawan
+                  {t('common.employeeId')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                  Nama
+                  {t('common.name')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide hidden md:table-cell">
                   Site
@@ -330,13 +334,13 @@ export function AttendancePage() {
                   Check-in / Check-out
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide hidden md:table-cell">
-                  Durasi
+                  {t('common.duration')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
                   Status
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide hidden lg:table-cell">
-                  Keterangan
+                  {t('common.notes')}
                 </th>
               </tr>
             </thead>
@@ -356,10 +360,10 @@ export function AttendancePage() {
                   <td colSpan={TABLE_COLS} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
-                      <p className="text-text-secondary text-sm">Gagal memuat data absensi</p>
+                      <p className="text-text-secondary text-sm">{t('attendance.couldNotLoadAttendance')}</p>
                       <Button variant="outline" size="sm" onClick={() => void refetch()}>
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Coba Lagi
+                        {t('common.tryAgain')}
                       </Button>
                     </div>
                   </td>
@@ -371,8 +375,8 @@ export function AttendancePage() {
                       <Users className="h-8 w-8 text-text-secondary" />
                       <p className="text-text-secondary text-sm">
                         {records.length === 0
-                          ? 'Tidak ada data absensi untuk rentang tanggal ini.'
-                          : 'Tidak ada data yang sesuai dengan filter yang dipilih.'}
+                          ? t('attendance.noAttendanceInThisDate')
+                          : t('attendance.nothingMatchesTheSelectedFilters')}
                       </p>
                     </div>
                   </td>
@@ -424,7 +428,7 @@ export function AttendancePage() {
                             </div>
                           ) : (
                             <div className="flex items-center justify-center">
-                              <span className="text-xs text-text-secondary italic">Belum checkout</span>
+                              <span className="text-xs text-text-secondary italic">{t('common.notCheckedOut')}</span>
                             </div>
                           )}
                         </div>
@@ -434,7 +438,7 @@ export function AttendancePage() {
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center justify-between gap-2 min-w-[100px]">
                             <span className="text-xs font-medium text-text-secondary whitespace-nowrap">
-                              Reguler
+                              {t('attendance.regular')}
                             </span>
                             <span className="text-xs text-text-secondary whitespace-nowrap">
                               {record.work_duration_minutes > 0
@@ -445,7 +449,7 @@ export function AttendancePage() {
                           <div className="border-t border-divider" />
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-semibold text-violet-600 whitespace-nowrap">
-                              Lembur
+                              {t('common.overtime')}
                             </span>
                             <span className="text-xs text-text-secondary whitespace-nowrap">
                               {record.overtime_minutes > 0
@@ -463,10 +467,10 @@ export function AttendancePage() {
                       <td className="px-4 py-3 hidden lg:table-cell text-center">
                         <div className="flex flex-wrap justify-center gap-1">
                           {record.is_weekend && (
-                            <Badge variant="info" className="text-xs">Akhir Pekan</Badge>
+                            <Badge variant="info" className="text-xs">{t('common.weekend')}</Badge>
                           )}
                           {record.is_holiday && (
-                            <Badge variant="warning" className="text-xs">Hari Libur</Badge>
+                            <Badge variant="warning" className="text-xs">{t('common.holiday')}</Badge>
                           )}
                         </div>
                       </td>
@@ -484,18 +488,18 @@ export function AttendancePage() {
         <div className="flex justify-center gap-4">
           {page > 0 && (
             <Button variant="outline" onClick={() => setPage((p) => p - 1)}>
-              ← Sebelumnya
+              {t('attendance.previous')}
             </Button>
           )}
           <Button variant="outline" onClick={() => setPage((p) => p + 1)}>
-            Berikutnya →
+            {t('attendance.next')}
           </Button>
         </div>
       )}
       {page > 0 && records.length < LIMIT && !isLoading && (
         <div className="flex justify-center">
           <Button variant="outline" onClick={() => setPage((p) => p - 1)}>
-            ← Sebelumnya
+            {t('attendance.previous')}
           </Button>
         </div>
       )}
@@ -514,20 +518,18 @@ export function AttendancePage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Jalankan Auto-Checkout</AlertDialogTitle>
+            <AlertDialogTitle>{t('attendance.runAutoCheckOut')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Proses ini akan secara otomatis melakukan checkout untuk semua karyawan yang
-              melewati waktu akhir shift tetapi belum melakukan checkout.
-              Tindakan ini tidak dapat dibatalkan. Lanjutkan?
+              {t('attendance.thisChecksOutEveryEmployee')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => autoCheckoutMutation.mutate()}
               disabled={autoCheckoutMutation.isPending}
             >
-              {autoCheckoutMutation.isPending ? 'Memproses...' : 'Ya, Jalankan'}
+              {autoCheckoutMutation.isPending ? t('common.processing') : t('attendance.yesRunIt')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

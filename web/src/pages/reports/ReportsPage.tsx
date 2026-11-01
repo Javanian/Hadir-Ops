@@ -13,13 +13,14 @@ import { reportsApi } from '@/api/reports.api'
 import { RecapTable } from '@/components/reports/RecapTable'
 import { daysAgoISO, formatDate, formatDuration, formatTime } from '@/utils/datetime'
 import type { TeamAttendanceRecord, AttendanceStatus } from '@/types/attendance'
+import { t } from '@/i18n'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const reportSchema = z
   .object({
-    from_date: z.string().min(1, 'Wajib diisi'),
-    to_date: z.string().min(1, 'Wajib diisi'),
+    from_date: z.string().min(1, t('reports.required')),
+    to_date: z.string().min(1, t('reports.required')),
     employee_search: z.string().optional(),
     status_filter: z.enum(['', 'ONTIME', 'LATE', 'OUT_OF_RADIUS']).optional(),
   })
@@ -30,7 +31,7 @@ const reportSchema = z
         (new Date(to_date).getTime() - new Date(from_date).getTime()) / 86_400_000
       return diff >= 0 && diff <= 30
     },
-    { error: 'Rentang tanggal maksimal 31 hari', path: ['to_date'] },
+    { error: t('reports.theDateRangeCanBe'), path: ['to_date'] },
   )
 
 type ReportFormValues = z.infer<typeof reportSchema>
@@ -50,9 +51,9 @@ function statusBadgeVariant(status: AttendanceStatus | null) {
 }
 
 function statusLabel(status: AttendanceStatus | null): string {
-  if (status === 'ONTIME') return 'Tepat Waktu'
-  if (status === 'LATE') return 'Terlambat'
-  if (status === 'OUT_OF_RADIUS') return 'Di Luar Radius'
+  if (status === 'ONTIME') return t('common.onTime')
+  if (status === 'LATE') return t('common.late')
+  if (status === 'OUT_OF_RADIUS') return t('common.outOfRadius')
   return '—'
 }
 
@@ -60,13 +61,13 @@ function exportCSV(records: TeamAttendanceRecord[], fromDate: string, toDate: st
   const BOM = '\uFEFF'
   const headers = [
     'No',
-    'Nama',
-    'ID Karyawan',
-    'Tanggal',
-    'Jam Masuk',
-    'Jam Keluar',
-    'Durasi (menit)',
-    'Lembur (menit)',
+    t('common.name'),
+    t('common.employeeId'),
+    t('common.date'),
+    t('reports.checkIn'),
+    t('reports.checkOut'),
+    t('reports.durationMinutes'),
+    t('common.overtimeMinutes'),
     'Status',
     'Timezone',
   ]
@@ -88,7 +89,7 @@ function exportCSV(records: TeamAttendanceRecord[], fromDate: string, toDate: st
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `laporan_absensi_${fromDate}_${toDate}.csv`
+  link.download = t('reports.attendanceReportCsv', { fromDate, toDate })
   link.click()
   URL.revokeObjectURL(url)
 }
@@ -106,8 +107,8 @@ function thirtyDaysAgoStr(): string {
 type View = 'recap' | 'detail'
 
 const VIEWS: Array<{ value: View; label: string }> = [
-  { value: 'recap', label: 'Rekap per karyawan' },
-  { value: 'detail', label: 'Detail absensi' },
+  { value: 'recap', label: t('reports.recapPerEmployee') },
+  { value: 'detail', label: t('reports.attendanceDetails') },
 ]
 
 export function ReportsPage() {
@@ -204,13 +205,13 @@ export function ReportsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary">Laporan Absensi</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('reports.attendanceReports')}</h1>
         <p className="text-text-secondary text-sm mt-1">
-          Buat laporan berdasarkan rentang tanggal dan filter karyawan.
+          {t('reports.buildAReportForA')}
         </p>
       </div>
 
-      <div className="inline-flex rounded-xl border border-divider bg-white p-1" role="tablist" aria-label="Jenis laporan">
+      <div className="inline-flex rounded-xl border border-divider bg-white p-1" role="tablist" aria-label={t('reports.reportType')}>
         {VIEWS.map((v) => (
           <button
             key={v.value}
@@ -236,7 +237,7 @@ export function ReportsPage() {
           {/* From date */}
           <div>
             <label htmlFor="report-from-date" className="block text-xs font-medium text-text-secondary mb-1">
-              Dari Tanggal
+              {t('reports.from')}
             </label>
             <input
               id="report-from-date"
@@ -254,7 +255,7 @@ export function ReportsPage() {
           {/* To date */}
           <div>
             <label htmlFor="report-to-date" className="block text-xs font-medium text-text-secondary mb-1">
-              Sampai Tanggal
+              {t('reports.to')}
             </label>
             <input
               id="report-to-date"
@@ -272,7 +273,7 @@ export function ReportsPage() {
           {/* Employee search */}
           <div>
             <label htmlFor="report-employee-search" className="block text-xs font-medium text-text-secondary mb-1">
-              Nama / ID Karyawan
+              {t('reports.nameEmployeeId')}
             </label>
             <div className="relative">
               <Search
@@ -283,7 +284,7 @@ export function ReportsPage() {
               <input
                 id="report-employee-search"
                 type="text"
-                placeholder="Cari..."
+                placeholder={t('reports.search')}
                 {...register('employee_search')}
                 className="w-full rounded-lg border border-divider pl-8 pr-3 py-2 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40"
               />
@@ -299,13 +300,13 @@ export function ReportsPage() {
               id="report-status"
               {...register('status_filter')}
               disabled={view === 'recap'}
-              title={view === 'recap' ? 'Filter status hanya untuk detail absensi' : undefined}
+              title={view === 'recap' ? t('reports.theStatusFilterAppliesTo') : undefined}
               className="w-full rounded-lg border border-divider px-3 py-2 text-sm text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/40 bg-white disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-disabled"
             >
-              <option value="">Semua Status</option>
-              <option value="ONTIME">Tepat Waktu</option>
-              <option value="LATE">Terlambat</option>
-              <option value="OUT_OF_RADIUS">Di Luar Radius</option>
+              <option value="">{t('common.allStatuses')}</option>
+              <option value="ONTIME">{t('common.onTime')}</option>
+              <option value="LATE">{t('common.late')}</option>
+              <option value="OUT_OF_RADIUS">{t('common.outOfRadius')}</option>
             </select>
           </div>
         </div>
@@ -313,7 +314,7 @@ export function ReportsPage() {
         <div className="mt-4 flex justify-end">
           <Button type="submit" disabled={isFetching} className="gap-2">
             <FileBarChart size={16} />
-            {isFetching ? 'Memuat...' : 'Buat Laporan'}
+            {isFetching ? t('common.loading') : t('reports.buildReport')}
           </Button>
         </div>
       </form>
@@ -325,7 +326,7 @@ export function ReportsPage() {
           </div>
         ) : recapError ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-            Gagal memuat rekap. Coba lagi, atau persempit rentang tanggal.
+            {t('reports.couldNotLoadTheRecap')}
           </p>
         ) : recapData ? (
           <RecapTable rows={recapRows} fromDate={queryParams.from_date} toDate={queryParams.to_date} />
@@ -343,40 +344,40 @@ export function ReportsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
           <StatsCard
             icon={<Users size={20} />}
-            title="Total Hadir"
+            title={t('reports.totalPresent')}
             value={summary.total}
             variant="default"
           />
           <StatsCard
             icon={<CheckCircle size={20} />}
-            title="Tepat Waktu"
+            title={t('common.onTime')}
             value={summary.ontime}
             subtitle={`${summary.ontimePct}%`}
             variant="success"
           />
           <StatsCard
             icon={<Clock size={20} />}
-            title="Terlambat"
+            title={t('common.late')}
             value={summary.late}
             subtitle={`${summary.latePct}%`}
             variant="warning"
           />
           <StatsCard
             icon={<MapPinOff size={20} />}
-            title="Di Luar Radius"
+            title={t('common.outOfRadius')}
             value={summary.outOfRadius}
             subtitle={`${summary.outPct}%`}
             variant="danger"
           />
           <StatsCard
             icon={<Hourglass size={20} />}
-            title="Rata-rata Durasi"
+            title={t('reports.averageDuration')}
             value={formatDuration(summary.avgWork)}
             variant="default"
           />
           <StatsCard
             icon={<TrendingUp size={20} />}
-            title="Total Lembur"
+            title={t('reports.totalOvertime')}
             value={formatDuration(summary.totalOvertime)}
             variant="overtime"
           />
@@ -418,7 +419,7 @@ export function ReportsPage() {
 
           {filteredData.length === 0 ? (
             <p className="text-center text-sm text-text-disabled py-12">
-              Tidak ada data untuk filter yang dipilih.
+              {t('reports.noDataForTheSelected')}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -426,20 +427,20 @@ export function ReportsPage() {
                 <thead>
                   <tr className="bg-slate-800 text-white">
                     <th className="px-3 py-2 text-center font-medium w-10">No</th>
-                    <th className="px-3 py-2 text-left font-medium">Nama</th>
+                    <th className="px-3 py-2 text-left font-medium">{t('common.name')}</th>
                     <th className="px-3 py-2 text-left font-medium hidden md:table-cell">
-                      ID Karyawan
+                      {t('common.employeeId')}
                     </th>
-                    <th className="px-3 py-2 text-center font-medium">Tanggal</th>
+                    <th className="px-3 py-2 text-center font-medium">{t('common.date')}</th>
                     <th className="px-3 py-2 text-center font-medium">Check-In</th>
                     <th className="px-3 py-2 text-center font-medium hidden lg:table-cell">
                       Check-Out
                     </th>
                     <th className="px-3 py-2 text-center font-medium hidden lg:table-cell">
-                      Durasi
+                      {t('common.duration')}
                     </th>
                     <th className="px-3 py-2 text-center font-medium hidden xl:table-cell">
-                      Lembur
+                      {t('common.overtime')}
                     </th>
                     <th className="px-3 py-2 text-center font-medium">Status</th>
                   </tr>

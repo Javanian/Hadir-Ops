@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # Never enable it on a server that holds real data.
     DEMO_MODE: bool = False
     RATE_LIMIT_DEMO_LOGIN: str = "20/hour"
+    # Where the dashboard's "check in as an employee" button sends visitors
+    # (the mobile app's web build), or empty to hide the button.
+    DEMO_MOBILE_URL: str = ""
 
     # Error reporting: set to a Sentry DSN to send unhandled errors (without
     # request bodies or personal data) to Sentry. Empty disables it.

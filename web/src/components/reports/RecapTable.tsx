@@ -3,13 +3,14 @@ import { ArrowDownWideNarrow, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDuration, formatPlainDate } from '@/utils/datetime'
 import type { RecapRow } from '@/types/reports'
+import { t } from '@/i18n'
 
 type SortKey = 'absent' | 'late' | 'name'
 
 const SORTS: Array<{ value: SortKey; label: string }> = [
-  { value: 'absent', label: 'Tanpa keterangan terbanyak' },
-  { value: 'late', label: 'Terlambat terbanyak' },
-  { value: 'name', label: 'Nama (A–Z)' },
+  { value: 'absent', label: t('recapTable.mostUnexplainedAbsences') },
+  { value: 'late', label: t('recapTable.mostLateArrivals') },
+  { value: 'name', label: t('recapTable.nameAZ') },
 ]
 
 function sortRows(rows: RecapRow[], key: SortKey): RecapRow[] {
@@ -28,9 +29,9 @@ function csvCell(v: string | number): string {
 
 function exportRecapCSV(rows: RecapRow[], fromDate: string, toDate: string) {
   const headers = [
-    'Nama', 'ID Karyawan', 'Lokasi', 'Hari Kerja', 'Hadir', 'Tepat Waktu', 'Terlambat',
-    'Di Luar Radius', 'Sakit', 'Izin', 'Cuti', 'Tanpa Keterangan', 'Tanggal Tanpa Keterangan',
-    'Jam Kerja (menit)', 'Lembur (menit)', 'Perlu Ditinjau',
+    t('common.name'), t('common.employeeId'), t('common.site'), t('common.workdays'), t('recapTable.present'), t('common.onTime'), t('common.late'),
+    t('common.outOfRadius'), t('common.sick'), t('common.permit'), t('recapTable.annualLeave'), t('recapTable.unexplainedAbsence'), t('recapTable.datesOfUnexplainedAbsence'),
+    t('common.workTimeMinutes'), t('common.overtimeMinutes'), t('recapTable.needsReview'),
   ]
   const lines = rows.map((r) => [
     r.name, r.employee_id, r.site_name ?? '', r.workdays, r.present, r.ontime, r.late,
@@ -41,7 +42,7 @@ function exportRecapCSV(rows: RecapRow[], fromDate: string, toDate: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `rekap_kehadiran_${fromDate}_${toDate}.csv`
+  link.download = t('recapTable.attendanceRecapCsv', { fromDate, toDate })
   link.click()
   URL.revokeObjectURL(url)
 }
@@ -70,13 +71,14 @@ export function RecapTable({ rows, fromDate, toDate }: RecapTableProps) {
     <div className="rounded-2xl border border-slate-200/80 bg-white shadow-soft overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-divider">
         <p className="text-sm text-text-secondary">
-          {rows.length} karyawan · {totals.absent} hari tanpa keterangan dari {totals.people} orang ·{' '}
-          {totals.leave} hari izin/cuti · {totals.late} kali terlambat
+          {t('recap.summary', {
+            employees: rows.length, absent: totals.absent, people: totals.people, leave: totals.leave, late: totals.late,
+          })}
         </p>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-text-secondary sm:flex-none">
             <ArrowDownWideNarrow size={14} aria-hidden />
-            <span className="sr-only">Urutkan</span>
+            <span className="sr-only">{t('recapTable.sortBy')}</span>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
@@ -99,22 +101,22 @@ export function RecapTable({ rows, fromDate, toDate }: RecapTableProps) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-center text-sm text-text-disabled py-12">Tidak ada karyawan untuk filter yang dipilih.</p>
+        <p className="text-center text-sm text-text-disabled py-12">{t('recapTable.noEmployeesMatchTheSelected')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-800 text-white">
-                <th className="px-3 py-2 text-left font-medium">Karyawan</th>
-                <Num title="Hari kerja terjadwal sampai hari ini">Hari Kerja</Num>
-                <Num>Hadir</Num>
-                <Num>Terlambat</Num>
-                <Num>Sakit</Num>
-                <Num>Izin</Num>
-                <Num>Cuti</Num>
-                <Num title="Hari kerja yang sudah lewat tanpa absen dan tanpa izin yang disetujui">Tanpa Ket.</Num>
-                <Num className="hidden lg:table-cell">Jam Kerja</Num>
-                <Num className="hidden lg:table-cell">Lembur</Num>
+                <th className="px-3 py-2 text-left font-medium">{t('common.employee')}</th>
+                <Num title={t('recapTable.scheduledWorkdaysUpToToday')}>{t('common.workdays')}</Num>
+                <Num>{t('recapTable.present')}</Num>
+                <Num>{t('common.late')}</Num>
+                <Num>{t('common.sick')}</Num>
+                <Num>{t('common.permit')}</Num>
+                <Num>{t('recapTable.annualLeave')}</Num>
+                <Num title={t('recapTable.pastWorkdaysWithNoCheck')}>{t('recapTable.unexpl')}</Num>
+                <Num className="hidden lg:table-cell">{t('common.workHours')}</Num>
+                <Num className="hidden lg:table-cell">{t('common.overtime')}</Num>
               </tr>
             </thead>
             <tbody>
@@ -127,7 +129,7 @@ export function RecapTable({ rows, fromDate, toDate }: RecapTableProps) {
                       {r.site_name && <> · {r.site_name}</>}
                     </p>
                     {r.needs_review > 0 && (
-                      <p className="text-xs text-amber-700 mt-0.5">{r.needs_review} absen perlu ditinjau</p>
+                      <p className="text-xs text-amber-700 mt-0.5">{t('recap.needsReviewCount', { count: r.needs_review })}</p>
                     )}
                   </td>
                   <Cell value={r.workdays} />

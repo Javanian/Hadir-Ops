@@ -14,9 +14,10 @@ import { holidaysApi } from '@/api/shifts.api'
 import { isAxiosError } from '@/api/axios'
 import { showSuccess, showError } from '@/utils/toast'
 import type { HolidayResponse } from '@/types/shifts'
+import { t } from '@/i18n'
 
 const createSchema = z.object({
-  holiday_date: z.string().min(1, 'Tanggal wajib diisi'),
+  holiday_date: z.string().min(1, t('holidayForm.dateIsRequired')),
   description: z.string().optional(),
   is_national: z.boolean(),
 })
@@ -80,14 +81,14 @@ export function HolidayFormModal({ open, onClose, editingHoliday }: Props) {
         is_national: data.is_national,
       }),
     onSuccess: () => {
-      showSuccess('Hari libur berhasil ditambahkan')
+      showSuccess(t('holidayForm.holidayAdded'))
       void qc.invalidateQueries({ queryKey: ['holidays'] })
       onClose()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 422) {
         const detail = (err.response.data as { detail?: string })?.detail
-        showError(detail ?? 'Data tidak valid')
+        showError(detail ?? t('common.invalidData'))
       }
     },
   })
@@ -99,14 +100,14 @@ export function HolidayFormModal({ open, onClose, editingHoliday }: Props) {
         is_national: data.is_national,
       }),
     onSuccess: () => {
-      showSuccess('Hari libur berhasil diperbarui')
+      showSuccess(t('holidayForm.holidayUpdated'))
       void qc.invalidateQueries({ queryKey: ['holidays'] })
       onClose()
     },
     onError: (err) => {
       if (isAxiosError(err) && err.response?.status === 422) {
         const detail = (err.response.data as { detail?: string })?.detail
-        showError(detail ?? 'Data tidak valid')
+        showError(detail ?? t('common.invalidData'))
       }
     },
   })
@@ -119,21 +120,21 @@ export function HolidayFormModal({ open, onClose, editingHoliday }: Props) {
         <DialogHeader>
           <DialogTitle>
             {isEdit
-              ? `Edit: ${editingHoliday?.holiday_date}`
-              : 'Tambah Hari Libur'}
+              ? t('holidayForm.edit', { holiday_date: editingHoliday?.holiday_date })
+              : t('common.addHoliday')}
           </DialogTitle>
         </DialogHeader>
 
         {isEdit ? (
           <form onSubmit={handleEdit((d) => editMutation.mutate(d))} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Tanggal</Label>
+              <Label>{t('common.date')}</Label>
               <p className="text-sm font-medium text-text-primary">{editingHoliday?.holiday_date}</p>
-              <p className="text-xs text-text-secondary">Tanggal tidak dapat diubah.</p>
+              <p className="text-xs text-text-secondary">{t('holidayForm.theDateCannotBeChanged')}</p>
             </div>
             <Field error={ee.description?.message}>
-              <Label>Keterangan</Label>
-              <Input placeholder="cth. Hari Raya Idul Fitri" {...regEdit('description')} />
+              <Label>{t('common.notes')}</Label>
+              <Input placeholder={t('holidayForm.eGNewYearS')} {...regEdit('description')} />
             </Field>
             <div className="flex items-center gap-3">
               <input
@@ -142,24 +143,24 @@ export function HolidayFormModal({ open, onClose, editingHoliday }: Props) {
                 {...regEdit('is_national')}
                 className="h-4 w-4 accent-brand"
               />
-              <Label htmlFor="is_national_edit">Hari libur nasional</Label>
+              <Label htmlFor="is_national_edit">{t('holidayForm.publicHoliday')}</Label>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>Batal</Button>
+              <Button type="button" variant="outline" onClick={handleClose}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={editMutation.isPending}>
-                {editMutation.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
+                {editMutation.isPending ? t('common.saving') : t('common.saveChanges')}
               </Button>
             </DialogFooter>
           </form>
         ) : (
           <form onSubmit={handleCreate((d) => createMutation.mutate(d))} className="space-y-4">
             <Field error={ce.holiday_date?.message}>
-              <Label>Tanggal *</Label>
+              <Label>{t('holidayForm.date')}</Label>
               <Input type="date" {...regCreate('holiday_date')} />
             </Field>
             <Field error={ce.description?.message}>
-              <Label>Keterangan</Label>
-              <Input placeholder="cth. Hari Raya Idul Fitri" {...regCreate('description')} />
+              <Label>{t('common.notes')}</Label>
+              <Input placeholder={t('holidayForm.eGNewYearS')} {...regCreate('description')} />
             </Field>
             <div className="flex items-center gap-3">
               <input
@@ -168,12 +169,12 @@ export function HolidayFormModal({ open, onClose, editingHoliday }: Props) {
                 {...regCreate('is_national')}
                 className="h-4 w-4 accent-brand"
               />
-              <Label htmlFor="is_national_create">Hari libur nasional</Label>
+              <Label htmlFor="is_national_create">{t('holidayForm.publicHoliday')}</Label>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>Batal</Button>
+              <Button type="button" variant="outline" onClick={handleClose}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Menyimpan...' : 'Tambah Hari Libur'}
+                {createMutation.isPending ? t('common.saving') : t('common.addHoliday')}
               </Button>
             </DialogFooter>
           </form>

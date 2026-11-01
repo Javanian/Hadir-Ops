@@ -16,13 +16,14 @@ import {
   LEAVE_STATUS_LABEL, LEAVE_TYPE_LABEL,
   type LeaveRequest, type LeaveStatus, type LeaveType,
 } from '@/types/leave'
+import { t } from '@/i18n'
 
 type Tab = 'pending' | 'today' | 'history'
 
 const TABS: Array<{ value: Tab; label: string }> = [
-  { value: 'pending', label: 'Menunggu keputusan' },
-  { value: 'today', label: 'Tidak masuk hari ini' },
-  { value: 'history', label: 'Riwayat' },
+  { value: 'pending', label: t('leave.awaitingDecision') },
+  { value: 'today', label: t('leave.awayToday') },
+  { value: 'history', label: t('leave.history') },
 ]
 
 const TYPE_VARIANT: Record<LeaveType, BadgeProps['variant']> = {
@@ -84,13 +85,13 @@ export function LeavePage() {
     mutationFn: (v: { id: number; decision: 'APPROVED' | 'REJECTED'; note?: string }) =>
       leaveApi.decide(v.id, v.decision, v.note),
     onSuccess: (_, v) => {
-      showSuccess(v.decision === 'APPROVED' ? 'Pengajuan disetujui' : 'Pengajuan ditolak')
+      showSuccess(v.decision === 'APPROVED' ? t('leave.requestApproved') : t('leave.requestRejected'))
       setRejecting(null)
       setNote('')
       void qc.invalidateQueries({ queryKey: ['leave'] })
     },
     onError: (err) => {
-      showError(errorMessage(err, 'Gagal menyimpan keputusan'))
+      showError(errorMessage(err, t('common.couldNotSaveTheDecision')))
       void qc.invalidateQueries({ queryKey: ['leave'] })
     },
   })
@@ -110,10 +111,9 @@ export function LeavePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Izin &amp; Cuti</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('leave.leave')}</h1>
           <p className="text-sm text-text-secondary mt-1 max-w-2xl">
-            Pengajuan sakit, izin, dan cuti dari aplikasi mobile. Setujui atau tolak pengajuan tim
-            Anda; penolakan wajib diberi alasan agar karyawan tahu kenapa.
+            {t('leave.sickPermitAndAnnualLeave')}
           </p>
         </div>
         <Button variant="outline" onClick={() => void active.refetch()}>
@@ -188,12 +188,12 @@ export function LeavePage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-800 text-white">
               <tr>
-                <Th>Karyawan</Th>
-                <Th>Jenis</Th>
-                <Th>Tanggal</Th>
-                <Th className="hidden md:table-cell">Alasan</Th>
-                <Th className="hidden lg:table-cell">Diajukan</Th>
-                <Th className="text-right">{tab === 'pending' ? 'Keputusan' : 'Status'}</Th>
+                <Th>{t('common.employee')}</Th>
+                <Th>{t('common.type')}</Th>
+                <Th>{t('common.date')}</Th>
+                <Th className="hidden md:table-cell">{t('leave.reason')}</Th>
+                <Th className="hidden lg:table-cell">{t('leave.submitted')}</Th>
+                <Th className="text-right">{tab === 'pending' ? t('common.decision') : 'Status'}</Th>
               </tr>
             </thead>
             <tbody>
@@ -223,7 +223,7 @@ export function LeavePage() {
                       <p className="line-clamp-3 wrap-break-word">{r.reason}</p>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell text-xs text-text-secondary whitespace-nowrap">
-                      {formatDateTime(r.created_at, tz ?? 'Asia/Jakarta')}
+                      {formatDateTime(r.created_at, tz ?? 'UTC')}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {tab === 'pending' ? (
@@ -248,30 +248,30 @@ export function LeavePage() {
       <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setNote('') } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Tolak pengajuan {rejecting?.employee_name}</DialogTitle>
+            <DialogTitle>{t('leave.rejectTitle', { name: rejecting?.employee_name })}</DialogTitle>
             <DialogDescription>
               {rejecting && `${LEAVE_TYPE_LABEL[rejecting.leave_type]}, ${dateRange(rejecting)}. `}
-              Tulis alasannya; karyawan akan melihat catatan ini di aplikasi.
+              {t('leave.rejectHint')}
             </DialogDescription>
           </DialogHeader>
-          <label htmlFor="leave-reject-note" className="sr-only">Alasan penolakan</label>
+          <label htmlFor="leave-reject-note" className="sr-only">{t('common.reasonForRejection')}</label>
           <textarea
             id="leave-reject-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             maxLength={500}
-            placeholder="Contoh: jadwal audit di tanggal tersebut, mohon ajukan di minggu berikutnya"
+            placeholder={t('leave.forExampleTheAuditIs')}
             className="w-full rounded-lg border border-divider bg-white px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand/40"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setRejecting(null); setNote('') }}>Batal</Button>
+            <Button variant="outline" onClick={() => { setRejecting(null); setNote('') }}>{t('common.cancel')}</Button>
             <Button
               variant="destructive"
               disabled={!note.trim() || decide.isPending}
               onClick={() => rejecting && decide.mutate({ id: rejecting.id, decision: 'REJECTED', note: note.trim() })}
             >
-              Tolak pengajuan
+              {t('leave.rejectButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -316,19 +316,19 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
       <AlertCircle className="h-8 w-8 text-red-400" />
-      <p className="text-text-secondary text-sm">Gagal memuat data.</p>
+      <p className="text-text-secondary text-sm">{t('common.couldNotLoadTheData')}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         <RefreshCw className="h-3.5 w-3.5" />
-        Coba Lagi
+        {t('common.tryAgain')}
       </Button>
     </div>
   )
 }
 
 const EMPTY_TEXT: Record<Tab, string> = {
-  pending: 'Tidak ada pengajuan yang menunggu keputusan.',
-  today: 'Tidak ada anggota tim yang izin atau cuti hari ini.',
-  history: 'Belum ada riwayat pengajuan dalam 90 hari terakhir.',
+  pending: t('leave.noRequestsAreAwaitingA'),
+  today: t('leave.nobodyOnTheTeamIs'),
+  history: t('leave.noRequestsInTheLast'),
 }
 
 function EmptyState({ tab }: { tab: Tab }) {
@@ -345,13 +345,13 @@ function DecisionButtons({
 }: { row: LeaveRequest; busy: boolean; stretch?: boolean; onApprove: () => void; onReject: () => void }) {
   return (
     <div className={stretch ? 'grid grid-cols-2 gap-2' : 'inline-flex gap-2'}>
-      <Button size="sm" onClick={onApprove} disabled={busy} aria-label={`Setujui pengajuan ${row.employee_name}`}>
+      <Button size="sm" onClick={onApprove} disabled={busy} aria-label={t('leave.approveTheRequestFrom', { employee_name: row.employee_name })}>
         <Check className="h-3.5 w-3.5" />
-        Setujui
+        {t('common.approve')}
       </Button>
-      <Button size="sm" variant="outline" onClick={onReject} disabled={busy} aria-label={`Tolak pengajuan ${row.employee_name}`}>
+      <Button size="sm" variant="outline" onClick={onReject} disabled={busy} aria-label={t('leave.rejectTheRequestFrom', { employee_name: row.employee_name })}>
         <X className="h-3.5 w-3.5" />
-        Tolak
+        {t('common.reject')}
       </Button>
     </div>
   )

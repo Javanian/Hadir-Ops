@@ -6,6 +6,7 @@ import axios, {
 import { toast } from 'sonner'
 import { tokenAccessors, REFRESH_TOKEN_KEY } from '@/store/authStore'
 import type { TokenResponse } from '@/types/auth'
+import { t } from '@/i18n'
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 const TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT ?? 15000)
@@ -97,7 +98,7 @@ apiClient.interceptors.response.use(
       processQueue(refreshError, null)
       // Notify AuthProvider to clear session (Axios cannot call React state directly)
       window.dispatchEvent(new CustomEvent('auth:logout-required'))
-      toast.error('Sesi habis. Silakan login kembali.', { description: 'Sesi Berakhir' })
+      toast.error(t('api.yourSessionHasExpiredPlease'), { description: t('api.sessionEnded') })
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false
@@ -116,16 +117,18 @@ apiClient.interceptors.response.use(
     if (status === 401) return Promise.reject(error)
 
     if (!error.response) {
-      toast.error('Tidak ada koneksi internet atau server tidak dapat dijangkau.', {
-        description: 'Koneksi Gagal',
+      toast.error(t('api.noInternetConnectionOrThe'), {
+        description: t('api.connectionFailed'),
       })
+    } else if (status === 403 && (error.response.data as { detail?: { code?: string } })?.detail?.code === 'DEMO_READ_ONLY') {
+      toast.error(t('api.demoReadOnly'), { description: t('api.demoReadOnlyTitle') })
     } else if (status === 403) {
-      toast.error('Anda tidak memiliki izin untuk melakukan tindakan ini.', {
-        description: 'Akses Ditolak',
+      toast.error(t('api.youDoNotHavePermission'), {
+        description: t('api.accessDenied'),
       })
     } else if (status === 422) {
       const detail = (error.response.data as { detail?: unknown })?.detail
-      let msg = 'Data yang dikirim tidak valid.'
+      let msg = t('api.theSubmittedDataIsNot')
       if (typeof detail === 'string') {
         msg = detail
       } else if (Array.isArray(detail) && detail.length > 0) {
@@ -133,9 +136,9 @@ apiClient.interceptors.response.use(
           .map((d) => d?.msg ?? String(d))
           .join(', ')
       }
-      toast.error(msg, { description: 'Validasi Gagal' })
+      toast.error(msg, { description: t('api.validationFailed') })
     } else if (status != null && status >= 500) {
-      toast.error('Terjadi kesalahan server. Silakan coba lagi.', {
+      toast.error(t('api.serverErrorPleaseTryAgain'), {
         description: 'Server Error',
       })
     }

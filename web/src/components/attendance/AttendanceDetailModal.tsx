@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { attendanceApi } from '@/api/attendance.api'
 import { formatDateTime, formatDuration } from '@/utils/datetime'
 import type { TeamAttendanceRecord, AttendanceStatus } from '@/types/attendance'
+import { t } from '@/i18n'
 
 function statusBadgeVariant(status: AttendanceStatus | null) {
   if (status === 'ONTIME') return 'success' as const
@@ -18,9 +19,9 @@ function statusBadgeVariant(status: AttendanceStatus | null) {
 }
 
 function statusLabel(status: AttendanceStatus | null): string {
-  if (status === 'ONTIME') return 'Tepat Waktu'
-  if (status === 'LATE') return 'Terlambat'
-  if (status === 'OUT_OF_RADIUS') return 'Di Luar Radius'
+  if (status === 'ONTIME') return t('common.onTime')
+  if (status === 'LATE') return t('common.late')
+  if (status === 'OUT_OF_RADIUS') return t('common.outOfRadius')
   return '—'
 }
 
@@ -54,13 +55,13 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
     staleTime: 30_000,
   })
 
-  const tz = record?.site_timezone ?? 'Asia/Jakarta'
+  const tz = record?.site_timezone ?? 'UTC'
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detail Absensi</DialogTitle>
+          <DialogTitle>{t('attendanceDetail.attendanceDetails')}</DialogTitle>
           <DialogDescription>
             {record ? `${record.employee_name} (${record.employee_id})` : ''}
           </DialogDescription>
@@ -78,10 +79,10 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
         ) : isError ? (
           <div className="flex flex-col items-center gap-3 py-10">
             <AlertCircle className="h-8 w-8 text-red-400" />
-            <p className="text-sm text-text-secondary">Gagal memuat detail absensi</p>
+            <p className="text-sm text-text-secondary">{t('attendanceDetail.couldNotLoadTheAttendance')}</p>
             <Button variant="outline" size="sm" onClick={() => void refetch()}>
               <RefreshCw className="h-3.5 w-3.5" />
-              Coba Lagi
+              {t('common.tryAgain')}
             </Button>
           </div>
         ) : detail && record ? (
@@ -89,16 +90,16 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
             {/* Karyawan */}
             <div className="py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
-                Karyawan
+                {t('common.employee')}
               </p>
-              <DetailRow label="ID Karyawan">{record.employee_id}</DetailRow>
-              <DetailRow label="Nama">{record.employee_name}</DetailRow>
+              <DetailRow label={t('common.employeeId')}>{record.employee_id}</DetailRow>
+              <DetailRow label={t('common.name')}>{record.employee_name}</DetailRow>
             </div>
 
             {/* Waktu */}
             <div className="py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
-                Waktu
+                {t('attendanceDetail.time')}
               </p>
               <DetailRow label="Check-in">
                 {formatDateTime(record.checkin_time, tz)}
@@ -106,10 +107,10 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
               <DetailRow label="Check-out">
                 {record.checkout_time
                   ? formatDateTime(record.checkout_time, tz)
-                  : <span className="text-text-secondary italic">Belum checkout</span>}
+                  : <span className="text-text-secondary italic">{t('common.notCheckedOut')}</span>}
               </DetailRow>
               {detail.auto_checkout && (
-                <DetailRow label="Keterangan">
+                <DetailRow label={t('common.notes')}>
                   <Badge variant="info">Auto Checkout</Badge>
                 </DetailRow>
               )}
@@ -118,14 +119,14 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
             {/* Durasi */}
             <div className="py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
-                Durasi
+                {t('common.duration')}
               </p>
-              <DetailRow label="Jam Kerja">
+              <DetailRow label={t('common.workHours')}>
                 {record.work_duration_minutes > 0
                   ? formatDuration(record.work_duration_minutes)
                   : <span className="text-text-secondary italic">—</span>}
               </DetailRow>
-              <DetailRow label="Lembur">
+              <DetailRow label={t('common.overtime')}>
                 {record.overtime_minutes > 0
                   ? formatDuration(record.overtime_minutes)
                   : <span className="text-text-secondary italic">—</span>}
@@ -137,19 +138,19 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
               <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
                 Status
               </p>
-              <DetailRow label="Status Absensi">
+              <DetailRow label={t('attendanceDetail.attendanceStatus')}>
                 <Badge variant={statusBadgeVariant(record.status)}>
                   {statusLabel(record.status)}
                 </Badge>
               </DetailRow>
               {record.is_weekend && (
-                <DetailRow label="Hari Libur">
-                  <Badge variant="info">Akhir Pekan</Badge>
+                <DetailRow label={t('common.holiday')}>
+                  <Badge variant="info">{t('common.weekend')}</Badge>
                 </DetailRow>
               )}
               {record.is_holiday && (
-                <DetailRow label="Hari Libur">
-                  <Badge variant="warning">Hari Libur Nasional</Badge>
+                <DetailRow label={t('common.holiday')}>
+                  <Badge variant="warning">{t('attendanceDetail.publicHoliday')}</Badge>
                 </DetailRow>
               )}
             </div>
@@ -157,10 +158,10 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
             {/* GPS */}
             <div className="py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
-                Lokasi GPS
+                {t('common.gpsLocation')}
               </p>
               {detail.latitude != null && detail.longitude != null ? (
-                <DetailRow label="Koordinat">
+                <DetailRow label={t('common.coordinates')}>
                   <a
                     href={`https://maps.google.com/?q=${detail.latitude},${detail.longitude}`}
                     target="_blank"
@@ -173,8 +174,8 @@ export function AttendanceDetailModal({ record, open, onClose }: Props) {
                   </a>
                 </DetailRow>
               ) : (
-                <DetailRow label="Koordinat">
-                  <span className="text-text-secondary italic">Tidak tersedia</span>
+                <DetailRow label={t('common.coordinates')}>
+                  <span className="text-text-secondary italic">{t('attendanceDetail.notAvailable')}</span>
                 </DetailRow>
               )}
             </div>

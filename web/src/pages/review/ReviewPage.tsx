@@ -11,18 +11,19 @@ import { attendanceApi } from '@/api/attendance.api'
 import { formatDateTime } from '@/utils/datetime'
 import { showError, showSuccess } from '@/utils/toast'
 import type { AttemptReason, CheckinAttempt, TeamAttendanceRecord } from '@/types/attendance'
+import { t } from '@/i18n'
 
 // ── Labels ───────────────────────────────────────────────────────────────────
 
 const FLAG_LABEL: Record<string, string> = {
-  MOCK_LOCATION: 'Lokasi palsu terdeteksi',
-  LOW_GPS_ACCURACY: 'GPS kurang akurat',
-  GPS_ACCURACY_UNKNOWN: 'Akurasi GPS tidak dikirim',
-  FACE_NOT_VERIFIED: 'Wajah belum terverifikasi',
-  FACE_MISMATCH: 'Wajah tidak cocok',
-  CLOCK_MISMATCH: 'Jam HP tidak sesuai',
-  CLOCK_UNVERIFIED: 'Jam belum terbukti',
-  OFFLINE_SYNC: 'Dikirim saat sinyal kembali',
+  MOCK_LOCATION: t('review.mockLocationDetected'),
+  LOW_GPS_ACCURACY: t('review.weakGpsAccuracy'),
+  GPS_ACCURACY_UNKNOWN: t('review.gpsAccuracyNotReported'),
+  FACE_NOT_VERIFIED: t('review.faceNotVerified'),
+  FACE_MISMATCH: t('review.faceDidNotMatch'),
+  CLOCK_MISMATCH: t('review.phoneClockDisagrees'),
+  CLOCK_UNVERIFIED: t('review.timeNotVerified'),
+  OFFLINE_SYNC: t('review.sentWhenTheSignalReturned'),
 }
 
 const INFO_FLAGS = new Set(['OFFLINE_SYNC', 'GPS_ACCURACY_UNKNOWN'])
@@ -31,17 +32,17 @@ function flagLabel(flag: string): string {
   const checkout = flag.startsWith('CHECKOUT_')
   const base = checkout ? flag.slice('CHECKOUT_'.length) : flag
   const label = FLAG_LABEL[base] ?? base
-  return checkout ? `Pulang: ${label}` : label
+  return checkout ? t('review.checkOut2', { label }) : label
 }
 
 const REASON_LABEL: Record<AttemptReason, string> = {
-  NO_GPS: 'GPS tidak didapat',
-  FACE_MISMATCH: 'Wajah tidak dikenali',
-  FACE_ERROR: 'Kamera / verifikasi gagal',
-  NETWORK: 'Tidak ada koneksi',
-  SERVER_ERROR: 'Server bermasalah',
-  REJECTED: 'Ditolak server',
-  OTHER: 'Lainnya',
+  NO_GPS: t('review.noGpsFix'),
+  FACE_MISMATCH: t('review.faceNotRecognised'),
+  FACE_ERROR: t('review.cameraOrVerificationFailed'),
+  NETWORK: t('review.noConnection'),
+  SERVER_ERROR: t('review.serverProblem'),
+  REJECTED: t('review.refusedByTheServer'),
+  OTHER: t('review.other'),
 }
 
 function mapsUrl(lat: number, lon: number) {
@@ -51,9 +52,9 @@ function mapsUrl(lat: number, lon: number) {
 type Tab = 'pending' | 'history' | 'attempts'
 
 const TABS: Array<{ value: Tab; label: string }> = [
-  { value: 'pending', label: 'Perlu ditinjau' },
-  { value: 'history', label: 'Riwayat tinjauan' },
-  { value: 'attempts', label: 'Percobaan gagal' },
+  { value: 'pending', label: t('review.needsReview') },
+  { value: 'history', label: t('review.reviewHistory') },
+  { value: 'attempts', label: t('review.failedAttempts') },
 ]
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -82,13 +83,13 @@ export function ReviewPage() {
     mutationFn: (v: { id: number; decision: 'APPROVED' | 'REJECTED'; note?: string }) =>
       attendanceApi.review(v.id, v.decision, v.note),
     onSuccess: (_, v) => {
-      showSuccess(v.decision === 'APPROVED' ? 'Absen disetujui' : 'Absen ditolak')
+      showSuccess(v.decision === 'APPROVED' ? t('review.attendanceApproved') : t('review.attendanceRejected'))
       setRejecting(null)
       setNote('')
       void qc.invalidateQueries({ queryKey: ['attendance-review'] })
       void qc.invalidateQueries({ queryKey: ['attendance'] })
     },
-    onError: () => showError('Gagal menyimpan keputusan'),
+    onError: () => showError(t('common.couldNotSaveTheDecision')),
   })
 
   const rows = tab === 'history'
@@ -100,11 +101,9 @@ export function ReviewPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Tinjauan Absen</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('review.attendanceReview')}</h1>
           <p className="text-sm text-text-secondary mt-1 max-w-2xl">
-            Absen yang tidak ditolak, tetapi perlu dilihat orang: GPS meleset, lokasi palsu, wajah
-            belum terverifikasi, atau jam HP tidak sesuai. Percobaan yang gagal juga tercatat di sini,
-            sehingga karyawan punya bukti saat aplikasi bermasalah.
+            {t('review.checkInsThatWereNot')}
           </p>
         </div>
         <Button variant="outline" onClick={() => void active.refetch()}>
@@ -145,7 +144,7 @@ export function ReviewPage() {
             </div>
           ) : rows.length === 0 ? (
             <p className="rounded-xl border border-divider bg-white px-4 py-12 text-center text-sm text-text-secondary">
-              {tab === 'pending' ? 'Tidak ada absen yang perlu ditinjau.' : 'Belum ada riwayat tinjauan.'}
+              {tab === 'pending' ? t('review.nothingNeedsReview') : t('review.noReviewsYet')}
             </p>
           ) : (
             rows.map((r) => (
@@ -174,7 +173,7 @@ export function ReviewPage() {
                     rel="noreferrer"
                     className="inline-flex min-h-11 items-center gap-1 text-sm text-brand hover:underline"
                   >
-                    Lihat di peta <ExternalLink className="h-3.5 w-3.5" />
+                    {t('review.viewOnMap')} <ExternalLink className="h-3.5 w-3.5" />
                     {r.gps_accuracy_m != null && (
                       <span className="ml-1 text-xs text-text-secondary">±{Math.round(r.gps_accuracy_m)} m</span>
                     )}
@@ -184,16 +183,16 @@ export function ReviewPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <Button onClick={() => decide.mutate({ id: r.id, decision: 'APPROVED' })} disabled={decide.isPending}>
                       <Check className="h-4 w-4" />
-                      Setujui
+                      {t('common.approve')}
                     </Button>
                     <Button variant="outline" onClick={() => setRejecting(r)} disabled={decide.isPending}>
                       <X className="h-4 w-4" />
-                      Tolak
+                      {t('common.reject')}
                     </Button>
                   </div>
                 ) : (
                   <Badge variant={r.review_status === 'APPROVED' ? 'success' : 'danger'}>
-                    {r.review_status === 'APPROVED' ? 'Disetujui' : 'Ditolak'}
+                    {r.review_status === 'APPROVED' ? t('common.approved') : t('common.rejected')}
                   </Badge>
                 )}
               </article>
@@ -215,12 +214,12 @@ export function ReviewPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-800 text-white">
                 <tr>
-                  <Th>Karyawan</Th>
-                  <Th>Masuk</Th>
+                  <Th>{t('common.employee')}</Th>
+                  <Th>{t('review.checkIn')}</Th>
                   <Th>Status</Th>
-                  <Th>Alasan ditandai</Th>
-                  <Th className="hidden lg:table-cell">Lokasi</Th>
-                  <Th className="text-right">{tab === 'pending' ? 'Keputusan' : 'Hasil'}</Th>
+                  <Th>{t('review.whyItWasFlagged')}</Th>
+                  <Th className="hidden lg:table-cell">{t('common.site')}</Th>
+                  <Th className="text-right">{tab === 'pending' ? t('common.decision') : t('review.result')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -231,7 +230,7 @@ export function ReviewPage() {
                 ) : rows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center text-text-secondary text-sm">
-                      {tab === 'pending' ? 'Tidak ada absen yang perlu ditinjau.' : 'Belum ada riwayat tinjauan.'}
+                      {tab === 'pending' ? t('review.nothingNeedsReview') : t('review.noReviewsYet')}
                     </td>
                   </tr>
                 ) : (
@@ -264,7 +263,7 @@ export function ReviewPage() {
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-brand hover:underline"
                           >
-                            Peta <ExternalLink className="h-3 w-3" />
+                            {t('review.map')} <ExternalLink className="h-3 w-3" />
                           </a>
                         ) : '-'}
                         {r.gps_accuracy_m != null && <span className="ml-2">±{Math.round(r.gps_accuracy_m)} m</span>}
@@ -278,16 +277,16 @@ export function ReviewPage() {
                               disabled={decide.isPending}
                             >
                               <Check className="h-3.5 w-3.5" />
-                              Setujui
+                              {t('common.approve')}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => setRejecting(r)} disabled={decide.isPending}>
                               <X className="h-3.5 w-3.5" />
-                              Tolak
+                              {t('common.reject')}
                             </Button>
                           </div>
                         ) : (
                           <Badge variant={r.review_status === 'APPROVED' ? 'success' : 'danger'}>
-                            {r.review_status === 'APPROVED' ? 'Disetujui' : 'Ditolak'}
+                            {r.review_status === 'APPROVED' ? t('common.approved') : t('common.rejected')}
                           </Badge>
                         )}
                       </td>
@@ -303,28 +302,28 @@ export function ReviewPage() {
       <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) { setRejecting(null); setNote('') } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Tolak absen {rejecting?.employee_name}</DialogTitle>
+            <DialogTitle>{t('review.rejectTitle', { name: rejecting?.employee_name })}</DialogTitle>
             <DialogDescription>
-              Tulis alasannya. Catatan ini disimpan bersama absen sehingga karyawan tahu kenapa ditolak.
+              {t('review.writeTheReasonTheNote')}
             </DialogDescription>
           </DialogHeader>
           <textarea
-            aria-label="Alasan penolakan"
+            aria-label={t('common.reasonForRejection')}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             maxLength={500}
-            placeholder="Contoh: tidak berada di lokasi menurut laporan pos jaga"
+            placeholder={t('review.forExampleNotOnSite')}
             className="w-full rounded-lg border border-divider bg-white px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand/40"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setRejecting(null); setNote('') }}>Batal</Button>
+            <Button variant="outline" onClick={() => { setRejecting(null); setNote('') }}>{t('common.cancel')}</Button>
             <Button
               variant="destructive"
               disabled={!note.trim() || decide.isPending}
               onClick={() => rejecting && decide.mutate({ id: rejecting.id, decision: 'REJECTED', note: note.trim() })}
             >
-              Tolak absen
+              {t('review.rejectButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -338,7 +337,7 @@ export function ReviewPage() {
 function StatusBadge({ status }: { status: TeamAttendanceRecord['status'] }) {
   return (
     <Badge variant={status === 'OUT_OF_RADIUS' ? 'danger' : status === 'LATE' ? 'warning' : 'success'}>
-      {status === 'OUT_OF_RADIUS' ? 'Di luar area' : status === 'LATE' ? 'Terlambat' : status === 'EARLY' ? 'Lebih awal' : 'Tepat waktu'}
+      {status === 'OUT_OF_RADIUS' ? t('review.outsideTheArea') : status === 'LATE' ? t('common.late') : status === 'EARLY' ? t('review.early') : t('review.onTime')}
     </Badge>
   )
 }
@@ -351,7 +350,7 @@ function FlagList({ record, className = '' }: { record: TeamAttendanceRecord; cl
           {flagLabel(f)}
         </Badge>
       ))}
-      {record.status === 'OUT_OF_RADIUS' && <Badge variant="danger">Di luar radius lokasi</Badge>}
+      {record.status === 'OUT_OF_RADIUS' && <Badge variant="danger">{t('review.outsideTheSiteRadius')}</Badge>}
     </div>
   )
 }
@@ -384,10 +383,10 @@ function ErrorRow({ cols, onRetry }: { cols: number; onRetry: () => void }) {
       <td colSpan={cols} className="px-4 py-12 text-center">
         <div className="flex flex-col items-center gap-3">
           <AlertCircle className="h-8 w-8 text-red-400" />
-          <p className="text-text-secondary text-sm">Gagal memuat data.</p>
+          <p className="text-text-secondary text-sm">{t('common.couldNotLoadTheData')}</p>
           <Button variant="outline" size="sm" onClick={onRetry}>
             <RefreshCw className="h-3.5 w-3.5" />
-            Coba Lagi
+            {t('common.tryAgain')}
           </Button>
         </div>
       </td>
@@ -402,12 +401,12 @@ function AttemptsTable({
     <table className="w-full text-sm">
       <thead className="bg-slate-800 text-white">
         <tr>
-          <Th>Karyawan</Th>
-          <Th>Waktu di HP</Th>
-          <Th className="hidden sm:table-cell">Jenis</Th>
-          <Th>Penyebab</Th>
-          <Th className="hidden md:table-cell">Keterangan</Th>
-          <Th className="hidden lg:table-cell">Lokasi</Th>
+          <Th>{t('common.employee')}</Th>
+          <Th>{t('review.phoneTime')}</Th>
+          <Th className="hidden sm:table-cell">{t('common.type')}</Th>
+          <Th>{t('review.cause')}</Th>
+          <Th className="hidden md:table-cell">{t('common.notes')}</Th>
+          <Th className="hidden lg:table-cell">{t('common.site')}</Th>
         </tr>
       </thead>
       <tbody>
@@ -418,7 +417,7 @@ function AttemptsTable({
         ) : !data || data.length === 0 ? (
           <tr>
             <td colSpan={6} className="px-4 py-12 text-center text-text-secondary text-sm">
-              Tidak ada percobaan gagal yang dilaporkan.
+              {t('review.noFailedAttemptsReported')}
             </td>
           </tr>
         ) : (
@@ -431,11 +430,11 @@ function AttemptsTable({
               <td className="px-4 py-3 whitespace-nowrap text-text-primary">
                 {formatDateTime(a.captured_at, a.site_timezone)}
                 <span className="block text-xs text-text-secondary sm:hidden">
-                  {a.kind === 'CHECKIN' ? 'Masuk' : 'Pulang'}
+                  {a.kind === 'CHECKIN' ? t('review.checkIn') : t('review.checkOut')}
                 </span>
               </td>
               <td className="px-4 py-3 hidden sm:table-cell">
-                <Badge variant="outline">{a.kind === 'CHECKIN' ? 'Masuk' : 'Pulang'}</Badge>
+                <Badge variant="outline">{a.kind === 'CHECKIN' ? t('review.checkIn') : t('review.checkOut')}</Badge>
               </td>
               <td className="px-4 py-3">
                 <Badge variant={a.reason === 'REJECTED' ? 'danger' : 'warning'}>{REASON_LABEL[a.reason]}</Badge>
@@ -452,7 +451,7 @@ function AttemptsTable({
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-brand hover:underline"
                   >
-                    Peta <ExternalLink className="h-3 w-3" />
+                    {t('review.map')} <ExternalLink className="h-3 w-3" />
                   </a>
                 ) : <span className="text-text-secondary">-</span>}
               </td>

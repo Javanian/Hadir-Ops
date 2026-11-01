@@ -9,6 +9,7 @@ import { OvertimeDetailDrawer } from '@/components/overtime/OvertimeDetailDrawer
 import { overtimeApi } from '@/api/overtime.api'
 import { formatDuration } from '@/utils/datetime'
 import type { OvertimeRequest, OvertimeStatus } from '@/types/overtime'
+import { intlLocale, t } from '@/i18n'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,9 +20,9 @@ function statusBadgeVariant(status: OvertimeStatus) {
 }
 
 function statusLabel(status: OvertimeStatus) {
-  if (status === 'APPROVED') return 'Disetujui'
-  if (status === 'REJECTED') return 'Ditolak'
-  return 'Menunggu'
+  if (status === 'APPROVED') return t('common.approved')
+  if (status === 'REJECTED') return t('common.rejected')
+  return t('common.pending')
 }
 
 /**
@@ -30,7 +31,7 @@ function statusLabel(status: OvertimeStatus) {
  * doesn't include site_timezone. The detail drawer uses the correct site timezone.
  */
 function fmtDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -42,10 +43,10 @@ function fmtDateTime(iso: string): string {
 type StatusTab = '' | OvertimeStatus
 
 const STATUS_TABS: Array<{ value: StatusTab; label: string }> = [
-  { value: '', label: 'Semua' },
-  { value: 'PENDING', label: 'Menunggu' },
-  { value: 'APPROVED', label: 'Disetujui' },
-  { value: 'REJECTED', label: 'Ditolak' },
+  { value: '', label: t('overtime.all') },
+  { value: 'PENDING', label: t('common.pending') },
+  { value: 'APPROVED', label: t('common.approved') },
+  { value: 'REJECTED', label: t('common.rejected') },
 ]
 
 const LIMIT = 200
@@ -99,9 +100,9 @@ export function OvertimePage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Manajemen Lembur</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('overtime.overtime')}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Review dan setujui pengajuan lembur karyawan
+            {t('overtime.reviewAndApproveEmployeeOvertime')}
           </p>
         </div>
         <Button variant="outline" onClick={() => void refetch()}>
@@ -131,15 +132,15 @@ export function OvertimePage() {
       {activeTab === '' && !isLoading && data && (
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           <div className="rounded-lg border border-divider bg-surface p-4">
-            <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">Menunggu</p>
+            <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">{t('common.pending')}</p>
             <p className="text-2xl font-bold text-amber-700 mt-1 tabular-nums">{counts.pending}</p>
           </div>
           <div className="rounded-lg border border-divider bg-surface p-4">
-            <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">Disetujui</p>
+            <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">{t('common.approved')}</p>
             <p className="text-2xl font-bold text-green-700 mt-1 tabular-nums">{counts.approved}</p>
           </div>
           <div className="rounded-lg border border-divider bg-surface p-4">
-            <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">Ditolak</p>
+            <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">{t('common.rejected')}</p>
             <p className="text-2xl font-bold text-red-700 mt-1 tabular-nums">{counts.rejected}</p>
           </div>
         </div>
@@ -148,8 +149,8 @@ export function OvertimePage() {
       {/* Search bar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <Input
-          aria-label="Cari pengajuan lembur"
-          placeholder="Cari nama karyawan atau nomor pengajuan..."
+          aria-label={t('overtime.searchOvertimeRequests')}
+          placeholder={t('overtime.searchByEmployeeNameOr')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
@@ -168,28 +169,28 @@ export function OvertimePage() {
             <thead className="bg-slate-800 text-white">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
-                  # Pengajuan
+                  {t('overtime.request')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
-                  Karyawan
+                  {t('common.employee')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap hidden lg:table-cell">
-                  # Absensi
+                  {t('overtime.attendance')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
-                  Mulai Lembur
+                  {t('overtime.overtimeStart')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap hidden md:table-cell">
-                  Selesai Lembur
+                  {t('overtime.overtimeEnd')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap hidden md:table-cell">
-                  Durasi
+                  {t('common.duration')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
                   Status
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap hidden lg:table-cell">
-                  Diajukan Pada
+                  {t('common.submittedOn')}
                 </th>
               </tr>
             </thead>
@@ -209,10 +210,10 @@ export function OvertimePage() {
                   <td colSpan={8} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
-                      <p className="text-text-secondary text-sm">Gagal memuat data lembur.</p>
+                      <p className="text-text-secondary text-sm">{t('overtime.couldNotLoadOvertimeRequests')}</p>
                       <Button variant="outline" size="sm" onClick={() => void refetch()}>
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Coba Lagi
+                        {t('common.tryAgain')}
                       </Button>
                     </div>
                   </td>
@@ -220,7 +221,7 @@ export function OvertimePage() {
               ) : filteredData.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-text-secondary text-sm">
-                    Tidak ada pengajuan lembur ditemukan.
+                    {t('overtime.noOvertimeRequestsFound')}
                   </td>
                 </tr>
               ) : (
@@ -243,7 +244,7 @@ export function OvertimePage() {
                       {req.attendance_id !== null ? (
                         <span className="font-mono text-sm text-text-secondary">#{req.attendance_id}</span>
                       ) : (
-                        <span className="text-xs text-text-secondary">Diajukan sebelum kerja</span>
+                        <span className="text-xs text-text-secondary">{t('overtime.requestedBeforeWork')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-text-primary whitespace-nowrap">

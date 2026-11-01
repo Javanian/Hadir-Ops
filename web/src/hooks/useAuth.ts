@@ -4,16 +4,15 @@ import { authApi } from '@/api/auth.api'
 import { isAxiosError } from '@/api/axios'
 import { tokenAccessors, REFRESH_TOKEN_KEY, useAuthStore } from '@/store/authStore'
 import { queryClient } from '@/lib/queryClient'
-import type { LoginPayload, UserRole } from '@/types/auth'
+import type { LoginPayload, TokenResponse, UserRole } from '@/types/auth'
+import { t } from '@/i18n'
 
-export function useLogin() {
+/** Finishes a sign-in once tokens arrive (password or one-click demo login). */
+export function useCompleteLogin() {
   const { login } = useAuthStore()
   const navigate = useNavigate()
 
-  return useMutation({
-    mutationFn: (payload: LoginPayload) => authApi.login(payload),
-
-    onSuccess: async (tokenData) => {
+  return async (tokenData: TokenResponse) => {
       // Step 1: put access token into the module-level ref IMMEDIATELY so that
       // the subsequent /auth/me request has a Bearer token in its header.
       // (We can't call login() first because that's a setState — async, not immediate)
@@ -34,7 +33,15 @@ export function useLogin() {
         tokenAccessors.setTokens('', '')
         sessionStorage.removeItem(REFRESH_TOKEN_KEY)
       }
-    },
+  }
+}
+
+export function useLogin() {
+  const completeLogin = useCompleteLogin()
+
+  return useMutation({
+    mutationFn: (payload: LoginPayload) => authApi.login(payload),
+    onSuccess: completeLogin,
     // Note: login errors are handled inline in LoginPage via mutation.error,
     // NOT via the Axios error toast interceptor (which fires for all requests).
     // The interceptor fires first, but the component can also catch the error.
@@ -68,7 +75,7 @@ export function useHasRole(...roles: UserRole[]) {
 export function getLoginErrorMessage(error: unknown): string {
   if (isAxiosError(error)) {
     if (!error.response) {
-      return 'Tidak dapat terhubung ke server. Pastikan backend berjalan.'
+      return t('auth.cannotReachTheServerMake')
     }
 
     // Try to read the detail field from response body first
@@ -77,18 +84,18 @@ export function getLoginErrorMessage(error: unknown): string {
 
     switch (error.response.status) {
       case 401:
-        return 'Email/ID atau password salah.'
+        return t('auth.wrongEmailIdOrPassword')
       case 403:
-        return 'Akun terkunci karena terlalu banyak percobaan. Coba lagi nanti.'
+        return t('auth.theAccountIsLockedAfter2')
       case 423:
-        return 'Akun terkunci karena terlalu banyak percobaan. Coba lagi dalam 30 menit.'
+        return t('auth.theAccountIsLockedAfter')
       case 429:
-        return 'Terlalu banyak percobaan login. Silakan tunggu sebentar.'
+        return t('auth.tooManySignInAttempts')
       default:
         if (error.response.status >= 500) {
-          return 'Server error. Silakan coba lagi nanti.'
+          return t('auth.serverErrorPleaseTryAgain')
         }
     }
   }
-  return 'Terjadi kesalahan. Silakan coba lagi.'
+  return t('auth.somethingWentWrongPleaseTry')
 }

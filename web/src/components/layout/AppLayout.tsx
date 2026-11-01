@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Outlet, useNavigation } from 'react-router'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { DemoBanner } from '@/components/demo/DemoBanner'
+import { t } from '@/i18n'
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -33,8 +35,9 @@ export function AppLayout() {
 
       {/* Main content */}
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+        <DemoBanner />
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
-        <div className="relative h-0.5 shrink-0 overflow-hidden" role="progressbar" aria-hidden={!loading} aria-label="Memuat halaman">
+        <div className="relative h-0.5 shrink-0 overflow-hidden" role="progressbar" aria-hidden={!loading} aria-label={t('appLayout.loadingPage')}>
           {loading && <div className="absolute inset-y-0 w-1/3 bg-brand animate-route-progress" />}
         </div>
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-surface">

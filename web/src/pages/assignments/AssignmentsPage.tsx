@@ -12,11 +12,13 @@ import { AssignmentFormModal } from '@/components/assignments/AssignmentFormModa
 import { assignmentsApi } from '@/api/assignments.api'
 import { sitesApi } from '@/api/sites.api'
 import { showSuccess, showError } from '@/utils/toast'
-import { TIMEZONE_SHORT } from '@/types/sites'
+import { timezoneOffset } from '@/types/sites'
 import type { AssignmentResponse } from '@/types/assignments'
 import { localDateISO } from '@/utils/datetime'
+import { intlLocale, t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
-const fmt = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+const fmt = new Intl.DateTimeFormat(intlLocale, { day: '2-digit', month: 'short', year: 'numeric' })
 
 function formatDate(d: string) {
   return fmt.format(new Date(d + 'T00:00:00'))
@@ -26,17 +28,23 @@ function formatTime(t: string) {
   return t.slice(0, 5)   // "HH:MM:SS" → "HH:MM"
 }
 
-function getStatus(row: AssignmentResponse): 'AKTIF' | 'AKAN DATANG' | 'SELESAI' {
+function getStatus(row: AssignmentResponse): 'ACTIVE' | 'UPCOMING' | 'ENDED' {
   const today = localDateISO()
-  if (row.end_date < today) return 'SELESAI'
-  if (row.start_date > today) return 'AKAN DATANG'
-  return 'AKTIF'
+  if (row.end_date < today) return 'ENDED'
+  if (row.start_date > today) return 'UPCOMING'
+  return 'ACTIVE'
 }
 
 const STATUS_BADGE: Record<ReturnType<typeof getStatus>, string> = {
-  AKTIF:        'bg-emerald-100 text-emerald-700 border-emerald-200',
-  'AKAN DATANG': 'bg-blue-100 text-blue-700 border-blue-200',
-  SELESAI:      'bg-slate-100 text-slate-500 border-slate-200',
+  ACTIVE:   'bg-emerald-100 text-emerald-700 border-emerald-200',
+  UPCOMING: 'bg-blue-100 text-blue-700 border-blue-200',
+  ENDED:    'bg-slate-100 text-slate-500 border-slate-200',
+}
+
+const STATUS_LABEL: Record<ReturnType<typeof getStatus>, string> = {
+  ACTIVE: t('assignments.statusActive'),
+  UPCOMING: t('assignments.statusUpcoming'),
+  ENDED: t('assignments.statusEnded'),
 }
 
 const COLUMNS = 6
@@ -66,11 +74,11 @@ export function AssignmentsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => assignmentsApi.delete(id),
     onSuccess: () => {
-      showSuccess('Penugasan berhasil dihapus')
+      showSuccess(t('assignments.assignmentDeleted'))
       void qc.invalidateQueries({ queryKey: ['assignments'] })
       setDeleting(null)
     },
-    onError: () => showError('Gagal menghapus penugasan'),
+    onError: () => showError(t('assignments.couldNotDeleteTheAssignment')),
   })
 
   return (
@@ -78,26 +86,26 @@ export function AssignmentsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Penugasan Sementara</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('assignments.temporaryAssignments')}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Tugaskan karyawan ke lokasi dan shift berbeda dalam rentang tanggal tertentu
+            {t('assignments.assignEmployeesToAnotherSite')}
           </p>
         </div>
         <Button variant="accent" onClick={() => setModalOpen(true)}>
           <Plus className="h-4 w-4" />
-          Tambah Penugasan
+          {t('common.addAssignment')}
         </Button>
       </div>
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3">
         <select
-          aria-label="Filter lokasi"
+          aria-label={t('assignments.filterBySite')}
           className="text-sm border border-divider rounded-md px-3 py-1.5 bg-white text-text-primary focus:outline-hidden focus:ring-2 focus:ring-brand/30"
           value={filterSiteId}
           onChange={(e) => setFilterSiteId(e.target.value === '' ? '' : Number(e.target.value))}
         >
-          <option value="">Semua Lokasi</option>
+          <option value="">{t('common.allSites')}</option>
           {sites.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
@@ -110,7 +118,7 @@ export function AssignmentsPage() {
             checked={activeOnly}
             onChange={(e) => setActiveOnly(e.target.checked)}
           />
-          Hanya aktif
+          {t('assignments.activeOnly')}
         </label>
       </div>
 
@@ -121,22 +129,22 @@ export function AssignmentsPage() {
             <thead className="bg-slate-800 text-white">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                  Karyawan
+                  {t('common.employee')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                  Lokasi Penugasan
+                  {t('assignments.assignedSite')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell">
                   Shift
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell">
-                  Rentang Tanggal
+                  {t('assignments.dateRange')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
                   Status
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">
-                  Aksi
+                  {t('common.actions')}
                 </th>
               </tr>
             </thead>
@@ -156,10 +164,10 @@ export function AssignmentsPage() {
                   <td colSpan={COLUMNS} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
-                      <p className="text-text-secondary text-sm">Gagal memuat data penugasan</p>
+                      <p className="text-text-secondary text-sm">{t('assignments.couldNotLoadAssignments')}</p>
                       <Button variant="outline" size="sm" onClick={() => void refetch()}>
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Coba Lagi
+                        {t('common.tryAgain')}
                       </Button>
                     </div>
                   </td>
@@ -170,11 +178,11 @@ export function AssignmentsPage() {
                     <div className="flex flex-col items-center gap-3">
                       <CalendarClock className="h-8 w-8 text-text-secondary" />
                       <p className="text-text-secondary text-sm">
-                        Belum ada penugasan. Tambah penugasan untuk memulai.
+                        {t('assignments.noAssignmentsYetAddOne')}
                       </p>
                       <Button variant="outline" size="sm" onClick={() => setModalOpen(true)}>
                         <Plus className="h-3.5 w-3.5" />
-                        Tambah Penugasan
+                        {t('common.addAssignment')}
                       </Button>
                     </div>
                   </td>
@@ -197,7 +205,7 @@ export function AssignmentsPage() {
                       <td className="px-4 py-3">
                         <div className="text-text-primary">{row.site.name}</div>
                         <Badge variant="info" className="mt-0.5 text-xs">
-                          {TIMEZONE_SHORT[row.site.timezone] ?? row.site.timezone}
+                          {timezoneOffset(row.site.timezone) || row.site.timezone}
                         </Badge>
                       </td>
 
@@ -224,7 +232,7 @@ export function AssignmentsPage() {
                       {/* Status */}
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_BADGE[st]}`}>
-                          {st}
+                          {STATUS_LABEL[st]}
                         </span>
                       </td>
 
@@ -236,8 +244,8 @@ export function AssignmentsPage() {
                             size="icon"
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
                             onClick={() => setDeleting(row)}
-                            aria-label={`Hapus penugasan ${row.user.full_name}`}
-                            title="Hapus"
+                            aria-label={t('assignments.deleteTheAssignmentOf', { full_name: row.user.full_name })}
+                            title={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -262,21 +270,21 @@ export function AssignmentsPage() {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Penugasan</AlertDialogTitle>
+            <AlertDialogTitle>{t('assignments.deleteAssignment')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus penugasan{' '}
-              <strong>{deleting?.user.full_name}</strong> ke{' '}
-              <strong>{deleting?.site.name}</strong>?{' '}
-              Tindakan ini tidak dapat dibatalkan.
+              {tRich('assignments.deleteConfirm', {
+                name: <strong>{deleting?.user.full_name}</strong>,
+                site: <strong>{deleting?.site.name}</strong>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Menghapus...' : 'Hapus'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,10 +1,11 @@
 import { toast } from 'sonner'
+import { t } from '@/i18n'
 
-export function showSuccess(msg: string, title = 'Berhasil') {
+export function showSuccess(msg: string, title = t('toast.success')) {
   toast.success(title, { description: msg })
 }
 
-export function showError(msg: string, title = 'Terjadi Kesalahan') {
+export function showError(msg: string, title = t('toast.somethingWentWrong')) {
   toast.error(title, { description: msg })
 }
 

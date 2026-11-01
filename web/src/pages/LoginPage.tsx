@@ -4,17 +4,20 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { AlertCircle, ArrowRight, CalendarClock, Eye, EyeOff, Loader2, Lock, MapPinned, Timer, UserRound } from 'lucide-react'
 import { useLogin, getLoginErrorMessage } from '@/hooks/useAuth'
+import { t } from '@/i18n'
+import { DemoLoginPanel } from '@/components/demo/DemoLoginPanel'
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 
 const HIGHLIGHTS = [
-  { icon: MapPinned, label: 'Presensi berbasis lokasi' },
-  { icon: CalendarClock, label: 'Jadwal shift per site' },
-  { icon: Timer, label: 'Pengajuan lembur' },
+  { icon: MapPinned, label: t('login.locationCheckedCheckIns') },
+  { icon: CalendarClock, label: t('login.shiftSchedulesPerSite') },
+  { icon: Timer, label: t('common.overtimeRequests') },
 ]
 
 // ─── Zod schema ────────────────────────────────────────────────────────────────
 const loginSchema = z.object({
-  identifier: z.string().trim().min(1, 'Email atau ID karyawan wajib diisi'),
-  password: z.string().min(1, 'Kata sandi wajib diisi'),
+  identifier: z.string().trim().min(1, t('login.emailOrEmployeeIdIs')),
+  password: z.string().min(1, t('login.passwordIsRequired')),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -67,18 +70,18 @@ export function LoginPage() {
           <img src="/rollproof-logo.svg" alt="" className="h-10 w-10 rounded-xl shadow-glow" />
           <div className="leading-tight">
             <p className="text-base font-bold tracking-tight">Rollproof</p>
-            <p className="text-xs text-slate-400">Manajemen presensi</p>
+            <p className="text-xs text-slate-400">{t('common.attendanceWithProof')}</p>
           </div>
         </div>
 
         <div className="relative mt-auto px-12 pb-12">
           <h1 className="max-w-lg text-4xl font-bold leading-[1.1] tracking-tight xl:text-5xl">
-            Kelola kehadiran.
+            {t('login.headlineOne')}
             <br />
-            Atur operasional.
+            {t('login.headlineTwo')}
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-slate-400">
-            Pantau presensi, susun jadwal shift, dan tinjau pengajuan lembur dari satu ruang kerja.
+            {t('login.monitorAttendancePlanShiftsAnd')}
           </p>
           <ul className="mt-8 grid max-w-xl grid-cols-3 gap-3">
             {HIGHLIGHTS.map(({ icon: Icon, label }) => (
@@ -93,24 +96,29 @@ export function LoginPage() {
 
       {/* Form panel */}
       <div className="flex min-h-screen flex-col px-5 py-8 sm:px-10">
-        <div className="flex items-center gap-3 lg:hidden">
-          <img src="/rollproof-logo.svg" alt="" className="h-9 w-9 rounded-xl" />
-          <p className="text-base font-bold tracking-tight text-text-primary">Rollproof</p>
+        <div className="flex items-center gap-3">
+          <img src="/rollproof-logo.svg" alt="" className="h-9 w-9 rounded-xl lg:hidden" />
+          <p className="text-base font-bold tracking-tight text-text-primary lg:hidden">Rollproof</p>
+          <LanguageSwitcher className="ml-auto" />
         </div>
 
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10 animate-rise">
-          <p className="text-sm font-semibold text-brand">Portal admin dan supervisor</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-text-primary">Masuk ke ruang kerja</h2>
+          <p className="text-sm font-semibold text-brand">{t('login.adminAndSupervisorPortal')}</p>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-text-primary">{t('login.signInToYourWorkspace')}</h2>
           <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-            Gunakan akun karyawan yang terdaftar untuk mengakses Rollproof.
+            {t('login.useYourEmployeeAccountTo')}
           </p>
+
+          <div className="mt-8">
+            <DemoLoginPanel />
+          </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 space-y-5">
             {/* Identifier field */}
             <div>
               <label htmlFor="identifier" className="block text-sm font-medium text-text-primary mb-1.5">
-                Email atau ID karyawan
+                {t('login.emailOrEmployeeId')}
               </label>
               <div className="relative">
                 <UserRound
@@ -122,7 +130,7 @@ export function LoginPage() {
                   id="identifier"
                   type="text"
                   autoComplete="username"
-                  placeholder="nama@example.com"
+                  placeholder={t('login.nameExampleCom')}
                   aria-invalid={Boolean(errors.identifier)}
                   aria-describedby={errors.identifier ? 'identifier-error' : undefined}
                   disabled={isPending}
@@ -140,7 +148,7 @@ export function LoginPage() {
             {/* Password field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-1.5">
-                Kata sandi
+                {t('login.password')}
               </label>
               <div className="relative">
                 <Lock
@@ -152,7 +160,7 @@ export function LoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  placeholder="Masukkan kata sandi"
+                  placeholder={t('login.enterYourPassword')}
                   aria-invalid={Boolean(errors.password)}
                   aria-describedby={errors.password ? 'password-error' : undefined}
                   disabled={isPending}
@@ -164,7 +172,7 @@ export function LoginPage() {
                   onClick={() => setShowPassword((v) => !v)}
                   disabled={isPending}
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center rounded-lg text-text-secondary hover:bg-surface hover:text-text-primary disabled:pointer-events-none transition-colors"
-                  aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                   aria-pressed={showPassword}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -196,16 +204,16 @@ export function LoginPage() {
                          transition"
             >
               {isPending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} aria-hidden="true" />}
-              {isPending ? 'Memproses...' : 'Masuk ke Rollproof'}
+              {isPending ? t('common.processing') : t('login.signInToRollproof')}
             </button>
           </form>
 
           <p className="mt-6 text-xs text-text-secondary leading-5">
-            Belum memiliki akses? Hubungi administrator perusahaan.
+            {t('login.noAccessYetAskYour')}
           </p>
         </div>
 
-        <p className="text-center text-xs text-text-secondary lg:text-left">Rollproof · Presensi dan operasional karyawan</p>
+        <p className="text-center text-xs text-text-secondary lg:text-left">{t('login.rollproofAttendanceWithProof')}</p>
       </div>
     </div>
   )

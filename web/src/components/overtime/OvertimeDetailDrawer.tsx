@@ -17,6 +17,7 @@ import { useHasRole } from '@/hooks/useAuth'
 import { showSuccess, showError } from '@/utils/toast'
 import { formatDateTime, formatDuration } from '@/utils/datetime'
 import type { OvertimeRequest, OvertimeStatus } from '@/types/overtime'
+import { t } from '@/i18n'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,9 +28,9 @@ function statusBadgeVariant(status: OvertimeStatus) {
 }
 
 function statusLabel(status: OvertimeStatus) {
-  if (status === 'APPROVED') return 'Disetujui'
-  if (status === 'REJECTED') return 'Ditolak'
-  return 'Menunggu'
+  if (status === 'APPROVED') return t('common.approved')
+  if (status === 'REJECTED') return t('common.rejected')
+  return t('common.pending')
 }
 
 interface DetailRowProps {
@@ -85,28 +86,28 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
 
   const isLoading = otLoading || attLoading
   // Use site_timezone from attendance for accurate timestamp display
-  const tz = attendance?.site_timezone ?? 'Asia/Jakarta'
+  const tz = attendance?.site_timezone ?? 'UTC'
 
   const approveMutation = useMutation({
     mutationFn: () => overtimeApi.approve(request!.id),
     onSuccess: () => {
-      showSuccess('Pengajuan lembur berhasil disetujui')
+      showSuccess(t('overtimeDetail.overtimeRequestApproved'))
       void qc.invalidateQueries({ queryKey: ['overtime'] })
       void qc.invalidateQueries({ queryKey: ['overtime-detail', request?.id] })
       onClose()
     },
-    onError: () => showError('Gagal menyetujui pengajuan lembur'),
+    onError: () => showError(t('overtimeDetail.couldNotApproveTheOvertime')),
   })
 
   const rejectMutation = useMutation({
     mutationFn: () => overtimeApi.reject(request!.id),
     onSuccess: () => {
-      showSuccess('Pengajuan lembur berhasil ditolak')
+      showSuccess(t('overtimeDetail.overtimeRequestRejected'))
       void qc.invalidateQueries({ queryKey: ['overtime'] })
       void qc.invalidateQueries({ queryKey: ['overtime-detail', request?.id] })
       onClose()
     },
-    onError: () => showError('Gagal menolak pengajuan lembur'),
+    onError: () => showError(t('overtimeDetail.couldNotRejectTheOvertime')),
   })
 
   const isMutating = approveMutation.isPending || rejectMutation.isPending
@@ -122,12 +123,16 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detail Pengajuan Lembur</DialogTitle>
+            <DialogTitle>{t('overtimeDetail.overtimeRequestDetails')}</DialogTitle>
             <DialogDescription>
               {request
-                ? `Pengajuan #${request.id}${request.employee_name ? ` · ${request.employee_name}` : ''} — ${
-                    request.attendance_id != null ? `Absensi #${request.attendance_id}` : 'diajukan sebelum kerja'
-                  }`
+                ? t('overtimeDetail.subtitle', {
+                    id: request.id,
+                    employee: request.employee_name ? ` · ${request.employee_name}` : '',
+                    source: request.attendance_id != null
+                      ? t('overtimeDetail.forAttendance', { id: request.attendance_id })
+                      : t('overtimeDetail.beforeWork'),
+                  })
                 : ''}
             </DialogDescription>
           </DialogHeader>
@@ -144,10 +149,10 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
           ) : otError ? (
             <div className="flex flex-col items-center gap-3 py-10">
               <AlertCircle className="h-8 w-8 text-red-400" />
-              <p className="text-sm text-text-secondary">Gagal memuat detail pengajuan</p>
+              <p className="text-sm text-text-secondary">{t('overtimeDetail.couldNotLoadTheRequest')}</p>
               <Button variant="outline" size="sm" onClick={() => void refetchOT()}>
                 <RefreshCw className="h-3.5 w-3.5" />
-                Coba Lagi
+                {t('common.tryAgain')}
               </Button>
             </div>
           ) : overtime ? (
@@ -156,21 +161,21 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
               {/* Status pengajuan */}
               <div className="py-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
-                  Status Pengajuan
+                  {t('overtimeDetail.requestStatus')}
                 </p>
                 <DetailRow label="Status">
                   <Badge variant={statusBadgeVariant(overtime.status)}>
                     {statusLabel(overtime.status)}
                   </Badge>
                 </DetailRow>
-                <DetailRow label="ID Pengajuan">
+                <DetailRow label={t('overtimeDetail.requestId')}>
                   <span className="font-mono">#{overtime.id}</span>
                 </DetailRow>
-                <DetailRow label="Diajukan Pada">
+                <DetailRow label={t('common.submittedOn')}>
                   {formatDateTime(overtime.created_at, tz)}
                 </DetailRow>
                 {overtime.approved_by != null && (
-                  <DetailRow label="ID Penyetuju">
+                  <DetailRow label={t('overtimeDetail.approverId')}>
                     <span className="font-mono">#{overtime.approved_by}</span>
                   </DetailRow>
                 )}
@@ -179,12 +184,12 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
               {/* Absensi terkait */}
               <div className="py-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
-                  Absensi Terkait
+                  {t('overtimeDetail.relatedAttendance')}
                 </p>
-                <DetailRow label="ID Absensi">
+                <DetailRow label={t('overtimeDetail.attendanceId')}>
                   {overtime.attendance_id != null
                     ? <span className="font-mono">#{overtime.attendance_id}</span>
-                    : <span className="text-text-secondary">Belum ada — lembur diajukan sebelum kerja</span>}
+                    : <span className="text-text-secondary">{t('overtimeDetail.noneYetOvertimeRequestedBefore')}</span>}
                 </DetailRow>
                 {overtime.attendance_id == null ? null : attendance ? (
                   <>
@@ -194,15 +199,15 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
                     <DetailRow label="Check-out">
                       {attendance.checkout_time
                         ? formatDateTime(attendance.checkout_time, tz)
-                        : <span className="italic text-text-secondary">Belum checkout</span>}
+                        : <span className="italic text-text-secondary">{t('common.notCheckedOut')}</span>}
                     </DetailRow>
-                    <DetailRow label="Jam Kerja">
+                    <DetailRow label={t('common.workHours')}>
                       {attendance.work_duration_minutes > 0
                         ? formatDuration(attendance.work_duration_minutes)
                         : <span className="italic text-text-secondary">—</span>}
                     </DetailRow>
                     {attendance.latitude != null && attendance.longitude != null && (
-                      <DetailRow label="Lokasi GPS">
+                      <DetailRow label={t('common.gpsLocation')}>
                         <a
                           href={`https://maps.google.com/?q=${attendance.latitude},${attendance.longitude}`}
                           target="_blank"
@@ -218,7 +223,7 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
                   </>
                 ) : (
                   <DetailRow label="Detail">
-                    <span className="italic text-text-secondary">Tidak dapat dimuat</span>
+                    <span className="italic text-text-secondary">{t('overtimeDetail.couldNotBeLoaded')}</span>
                   </DetailRow>
                 )}
               </div>
@@ -226,15 +231,15 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
               {/* Periode lembur yang diminta */}
               <div className="py-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
-                  Periode Lembur
+                  {t('overtimeDetail.overtimePeriod')}
                 </p>
-                <DetailRow label="Mulai">
+                <DetailRow label={t('overtimeDetail.start')}>
                   {formatDateTime(overtime.requested_start, tz)}
                 </DetailRow>
-                <DetailRow label="Selesai">
+                <DetailRow label={t('overtimeDetail.end')}>
                   {formatDateTime(overtime.requested_end, tz)}
                 </DetailRow>
-                <DetailRow label="Durasi">
+                <DetailRow label={t('common.duration')}>
                   <span className="font-semibold text-brand">
                     {formatDuration(overtime.requested_minutes)}
                   </span>
@@ -250,7 +255,7 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
                     disabled={isMutating}
                   >
                     <CheckCircle className="h-4 w-4" />
-                    Setujui
+                    {t('common.approve')}
                   </button>
                   <button
                     className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
@@ -258,7 +263,7 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
                     disabled={isMutating}
                   >
                     <XCircle className="h-4 w-4" />
-                    Tolak
+                    {t('common.reject')}
                   </button>
                 </div>
               )}
@@ -276,23 +281,23 @@ export function OvertimeDetailDrawer({ request, open, onClose }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmAction === 'approve'
-                ? 'Setujui Pengajuan Lembur'
-                : 'Tolak Pengajuan Lembur'}
+                ? t('overtimeDetail.approveOvertimeRequest')
+                : t('overtimeDetail.rejectOvertimeRequest')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === 'approve'
-                ? `Apakah Anda yakin ingin menyetujui pengajuan lembur #${request?.id}? Jam lembur akan ditambahkan ke rekap absensi karyawan.`
-                : `Apakah Anda yakin ingin menolak pengajuan lembur #${request?.id}? Tindakan ini tidak dapat dibatalkan.`}
+                ? t('overtimeDetail.approveOvertimeRequestTheOvertime', { id: request?.id })
+                : t('overtimeDetail.rejectOvertimeRequestThisCannot', { id: request?.id })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Batal</AlertDialogCancel>
+            <AlertDialogCancel disabled={isMutating}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm} disabled={isMutating}>
               {isMutating
-                ? 'Memproses...'
+                ? t('common.processing')
                 : confirmAction === 'approve'
-                  ? 'Setujui'
-                  : 'Tolak'}
+                  ? t('common.approve')
+                  : t('common.reject')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

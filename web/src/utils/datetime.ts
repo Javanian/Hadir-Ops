@@ -1,7 +1,9 @@
+import { intlLocale, t } from '@/i18n'
+
 // Always use site_timezone from API — never device timezone or hardcoded "Asia/Jakarta"
 
 export function formatDateTime(isoString: string, siteTimezone: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: siteTimezone,
     day: '2-digit',
     month: 'short',
@@ -12,7 +14,7 @@ export function formatDateTime(isoString: string, siteTimezone: string): string 
 }
 
 export function formatDate(isoString: string, siteTimezone: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: siteTimezone,
     day: '2-digit',
     month: 'short',
@@ -21,7 +23,7 @@ export function formatDate(isoString: string, siteTimezone: string): string {
 }
 
 export function formatTime(isoString: string, siteTimezone: string): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: siteTimezone,
     hour: '2-digit',
     minute: '2-digit',
@@ -31,7 +33,7 @@ export function formatTime(isoString: string, siteTimezone: string): string {
 export function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  return h > 0 ? `${h}j ${m}m` : `${m}m`
+  return h > 0 ? t('common.durationHoursMinutes', { h, m }) : t('common.durationMinutes', { m })
 }
 
 /**
@@ -59,7 +61,7 @@ export function daysAgoISO(n: number, timeZone?: string): string {
 
 /** Format a plain YYYY-MM-DD date (no time, no timezone shift). */
 export function formatPlainDate(isoDate: string, opts: Intl.DateTimeFormatOptions = {}): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     timeZone: 'UTC',
     day: '2-digit',
     month: 'short',

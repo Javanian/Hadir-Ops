@@ -12,11 +12,13 @@ import { HolidayFormModal } from '@/components/holidays/HolidayFormModal'
 import { holidaysApi } from '@/api/shifts.api'
 import { showSuccess, showError } from '@/utils/toast'
 import type { HolidayResponse } from '@/types/shifts'
+import { intlLocale, t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
 function formatHolidayDate(dateStr: string): string {
   // dateStr is "YYYY-MM-DD" — format without timezone conversion (it's a calendar date, not a moment in time)
   const [year, month, day] = dateStr.split('-').map(Number)
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -38,11 +40,11 @@ export function HolidaysPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => holidaysApi.delete(id),
     onSuccess: () => {
-      showSuccess('Hari libur berhasil dihapus')
+      showSuccess(t('holidays.holidayDeleted'))
       void qc.invalidateQueries({ queryKey: ['holidays'] })
       setDeletingHoliday(null)
     },
-    onError: () => showError('Gagal menghapus hari libur'),
+    onError: () => showError(t('holidays.couldNotDeleteTheHoliday')),
   })
 
   // Sort holidays by date ascending
@@ -57,14 +59,14 @@ export function HolidaysPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Hari Libur</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t('common.holiday')}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Kelola hari libur nasional dan khusus perusahaan
+            {t('holidays.managePublicAndCompanyHolidays')}
           </p>
         </div>
         <Button variant="accent" onClick={() => { setEditingHoliday(null); setModalOpen(true) }}>
           <Plus className="h-4 w-4" />
-          Tambah Hari Libur
+          {t('common.addHoliday')}
         </Button>
       </div>
 
@@ -72,17 +74,17 @@ export function HolidaysPage() {
       {holidays.length > 0 && (
         <div className="flex gap-4">
           <div className="rounded-lg border border-divider bg-surface px-4 py-3">
-            <p className="text-xs text-text-secondary">Total Hari Libur</p>
+            <p className="text-xs text-text-secondary">{t('holidays.totalHolidays')}</p>
             <p className="text-2xl font-semibold text-brand">{holidays.length}</p>
           </div>
           <div className="rounded-lg border border-divider bg-surface px-4 py-3">
-            <p className="text-xs text-text-secondary">Nasional</p>
+            <p className="text-xs text-text-secondary">{t('holidays.public')}</p>
             <p className="text-2xl font-semibold text-green-600">
               {holidays.filter((h) => h.is_national).length}
             </p>
           </div>
           <div className="rounded-lg border border-divider bg-surface px-4 py-3">
-            <p className="text-xs text-text-secondary">Khusus</p>
+            <p className="text-xs text-text-secondary">{t('holidays.company')}</p>
             <p className="text-2xl font-semibold text-text-secondary">
               {holidays.filter((h) => !h.is_national).length}
             </p>
@@ -97,16 +99,16 @@ export function HolidaysPage() {
             <thead className="bg-slate-800 text-white">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                  Tanggal
+                  {t('common.date')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                  Keterangan
+                  {t('common.notes')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                  Jenis
+                  {t('common.type')}
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">
-                  Aksi
+                  {t('common.actions')}
                 </th>
               </tr>
             </thead>
@@ -126,10 +128,10 @@ export function HolidaysPage() {
                   <td colSpan={COLUMNS} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle className="h-8 w-8 text-red-400" />
-                      <p className="text-text-secondary text-sm">Gagal memuat data hari libur</p>
+                      <p className="text-text-secondary text-sm">{t('holidays.couldNotLoadHolidays')}</p>
                       <Button variant="outline" size="sm" onClick={() => void refetch()}>
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Coba Lagi
+                        {t('common.tryAgain')}
                       </Button>
                     </div>
                   </td>
@@ -140,7 +142,7 @@ export function HolidaysPage() {
                     <div className="flex flex-col items-center gap-3">
                       <CalendarDays className="h-8 w-8 text-text-secondary" />
                       <p className="text-text-secondary text-sm">
-                        Belum ada hari libur yang terdaftar.
+                        {t('holidays.noHolidaysYet')}
                       </p>
                       <Button
                         variant="outline"
@@ -148,7 +150,7 @@ export function HolidaysPage() {
                         onClick={() => { setEditingHoliday(null); setModalOpen(true) }}
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        Tambah Hari Libur
+                        {t('common.addHoliday')}
                       </Button>
                     </div>
                   </td>
@@ -174,9 +176,9 @@ export function HolidaysPage() {
                     </td>
                     <td className="px-4 py-3">
                       {holiday.is_national ? (
-                        <Badge variant="success">Nasional</Badge>
+                        <Badge variant="success">{t('holidays.public')}</Badge>
                       ) : (
-                        <Badge variant="outline">Khusus</Badge>
+                        <Badge variant="outline">{t('holidays.company')}</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -185,7 +187,7 @@ export function HolidaysPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => { setEditingHoliday(holiday); setModalOpen(true) }}
-                          aria-label={`Ubah hari libur ${holiday.description ?? holiday.holiday_date}`}
+                          aria-label={t('holidays.editHoliday', { description: holiday.description ?? holiday.holiday_date })}
                           title="Edit"
                         >
                           <Pencil className="h-4 w-4" />
@@ -195,8 +197,8 @@ export function HolidaysPage() {
                           size="icon"
                           className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           onClick={() => setDeletingHoliday(holiday)}
-                          aria-label={`Hapus hari libur ${holiday.description ?? holiday.holiday_date}`}
-                          title="Hapus"
+                          aria-label={t('holidays.deleteHoliday2', { description: holiday.description ?? holiday.holiday_date })}
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -224,23 +226,25 @@ export function HolidaysPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Hari Libur</AlertDialogTitle>
+            <AlertDialogTitle>{t('holidays.deleteHoliday')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus hari libur{' '}
-              <strong>
-                {deletingHoliday?.holiday_date}
-                {deletingHoliday?.description && ` — ${deletingHoliday.description}`}
-              </strong>?
-              Tindakan ini tidak dapat dibatalkan.
+              {tRich('holidays.deleteConfirm', {
+                holiday: (
+                  <strong>
+                    {deletingHoliday?.holiday_date}
+                    {deletingHoliday?.description && ` — ${deletingHoliday.description}`}
+                  </strong>
+                ),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingHoliday && deleteMutation.mutate(deletingHoliday.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Menghapus...' : 'Hapus'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

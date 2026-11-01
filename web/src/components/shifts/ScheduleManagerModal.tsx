@@ -11,6 +11,7 @@ import { shiftsApi } from '@/api/shifts.api'
 import { showSuccess, showError } from '@/utils/toast'
 import { DAY_LABELS } from '@/types/shifts'
 import type { ShiftResponse, WorkScheduleResponse } from '@/types/shifts'
+import { t } from '@/i18n'
 
 interface DayState {
   checked: boolean
@@ -99,11 +100,11 @@ export function ScheduleManagerModal({ open, onClose, shift }: Props) {
     try {
       await Promise.all(toDelete.map((id) => shiftsApi.deleteSchedule(id)))
       await Promise.all(toAdd.map((item) => shiftsApi.addSchedule(shift.id, item)))
-      showSuccess('Jadwal shift berhasil diperbarui')
+      showSuccess(t('scheduleManager.shiftScheduleUpdated'))
       void qc.invalidateQueries({ queryKey: ['shifts'] })
       onClose()
     } catch {
-      showError('Gagal menyimpan jadwal. Coba lagi.')
+      showError(t('scheduleManager.couldNotSaveTheSchedule'))
     } finally {
       setSaving(false)
     }
@@ -117,13 +118,13 @@ export function ScheduleManagerModal({ open, onClose, shift }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Jadwal Shift: {shift.name}</DialogTitle>
+          <DialogTitle>{t('scheduleManager.title', { name: shift.name })}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-1 text-xs text-text-secondary">
-          <p>Pilih hari kerja dan toleransi keterlambatan (menit).</p>
+          <p>{t('scheduleManager.chooseTheWorkdaysAndThe')}</p>
           <p className="font-medium text-text-primary">
-            {checkedCount} hari aktif
+            {t('scheduleManager.activeDays', { count: checkedCount })}
           </p>
         </div>
 
@@ -162,7 +163,7 @@ export function ScheduleManagerModal({ open, onClose, shift }: Props) {
                   }`}
                 >
                   <Input
-                    aria-label={`Toleransi terlambat ${DAY_LABELS[d]} (menit)`}
+                    aria-label={t('scheduleManager.lateToleranceOnMinutes', { day: DAY_LABELS[d] })}
                     type="number"
                     min={0}
                     max={120}
@@ -182,10 +183,10 @@ export function ScheduleManagerModal({ open, onClose, shift }: Props) {
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-            Batal
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Menyimpan...' : 'Simpan Jadwal'}
+            {saving ? t('common.saving') : t('scheduleManager.saveSchedule')}
           </Button>
         </DialogFooter>
       </DialogContent>

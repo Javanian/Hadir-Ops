@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/authStore'
 import { daysAgoISO, formatTime } from '@/utils/datetime'
 import type { BadgeProps } from '@/components/ui/badge'
+import { t } from '@/i18n'
+import { tRich } from '@/i18n/rich'
 
 function statusBadgeVariant(status: string | null): BadgeProps['variant'] {
   if (status === 'ONTIME') return 'success'
@@ -19,9 +21,9 @@ function statusBadgeVariant(status: string | null): BadgeProps['variant'] {
 }
 
 function statusLabel(status: string | null): string {
-  if (status === 'ONTIME') return 'Tepat Waktu'
-  if (status === 'LATE') return 'Terlambat'
-  if (status === 'OUT_OF_RADIUS') return 'Di Luar Radius'
+  if (status === 'ONTIME') return t('common.onTime')
+  if (status === 'LATE') return t('common.late')
+  if (status === 'OUT_OF_RADIUS') return t('common.outOfRadius')
   return '—'
 }
 
@@ -90,15 +92,14 @@ export function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-text-primary">Dashboard</h1>
         <p className="text-text-secondary text-sm mt-1">
-          Selamat datang,{' '}
-          <span className="font-medium text-text-primary">{user?.name}</span>
+          {tRich('dashboard.welcome', { name: <span className="font-medium text-text-primary">{user?.name}</span> })}
           {user?.site_timezone && (
             <span className="ml-2 text-xs bg-brand/10 text-brand px-2 py-0.5 rounded-full">
               {user.site_timezone}
             </span>
           )}
           <span className="ml-2 text-xs text-text-disabled">
-            · Update otomatis setiap 30 detik
+            {t('dashboard.updatesEvery30Seconds')}
           </span>
         </p>
       </div>
@@ -107,53 +108,53 @@ export function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 sm:gap-4">
         <StatsCard
           icon={<Users size={20} />}
-          title="Hadir Hari Ini"
+          title={t('dashboard.presentToday')}
           value={todayRecords.length}
           loading={todayLoading}
           variant="default"
         />
         <StatsCard
           icon={<CheckCircle size={20} />}
-          title="Tepat Waktu"
+          title={t('common.onTime')}
           value={ontimeCount}
           loading={todayLoading}
           variant="success"
         />
         <StatsCard
           icon={<Clock size={20} />}
-          title="Terlambat"
+          title={t('common.late')}
           value={lateCount}
           loading={todayLoading}
           variant="warning"
         />
         <StatsCard
           icon={<Timer size={20} />}
-          title="Lembur Menunggu"
+          title={t('dashboard.pendingOvertime')}
           value={pendingOT.length}
           loading={otLoading}
           variant="overtime"
         />
         <StatsCard
           icon={<CalendarX size={20} />}
-          title="Izin / Cuti Hari Ini"
+          title={t('dashboard.onLeaveToday')}
           value={onLeave.length}
           loading={leaveLoading}
           variant="default"
-          subtitle={pendingLeave.length > 0 ? `${pendingLeave.length} pengajuan menunggu` : undefined}
+          subtitle={pendingLeave.length > 0 ? t('dashboard.requestsPending', { length: pendingLeave.length }) : undefined}
         />
       </div>
 
       {/* 7-day trend chart */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-6">
         <h2 className="text-base font-semibold text-text-primary mb-4">
-          Tren Absensi — 7 Hari Terakhir
+          {t('dashboard.attendanceTrendLast7Days')}
         </h2>
         <AttendanceChart records={weekRecords} loading={weekLoading} />
       </div>
 
       {/* Recent activity */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-6">
-        <h2 className="text-base font-semibold text-text-primary mb-4">Aktivitas Hari Ini</h2>
+        <h2 className="text-base font-semibold text-text-primary mb-4">{t('dashboard.todaySActivity')}</h2>
 
         {todayLoading ? (
           <div className="space-y-3">
@@ -163,15 +164,15 @@ export function DashboardPage() {
           </div>
         ) : recentActivity.length === 0 ? (
           <p className="text-center text-sm text-text-disabled py-8">
-            Belum ada aktivitas hari ini.
+            {t('dashboard.noActivityYetToday')}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-800 text-white">
-                  <th className="px-3 py-2 text-left font-medium rounded-tl-lg">Nama</th>
-                  <th className="px-3 py-2 text-left font-medium">ID Karyawan</th>
+                  <th className="px-3 py-2 text-left font-medium rounded-tl-lg">{t('common.name')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('common.employeeId')}</th>
                   <th className="px-3 py-2 text-center font-medium">Check-In</th>
                   <th className="px-3 py-2 text-center font-medium rounded-tr-lg">Status</th>
                 </tr>
@@ -195,7 +196,7 @@ export function DashboardPage() {
             </table>
             {todayRecords.length > 10 && (
               <p className="mt-2 text-center text-xs text-text-disabled">
-                Menampilkan 10 dari {todayRecords.length} check-in hari ini
+                {t('dashboard.showingTenOf', { count: todayRecords.length })}
               </p>
             )}
           </div>
