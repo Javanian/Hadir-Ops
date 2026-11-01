@@ -25,12 +25,12 @@ interface NavItem {
 }
 
 const ADMIN_NAV: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: t('sidebar.dashboard'), icon: LayoutDashboard },
   { to: '/users', label: t('common.users'), icon: Users },
-  { to: '/sites', label: t('common.site'), icon: MapPin },
+  { to: '/sites', label: t('sidebar.sites'), icon: MapPin },
   { to: '/assignments', label: t('common.assignments'), icon: CalendarClock },
-  { to: '/shifts', label: 'Shift', icon: Clock },
-  { to: '/holidays', label: t('common.holiday'), icon: CalendarDays },
+  { to: '/shifts', label: t('sidebar.shifts'), icon: Clock },
+  { to: '/holidays', label: t('sidebar.holidays'), icon: CalendarDays },
   { to: '/attendance', label: t('sidebar.attendance'), icon: ClipboardList },
   { to: '/review', label: t('sidebar.review'), icon: ShieldCheck },
   { to: '/leave', label: t('sidebar.leave'), icon: CalendarX },
@@ -39,8 +39,8 @@ const ADMIN_NAV: NavItem[] = [
 ]
 
 const SUPERVISOR_NAV: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/shifts', label: 'Shift', icon: Clock },
+  { to: '/dashboard', label: t('sidebar.dashboard'), icon: LayoutDashboard },
+  { to: '/shifts', label: t('sidebar.shifts'), icon: Clock },
   { to: '/attendance', label: t('sidebar.attendance'), icon: ClipboardList },
   { to: '/review', label: t('sidebar.review'), icon: ShieldCheck },
   { to: '/leave', label: t('sidebar.leave'), icon: CalendarX },

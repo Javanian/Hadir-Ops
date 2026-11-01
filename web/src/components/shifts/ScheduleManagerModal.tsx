@@ -172,7 +172,7 @@ export function ScheduleManagerModal({ open, onClose, shift }: Props) {
                     className="h-8 w-16 text-center text-sm"
                     tabIndex={dayState.checked ? 0 : -1}
                   />
-                  <span className="text-xs text-text-secondary whitespace-nowrap">menit</span>
+                  <span className="text-xs text-text-secondary whitespace-nowrap">{t('common.minutesUnit')}</span>
                 </div>
               </div>
             )

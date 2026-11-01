@@ -157,7 +157,7 @@ export function OvertimePage() {
         />
         {!isLoading && data && (
           <p className="text-sm text-text-secondary whitespace-nowrap tabular-nums">
-            {filteredData.length} dari {data.length} pengajuan
+            {t('overtime.filteredCount', { shown: filteredData.length, total: data.length })}
           </p>
         )}
       </div>

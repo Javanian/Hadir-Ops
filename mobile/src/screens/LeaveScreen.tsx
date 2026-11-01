@@ -199,7 +199,7 @@ export default function LeaveScreen() {
             </View>
           </View>
           <Text style={[styles.hint, days > MAX_DAYS && styles.hintError]}>
-            {days} hari{days > MAX_DAYS ? t('leave.atMostDays', { MAX_DAYS }) : ''}
+            {t('common.daysCount', { count: days })}{days > MAX_DAYS ? t('leave.atMostDays', { MAX_DAYS }) : ''}
           </Text>
 
           <Text style={styles.label}>{t('leave.reason')}</Text>
@@ -259,7 +259,7 @@ export default function LeaveScreen() {
                   </View>
                 </View>
                 <Text style={styles.itemRange}>
-                  {rangeLabel(item.start_date, item.end_date)} · {item.days} hari
+                  {rangeLabel(item.start_date, item.end_date)} · {t('common.daysCount', { count: item.days })}
                 </Text>
                 <Text style={styles.itemReason} numberOfLines={3}>{item.reason}</Text>
                 {item.review_note && (

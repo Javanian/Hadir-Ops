@@ -115,7 +115,7 @@ export function ShiftsPage() {
       accessorKey: 'work_hours_standard',
       header: t('shifts.stdHours'),
       cell: ({ row }) => (
-        <span className="text-sm text-text-secondary whitespace-nowrap">{row.original.work_hours_standard} jam</span>
+        <span className="text-sm text-text-secondary whitespace-nowrap">{t('common.hoursCount', { count: row.original.work_hours_standard })}</span>
       ),
     },
     {
@@ -125,7 +125,7 @@ export function ShiftsPage() {
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-text-secondary whitespace-nowrap">{getScheduleSummary(row.original)}</span>
           {row.original.schedules.length > 0 && (
-            <Badge variant="success" className="text-xs">{row.original.schedules.length} hari</Badge>
+            <Badge variant="success" className="text-xs">{t('common.daysCount', { count: row.original.schedules.length })}</Badge>
           )}
         </div>
       ),

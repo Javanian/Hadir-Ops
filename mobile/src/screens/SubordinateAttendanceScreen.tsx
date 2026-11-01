@@ -265,7 +265,7 @@ export default function SubordinateAttendanceScreen() {
             : t('common.showingLatest', { count: (records?.length ?? 0) > 0 ? records!.length : '–' })}
         </Text>
         {summaries.length > 0 && !isLoading && (
-          <Text style={styles.infoCount}>{summaries.length} karyawan</Text>
+          <Text style={styles.infoCount}>{t('subordinateAttendance.employeeCount', { count: summaries.length })}</Text>
         )}
       </View>
 

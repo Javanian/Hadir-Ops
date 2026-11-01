@@ -873,7 +873,7 @@ function UserGroupHeader({ name, employeeId, totalCount, pendingCount, totalMinu
       {hasPending ? (
         <View style={ugh.pendingBadge}>
           <Ionicons name="time-outline" size={11} color={colors.white} style={{ marginRight: 3 }} />
-          <Text style={ugh.pendingBadgeText}>{pendingCount} belum</Text>
+          <Text style={ugh.pendingBadgeText}>{t('overtime.pendingCount', { count: pendingCount })}</Text>
         </View>
       ) : null}
 

@@ -180,16 +180,16 @@ class _Generator:
         return doc
 
     async def attendance(self, user: dict, site: dict, rng: random.Random, reviewer_id: int | None,
-                         leave_days: set[date], include_today: bool = True) -> int:
-        """Two weeks of attendance for one person. Returns the number of records."""
+                         leave_days: set[date], skip_days: int = 0) -> int:
+        """Two weeks of attendance for one person, leaving out the last `skip_days`
+        days. Returns the number of records."""
         tz = ZoneInfo(site["timezone"])
         local_now = self.now.astimezone(tz)
         shift_options = self.shifts[site["_id"]]
         # Everyone keeps one shift, as a roster would assign it
         plan, shift = shift_options[user["_id"] % len(shift_options)]
         count = 0
-        last_day = 0 if include_today else 1
-        for back in range(HISTORY_DAYS - 1, last_day - 1, -1):
+        for back in range(HISTORY_DAYS - 1, skip_days - 1, -1):
             day = local_now.date() - timedelta(days=back)
             if _db_dow(day) not in plan.days or day in leave_days:
                 continue
@@ -204,7 +204,7 @@ class _Generator:
                 continue
 
             end = datetime.combine(day + timedelta(days=1 if plan.cross_midnight else 0), plan.end, tzinfo=tz)
-            overtime = rng.random() < 0.15
+            overtime = rng.random() < 0.10
             checkout = end + timedelta(minutes=rng.randint(60, 150) if overtime else rng.randint(-5, 20))
             if checkout > local_now:
                 checkout = None  # still on shift
@@ -262,8 +262,9 @@ class _Generator:
             })
             count += 1
 
-            if overtime_min and not is_weekend and rng.random() < 0.7:
-                state = rng.choice(("PENDING", "APPROVED", "APPROVED", "REJECTED")) if back > 1 else "PENDING"
+            if overtime_min and not is_weekend and rng.random() < 0.6:
+                # Older requests are decided; the last two days still wait
+                state = rng.choice(("APPROVED", "APPROVED", "APPROVED", "REJECTED")) if back > 2 else "PENDING"
                 await self.db.overtime_requests.insert_one({
                     "_id": await next_id(self.db, "overtime_requests"),
                     "user_id": user["_id"], "attendance_id": att_id,
@@ -387,15 +388,17 @@ async def add_visitor(db: AsyncDatabase, now: datetime | None = None) -> dict:
         raise LookupError("The demo dataset is missing; it is restored at the next reset.")
     gen = _Generator(db, now)
     gen.sites[site["name"]] = site
+    # Day shifts only, and nothing from the last two days: a visitor can be in
+    # any time zone, and a record must never look like their own "today".
     gen.shifts[site["_id"]] = [
         (ShiftPlan(s["name"], time.fromisoformat(s["start_time"]), time.fromisoformat(s["end_time"]),
                    tuple(ws["day_of_week"] for ws in s["work_schedules"])), s)
-        async for s in db.shifts.find({"site_id": site["_id"]}).sort("_id", 1)
+        async for s in db.shifts.find({"site_id": site["_id"], "is_cross_midnight": False}).sort("_id", 1)
     ]
     user_id = await next_id(db, "users")
     tag = f"{user_id:04d}"
     user = _user_doc(user_id, f"VIS{tag}", f"Demo Visitor {tag}", f"visitor-{tag}@{DEMO_DOMAIN}",
                      _password_hash(None), "EMPLOYEE", site["_id"], supervisor["_id"], now)
     await db.users.insert_one(user)
-    await gen.attendance(user, site, random.Random(user_id), None, set(), include_today=False)
+    await gen.attendance(user, site, random.Random(user_id), None, set(), skip_days=2)
     return user

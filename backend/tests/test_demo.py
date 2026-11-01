@@ -96,8 +96,11 @@ async def test_each_visitor_gets_an_employee_account_of_their_own(client, demo):
     assert first["role"] == "EMPLOYEE" and first["site_name"] == demo_data.VISITOR_SITE
     history = await demo.attendance.count_documents({"user_id": first["id"]})
     assert history > 0
-    today = datetime.now(UTC).date().isoformat()
-    assert await demo.attendance.find_one({"user_id": first["id"], "work_date": today}) is None
+    # Nothing in the last two days, so no record falls on "today" in the visitor's time zone
+    two_days_ago = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+    assert await demo.attendance.find_one({"user_id": first["id"], "work_date": {"$gte": two_days_ago}}) is None
+    async for record in demo.attendance.find({"user_id": first["id"]}):
+        assert record["checkin_time"].date() <= datetime.now(UTC).date() - timedelta(days=2)
     # Visitors report to the demo supervisor, who sees them in the team view
     supervisor = await demo.users.find_one({"email": demo_data.SUPERVISOR_EMAIL})
     assert (await demo.users.find_one({"_id": first["id"]}))["supervisor_id"] == supervisor["_id"]

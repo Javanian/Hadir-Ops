@@ -401,7 +401,7 @@ export function ReportsPage() {
           {/* Table header row */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-divider">
             <p className="text-sm text-text-secondary">
-              {filteredData.length} dari {rawData?.length ?? 0} record
+              {t('reports.filteredCount', { shown: filteredData.length, total: rawData?.length ?? 0 })}
             </p>
             <Button
               variant="outline"

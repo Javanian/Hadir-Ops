@@ -164,7 +164,7 @@ export function LeavePage() {
                 <Badge variant={TYPE_VARIANT[r.leave_type]}>{LEAVE_TYPE_LABEL[r.leave_type]}</Badge>
               </div>
               <p className="text-sm text-text-primary">
-                {dateRange(r)} <span className="text-text-secondary">· {r.days} hari</span>
+                {dateRange(r)} <span className="text-text-secondary">· {t('common.daysCount', { count: r.days })}</span>
               </p>
               <p className="text-sm text-text-secondary wrap-break-word">{r.reason}</p>
               {tab === 'pending' ? (
@@ -217,7 +217,7 @@ export function LeavePage() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-text-primary">
                       {dateRange(r)}
-                      <span className="block text-xs text-text-secondary tabular-nums">{r.days} hari</span>
+                      <span className="block text-xs text-text-secondary tabular-nums">{t('common.daysCount', { count: r.days })}</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-text-secondary max-w-sm">
                       <p className="line-clamp-3 wrap-break-word">{r.reason}</p>

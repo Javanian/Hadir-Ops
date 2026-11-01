@@ -161,7 +161,7 @@ export function ReviewPage() {
                   {r.is_offline && (
                     <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
                       <WifiOff className="h-3 w-3" />
-                      terkirim {r.received_at ? formatDateTime(r.received_at, r.site_timezone) : 'kemudian'}
+                      {t('review.deliveredAt', { time: r.received_at ? formatDateTime(r.received_at, r.site_timezone) : t('review.deliveredLater') })}
                     </p>
                   )}
                 </div>
@@ -245,7 +245,7 @@ export function ReviewPage() {
                         {r.is_offline && (
                           <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
                             <WifiOff className="h-3 w-3" />
-                            terkirim {r.received_at ? formatDateTime(r.received_at, r.site_timezone) : 'kemudian'}
+                            {t('review.deliveredAt', { time: r.received_at ? formatDateTime(r.received_at, r.site_timezone) : t('review.deliveredLater') })}
                           </p>
                         )}
                       </td>
