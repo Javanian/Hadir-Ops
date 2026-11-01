@@ -147,7 +147,11 @@ export default function ProfileScreen() {
                     color={faceStatus?.has_face ? colors.success : colors.textSubtle}
                   />
                   <Text style={[styles.faceStatusText, faceStatus?.has_face && styles.faceStatusActive]}>
-                    {faceStatus?.has_face ? 'Wajah sudah terdaftar' : 'Belum terdaftar'}
+                    {faceStatus?.has_face
+                      ? 'Wajah sudah terdaftar'
+                      : faceStatus?.reregister_required
+                        ? 'Perlu didaftarkan ulang'
+                        : 'Belum terdaftar'}
                   </Text>
                 </>
               )}

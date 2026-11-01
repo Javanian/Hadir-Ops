@@ -1,7 +1,7 @@
 [project]
 name = "hadirops-backend"
 version = "1.1.0"
-description = "HadirOps attendance API: FastAPI, MongoDB, InsightFace."
+description = "HadirOps attendance API: FastAPI, MongoDB, OpenCV face recognition."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.161,<1",
@@ -18,17 +18,9 @@ dependencies = [
     # IANA time zones for per-site time (Windows and slim images ship none)
     "tzdata>=2026.1",
     "numpy>=2.3,<3",
+    # Decodes photos and runs face detection (YuNet) and recognition (SFace)
+    # through its DNN module; the model files are pinned in app/services/face_models.py.
     "opencv-python-headless>=5.0,<6",
-]
-
-[project.optional-dependencies]
-# The face model. CI and tests replace it with a stub, so they skip this extra.
-face = [
-    "insightface>=2.1,<3",
-    "onnxruntime>=1.30,<2",
-    # insightface 2.1 calls SimilarityTransform.estimate(), which scikit-image 2.2
-    # removes. Lift this cap once deepinsight/insightface#2901 is released.
-    "scikit-image>=0.26,<2.2",
 ]
 
 [dependency-groups]
@@ -44,9 +36,6 @@ dev = [
 package = false
 # Supply-chain cooldown: only releases that have been public for 7 days.
 exclude-newer = "7 days"
-# insightface depends on the GUI build of OpenCV. A server needs the headless build,
-# and installing both breaks `import cv2`, so the GUI build is never installed.
-override-dependencies = ["opencv-python; sys_platform == 'never'"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -58,8 +47,6 @@ filterwarnings = [
     "error::DeprecationWarning",
     "error::PendingDeprecationWarning",
     "error::ResourceWarning",
-    # Inside insightface 2.1 (deepinsight/insightface#2901); scikit-image is capped below 2.2.
-    "ignore:`estimate` is deprecated:FutureWarning",
 ]
 
 [tool.ruff]

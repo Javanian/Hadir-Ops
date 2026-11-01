@@ -48,15 +48,19 @@ COLLECTIONS = (
 
 
 class StubFace:
-    """Stands in for the InsightFace model: `verified` decides the outcome."""
+    """Stands in for FaceService and its models: `verified` decides the outcome.
+    tests/test_face_model.py covers the real engine."""
 
     def __init__(self):
         self.verified = True
         self.similarity = 0.82
 
+    def extract_embedding(self, image_bytes):
+        return [0.1] * 128
+
     def verify(self, image_bytes, stored):
         sim = self.similarity if self.verified else 0.05
-        return {"verified": self.verified, "similarity": sim, "threshold": 0.3}
+        return {"verified": self.verified, "similarity": sim, "threshold": 0.363}
 
 
 @pytest.fixture(scope="session")

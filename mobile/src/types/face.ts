@@ -2,6 +2,8 @@ export interface FaceStatus {
   user_id: number;
   name: string;
   has_face: boolean;
+  /** A face was registered with an earlier recognition model and must be registered again. */
+  reregister_required: boolean;
 }
 
 export interface FaceRegisterResponse {

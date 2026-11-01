@@ -38,12 +38,19 @@ class Settings(BaseSettings):
     # backward compatibility and must not be used in any new business logic.
     TIMEZONE: str = "Asia/Jakarta"
 
-    # Face Recognition (Phase 3)
+    # Face Recognition: OpenCV YuNet (detection) + SFace (recognition), see
+    # app/services/face_models.py for the pinned files and their licenses.
     FACE_ENABLED: bool = True
-    FACE_MODEL_NAME: str = "buffalo_s"
-    # Where the model pack is downloaded on first start; keep it on a volume.
-    FACE_MODEL_DIR: str = "~/.insightface"
-    FACE_SIMILARITY_THRESHOLD: float = 0.3
+    # Holds the model files; missing files are downloaded and every file is
+    # checked against its SHA-256. The Docker image ships them in /opt/face-models.
+    FACE_MODEL_DIR: str = "models"
+    # Cosine similarity at or above this is a match. 0.363 is the threshold
+    # OpenCV publishes for SFace. (Renamed from FACE_SIMILARITY_THRESHOLD, whose
+    # 0.3 belonged to the earlier model and would be too lenient here.)
+    FACE_MATCH_THRESHOLD: float = 0.363
+    # YuNet confidence for counting a face; lower values also count faint
+    # faces, such as one on a poster behind the employee.
+    FACE_DETECTION_SCORE: float = 0.9
     FACE_MAX_WIDTH: int = 640
     MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024  # face photos; phones send well under 1 MB
     # A face token proves a successful verification. It is accepted for a

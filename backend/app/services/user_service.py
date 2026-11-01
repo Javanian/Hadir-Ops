@@ -5,6 +5,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.security import get_password_hash
 from app.db.documents import User
+from app.services.face_service import enrolled_embedding
 from app.repositories.user_repository import UserRepository
 from app.schemas.users import (
     UserCreateRequest,
@@ -28,7 +29,7 @@ def _to_item(user: User) -> UserListItem:
         site_timezone=user.site.timezone if user.site else None,
         supervisor_id=user.supervisor_id,
         is_active=bool(user.is_active),
-        has_face=user.face_embedding is not None,
+        has_face=enrolled_embedding(user) is not None,
         is_locked=bool(
             user.locked_until and user.locked_until > now
         ),

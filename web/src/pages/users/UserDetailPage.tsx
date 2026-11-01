@@ -108,6 +108,8 @@ export function UserDetailPage() {
   }
 
   const hasFace = faceStatus?.has_face ?? false
+  // Registered with an earlier recognition model: kept until removed or replaced
+  const needsReregister = faceStatus?.reregister_required ?? false
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -172,7 +174,9 @@ export function UserDetailPage() {
           <h3 className="font-semibold text-text-primary">Data Wajah</h3>
           {hasFace
             ? <Badge variant="success">Terdaftar</Badge>
-            : <Badge variant="outline">Belum Terdaftar</Badge>
+            : needsReregister
+              ? <Badge variant="warning">Perlu Daftar Ulang</Badge>
+              : <Badge variant="outline">Belum Terdaftar</Badge>
           }
         </div>
 
@@ -187,12 +191,14 @@ export function UserDetailPage() {
           <div className="flex items-center gap-3 p-3 rounded-lg bg-surface border border-divider">
             <XCircle className="h-5 w-5 text-text-secondary shrink-0" />
             <p className="text-sm text-text-secondary">
-              Pengguna belum mendaftarkan wajah. Mereka perlu mendaftar wajah melalui aplikasi mobile.
+              {needsReregister
+                ? 'Data wajah pengguna ini dibuat dengan model pengenalan versi lama dan tidak bisa dipakai lagi. Pengguna perlu mendaftarkan ulang wajah melalui aplikasi mobile.'
+                : 'Pengguna belum mendaftarkan wajah. Mereka perlu mendaftar wajah melalui aplikasi mobile.'}
             </p>
           </div>
         )}
 
-        {isAdmin && hasFace && (
+        {isAdmin && (hasFace || needsReregister) && (
           <div className="mt-4">
             <AlertDialog>
               <AlertDialogTrigger asChild>

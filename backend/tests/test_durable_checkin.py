@@ -48,10 +48,50 @@ async def _rows(user_id=None):
     return await get_database().attendance.count_documents({"user_id": user_id} if user_id else {})
 
 
-async def _set_face(user_id):
+async def _set_face(user_id, model=None):
+    from app.core.database import get_database
+    from app.services.face_models import EMBEDDING_MODEL
+
+    await get_database().users.update_one(
+        {"_id": user_id}, {"$set": {"face_embedding": [0.1] * 128, "face_model": model or EMBEDDING_MODEL}},
+    )
+
+
+# ── Face enrolment ─────────────────────────────────────────────────────────────
+
+async def test_registering_a_face_records_the_model(client, seed, face):
+    r = await client.post(
+        f"/face/register/{seed['emp_id']}", headers=seed["emp"],
+        files={"file": ("f.jpg", b"jpeg-bytes", "image/jpeg")},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["embedding_dim"] == 128
+    r = await client.get(f"/face/status/{seed['emp_id']}", headers=seed["emp"])
+    assert r.json()["has_face"] is True and r.json()["reregister_required"] is False
+
+
+async def test_face_enrolled_with_an_earlier_model_must_be_registered_again(client, seed, face):
     from app.core.database import get_database
 
-    await get_database().users.update_one({"_id": user_id}, {"$set": {"face_embedding": [0.1] * 512}})
+    # An InsightFace enrolment from before the switch: 512 numbers, no model recorded
+    await get_database().users.update_one({"_id": seed["emp_id"]}, {"$set": {"face_embedding": [0.1] * 512}})
+
+    r = await client.get(f"/face/status/{seed['emp_id']}", headers=seed["emp"])
+    assert r.json()["has_face"] is False and r.json()["reregister_required"] is True
+    r = await client.get("/users", headers=seed["admin"])
+    assert next(u for u in r.json()["items"] if u["id"] == seed["emp_id"])["has_face"] is False
+
+    r = await client.post(
+        f"/face/verify/{seed['emp_id']}", headers=seed["emp"],
+        files={"file": ("f.jpg", b"jpeg-bytes", "image/jpeg")},
+    )
+    assert r.status_code == 409
+
+    # Deleting it is still possible, so stale biometric data can be removed
+    r = await client.delete(f"/face/{seed['emp_id']}", headers=seed["admin"])
+    assert r.status_code == 204
+    user = await get_database().users.find_one({"_id": seed["emp_id"]})
+    assert user["face_embedding"] is None and user["face_model"] is None
 
 
 # ── Online check-in ────────────────────────────────────────────────────────────
@@ -336,11 +376,11 @@ async def test_review_queue_flow(client, seed):
 # ── Operations ─────────────────────────────────────────────────────────────────
 
 async def test_health_reports_database(client, app):
-    app.state.face_app = object()
+    app.state.face_engine = object()
     r = await client.get("/health/ready")
     assert r.status_code == 200
     assert r.json()["checks"]["database"]["ok"] is True
-    app.state.face_app = None
+    app.state.face_engine = None
     r = await client.get("/health/ready")
     assert r.status_code == 503
     assert (await client.get("/health/live")).status_code == 200

@@ -89,6 +89,7 @@ class User:
     role: Role
     site_id: int | None = None
     face_embedding: list[float] | None = None
+    face_model: str | None = None  # the model that made face_embedding
     is_active: bool = True
     failed_login_attempts: int = 0
     locked_until: datetime | None = None

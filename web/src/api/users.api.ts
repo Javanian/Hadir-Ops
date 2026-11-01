@@ -60,7 +60,9 @@ export const usersApi = {
     apiClient.get('/sites').then((r) => r.data),
 
   // ✅ Available: GET /face/status/{user_id}
-  getFaceStatus: (userId: number): Promise<{ user_id: number; name: string; has_face: boolean }> =>
+  getFaceStatus: (
+    userId: number,
+  ): Promise<{ user_id: number; name: string; has_face: boolean; reregister_required: boolean }> =>
     apiClient.get(`/face/status/${userId}`).then((r) => r.data),
 
   // ✅ Available: DELETE /face/{user_id} (ADMIN only)

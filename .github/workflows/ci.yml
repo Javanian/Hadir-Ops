@@ -24,7 +24,6 @@ jobs:
         working-directory: backend
     env:
       TEST_MONGODB_URL: mongodb://localhost:27017/?replicaSet=rs0
-      INSIGHTFACE_HOME: ${{ github.workspace }}/.insightface
     steps:
       - name: Start MongoDB (single-node replica set, needed for transactions)
         working-directory: .
@@ -39,13 +38,14 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: ${{ matrix.python }}
-      # The InsightFace model pack (~120 MB) for the real-model tests.
+      # The face model files (~39 MB) for the real-model tests; the key changes
+      # whenever their pinned URLs or hashes do, and each file is re-hashed on load.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .insightface
-          key: insightface-buffalo_s-v1
+          path: backend/models
+          key: face-models-${{ hashFiles('backend/app/services/face_models.py') }}
       # --locked: fail if uv.lock is stale; every wheel is checked against its hash.
-      - run: uv sync --locked --extra face
+      - run: uv sync --locked
       - run: uv run ruff check .
       # Any DeprecationWarning fails the run (see filterwarnings in pyproject.toml).
       - run: uv run pytest -q
@@ -108,7 +108,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
       # Every locked backend package against OSV, which also lists malicious releases (MAL-*).
-      - run: uv export --project backend --locked --all-extras --no-hashes --no-emit-project --format requirements-txt > locked.txt
+      - run: uv export --project backend --locked --no-hashes --no-emit-project --format requirements-txt > locked.txt
       - run: uvx pip-audit@2.10.1 -r locked.txt --vulnerability-service osv --strict --no-deps --disable-pip
       # Static analysis of the workflows themselves.
       - run: uvx zizmor@1.31.1 --min-severity medium .github/workflows
@@ -126,7 +126,13 @@ jobs:
         with:
           context: backend
           push: false
+          load: true
           tags: hadirops-backend:ci
+      # The image loads both face models from /opt/face-models without a network.
+      - name: Smoke test the backend image
+        run: |
+          docker run --rm --network none hadirops-backend:ci python -c \
+            "from app.services.face_engine import FaceEngine; FaceEngine('/opt/face-models', download=False); print('face engine ok')"
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: web

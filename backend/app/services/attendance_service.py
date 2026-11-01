@@ -16,6 +16,7 @@ from datetime import date, datetime, time, timedelta, UTC
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
@@ -34,6 +35,7 @@ from app.schemas.attendance import (
     TeamAttendanceRecord,
 )
 from app.services import checkin_rules as rules
+from app.services.face_service import require_enrolled_embedding
 
 utc = UTC  # singleton instance — astimezone() requires an instance, not the class
 
@@ -685,10 +687,8 @@ class AttendanceService:
         att = await self.repo.get_by_id(attendance_id)
         if not att or att.user_id != current_user.id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found.")
-        if current_user.face_embedding is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No face registered for this user")
-
-        result = face_service.verify(image_bytes, list(current_user.face_embedding))
+        stored = require_enrolled_embedding(current_user)
+        result = await run_in_threadpool(face_service.verify, image_bytes, stored)
         flags = list(att.risk_flags or [])
         changes: dict = {}
         if result["verified"]:

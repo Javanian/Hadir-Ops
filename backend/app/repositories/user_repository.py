@@ -67,10 +67,14 @@ class UserRepository:
         user.password_hash = new_hash
         user.password_changed_at = changed_at
 
-    async def update_face_embedding(self, user_id: int, embedding) -> None:
-        """Set or clear the stored face embedding (a plain list of floats)."""
+    async def update_face_embedding(self, user_id: int, embedding, model: str | None) -> None:
+        """Set or clear the stored face embedding (a plain list of floats) and
+        the model that produced it."""
         value = None if embedding is None else [float(x) for x in embedding]
-        await self.db.users.update_one({"_id": user_id}, {"$set": {"face_embedding": value}})
+        await self.db.users.update_one(
+            {"_id": user_id},
+            {"$set": {"face_embedding": value, "face_model": None if value is None else model}},
+        )
 
     async def log_audit(
         self,
@@ -137,6 +141,7 @@ class UserRepository:
             "site_id": site_id,
             "supervisor_id": supervisor_id,
             "face_embedding": None,
+            "face_model": None,
             "is_active": True,
             "failed_login_attempts": 0,
             "locked_until": None,

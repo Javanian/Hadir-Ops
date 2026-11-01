@@ -136,9 +136,13 @@ export default function CheckoutModal({ visible, onClose, userId, siteTimezone =
         res = await faceApi.verify(userId, photo.uri);
       } catch (e) {
         const status = isAxiosError(e) ? e.response?.status : undefined;
-        if (status === 404) {
+        if (status === 404 || status === 409) {
           setRetryToFace(false);
-          setErrorMsg('Wajah belum terdaftar. Silakan daftarkan wajah di halaman Profil terlebih dahulu.');
+          setErrorMsg(
+            status === 409
+              ? 'Data wajah Anda dibuat dengan versi lama. Silakan daftarkan ulang wajah di halaman Profil.'
+              : 'Wajah belum terdaftar. Silakan daftarkan wajah di halaman Profil terlebih dahulu.',
+          );
           setStep('error');
           return;
         }

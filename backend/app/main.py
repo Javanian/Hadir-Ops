@@ -71,26 +71,10 @@ async def _auto_checkout_worker():
         await asyncio.sleep(settings.AUTO_CHECKOUT_INTERVAL_SECONDS)
 
 
-def _load_face_model():
-    # insightface is imported lazily so the API can start (and be tested)
-    # without the model when FACE_ENABLED is false.
-    return build_face_model(settings.FACE_MODEL_NAME, root=settings.FACE_MODEL_DIR)
+def _load_face_engine():
+    from app.services.face_engine import FaceEngine
 
-
-def build_face_model(name: str, root: str | None = None):
-    """Detection and recognition only: the pack also ships age/gender and two
-    landmark models that verification never reads, which cost memory and time."""
-    from insightface.app import FaceAnalysis
-
-    kwargs = {"root": os.path.expanduser(root)} if root else {}
-    model = FaceAnalysis(
-        name=name,
-        providers=["CPUExecutionProvider"],
-        allowed_modules=["detection", "recognition"],
-        **kwargs,
-    )
-    model.prepare(ctx_id=-1, det_size=(640, 640))  # -1: CPU
-    return model
+    return FaceEngine(settings.FACE_MODEL_DIR, score_threshold=settings.FACE_DETECTION_SCORE)
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -105,10 +89,10 @@ async def lifespan(app: FastAPI):
     from app.db.schema import ensure_schema
     await ensure_schema(get_database())
 
-    # 1. Load InsightFace model once (shared across all requests).
-    # If face is enabled and the model fails to load, startup fails loudly
-    # rather than running with check-ins that can never be verified.
-    app.state.face_app = _load_face_model() if settings.FACE_ENABLED else None
+    # 1. Load the face engine once (shared across all requests).
+    # If face is enabled and a model file is missing or altered, startup fails
+    # loudly rather than running with check-ins that can never be verified.
+    app.state.face_engine = _load_face_engine() if settings.FACE_ENABLED else None
 
     # 2. Start auto-checkout background task
     checkout_task = (
@@ -207,7 +191,7 @@ async def readiness(request: Request):
         checks["database"] = {"ok": False, "error": type(exc).__name__}
 
     if settings.FACE_ENABLED:
-        face_ok = getattr(request.app.state, "face_app", None) is not None
+        face_ok = getattr(request.app.state, "face_engine", None) is not None
         checks["face_model"] = {"ok": face_ok}
         healthy = healthy and face_ok
 
